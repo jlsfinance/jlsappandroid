@@ -1,0 +1,5 @@
+{
+  "name": "MicroFin Connect",
+  "description": "A comprehensive microfinance management application featuring customer profiles, loan tracking, finance dashboards, and tools like EMI calculators, integrated with Firebase.",
+  "requestFramePermissions": []
+}
