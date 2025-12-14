@@ -26,72 +26,85 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-6 text-slate-900 dark:text-white">
-      <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-surface-dark p-8 shadow-xl ring-1 ring-slate-900/5 dark:ring-white/10">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/30">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 text-on-surface-light dark:text-on-surface-dark">
+      <div className="w-full max-w-sm rounded-[28px] bg-surface-light dark:bg-[#1e2736] p-8 shadow-m3-1 hover:shadow-m3-2 transition-shadow ring-1 ring-outline-light/10 dark:ring-outline-dark/10">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-container dark:bg-primary-container-dark text-on-primary-container dark:text-primary-dark">
             <span className="material-symbols-outlined text-4xl">savings</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome Back</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to JLS FINANCE SUITE</p>
+          <h1 className="text-2xl font-normal tracking-tight">Welcome Back</h1>
+          <p className="text-sm text-on-surface-variant-light dark:text-on-surface-variant-dark mt-2">Sign in to JLS FINANCE SUITE</p>
         </div>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+        <form onSubmit={handleLogin} className="flex flex-col gap-6">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            <div className="rounded-lg bg-error-container p-4 text-center text-sm font-medium text-on-error-container">
               {error}
             </div>
           )}
           
-          <div className="space-y-1">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Email</label>
+          <div className="relative group">
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-primary focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              placeholder="admin@microfin.com"
+              className="peer w-full rounded-md border border-outline-light dark:border-outline-dark bg-transparent px-4 pt-4 pb-2 text-base text-on-surface-light dark:text-on-surface-dark focus:border-2 focus:border-primary dark:focus:border-primary-dark focus:ring-0 outline-none transition-all placeholder-transparent"
+              placeholder="Email"
+              id="email"
             />
+            <label 
+                htmlFor="email"
+                className="absolute left-3 top-0 -translate-y-1/2 bg-surface-light dark:bg-[#1e2736] px-1 text-xs text-on-surface-variant-light dark:text-on-surface-variant-dark transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-on-surface-variant-light peer-focus:top-0 peer-focus:text-xs peer-focus:text-primary dark:peer-focus:text-primary-dark"
+            >
+                Email
+            </label>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex justify-between">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Password</label>
-                <Link to="/forgot-password" className="text-xs font-bold text-primary hover:underline">Forgot?</Link>
-            </div>
+          <div className="relative group">
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-primary focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              placeholder="••••••••"
+              className="peer w-full rounded-md border border-outline-light dark:border-outline-dark bg-transparent px-4 pt-4 pb-2 text-base text-on-surface-light dark:text-on-surface-dark focus:border-2 focus:border-primary dark:focus:border-primary-dark focus:ring-0 outline-none transition-all placeholder-transparent"
+              placeholder="Password"
+              id="password"
             />
+            <label 
+                htmlFor="password"
+                className="absolute left-3 top-0 -translate-y-1/2 bg-surface-light dark:bg-[#1e2736] px-1 text-xs text-on-surface-variant-light dark:text-on-surface-variant-dark transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-on-surface-variant-light peer-focus:top-0 peer-focus:text-xs peer-focus:text-primary dark:peer-focus:text-primary-dark"
+            >
+                Password
+            </label>
+          </div>
+
+          <div className="flex justify-end">
+            <Link to="/forgot-password" className="text-sm font-medium text-primary dark:text-primary-dark hover:underline">Forgot password?</Link>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-70"
+            className="mt-2 flex h-12 w-full items-center justify-center rounded-full bg-primary dark:bg-primary-dark font-medium text-on-primary dark:text-on-primary-dark shadow-m3-1 hover:shadow-m3-2 active:scale-[0.98] transition-all disabled:opacity-70 ripple"
           >
             {loading ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-on-primary border-t-transparent"></div>
             ) : (
               'Sign In'
             )}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm">
-          <span className="text-slate-500 dark:text-slate-400">Don't have an account? </span>
-          <Link to="/register" className="font-bold text-primary hover:underline">
+        <div className="mt-8 text-center text-sm">
+          <span className="text-on-surface-variant-light dark:text-on-surface-variant-dark">Don't have an account? </span>
+          <Link to="/register" className="font-bold text-primary dark:text-primary-dark hover:underline">
             Sign Up
           </Link>
         </div>
       </div>
-      <div className="mt-8 text-center">
-        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+      <div className="mt-12 text-center">
+        <p className="text-[10px] font-bold text-outline-light dark:text-outline-dark uppercase tracking-widest">
             App Created by LUVI
         </p>
       </div>

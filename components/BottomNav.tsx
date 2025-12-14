@@ -4,42 +4,41 @@ import { useLocation, Link } from 'react-router-dom';
 const BottomNav: React.FC = () => {
   const location = useLocation();
   
-  const isActive = (path: string) => {
-    return location.pathname === path ? 'text-primary' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300';
-  };
+  const isActive = (path: string) => location.pathname === path;
 
-  const iconStyle = (path: string) => {
-    return location.pathname === path ? 'material-symbols-filled' : 'material-symbols-outlined';
+  const NavItem = ({ path, icon, label, isFab = false }: { path: string, icon: string, label?: string, isFab?: boolean }) => {
+    const active = isActive(path);
+    
+    if (isFab) {
+        return (
+            <div className="w-full flex justify-center pb-6">
+                <Link to={path} className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-container dark:bg-primary-dark text-on-primary-container dark:text-on-primary-dark shadow-m3-2 hover:shadow-m3-3 active:scale-95 transition-all ripple">
+                    <span className="material-symbols-outlined text-[28px]">{icon}</span>
+                </Link>
+            </div>
+        );
+    }
+
+    return (
+        <Link to={path} className="flex flex-col items-center gap-1 w-full pb-2 group">
+            <div className={`flex items-center justify-center w-16 h-8 rounded-full transition-colors duration-200 ${active ? 'bg-primary-container dark:bg-primary-container-dark text-on-primary-container dark:text-primary-dark' : 'text-on-surface-variant-light dark:text-on-surface-variant-dark group-hover:bg-surface-variant-light/50'}`}>
+                <span className={`material-symbols-outlined text-2xl ${active ? 'material-symbols-filled' : ''}`}>{icon}</span>
+            </div>
+            <span className={`text-[12px] font-medium tracking-wide transition-colors ${active ? 'text-on-surface-light dark:text-on-surface-dark' : 'text-on-surface-variant-light dark:text-on-surface-variant-dark'}`}>
+                {label}
+            </span>
+        </Link>
+    );
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#1e293b] border-t border-slate-200 dark:border-slate-800 pb-safe pt-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface-light dark:bg-surface-dark border-t border-outline-light/10 dark:border-outline-dark/10 pb-safe pt-3">
       <div className="flex justify-around items-end h-16 max-w-md mx-auto px-2 pb-2">
-        <Link to="/" className={`flex flex-col items-center gap-1 w-full pb-2 ${isActive('/')}`}>
-          <span className={`material-symbols-outlined text-2xl`}>dashboard</span>
-          <span className="text-[10px] font-medium">Home</span>
-        </Link>
-        
-        <Link to="/customers" className={`flex flex-col items-center gap-1 w-full pb-2 ${isActive('/customers')}`}>
-          <span className={`material-symbols-outlined text-2xl`}>group</span>
-          <span className="text-[10px] font-medium">Clients</span>
-        </Link>
-        
-        <div className="w-full flex justify-center pb-6">
-          <Link to="/loans" className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white shadow-lg shadow-primary/40 active:scale-95 transition-all">
-            <span className="material-symbols-outlined text-[28px]">credit_score</span>
-          </Link>
-        </div>
-        
-        <Link to="/finance" className={`flex flex-col items-center gap-1 w-full pb-2 ${isActive('/finance')}`}>
-          <span className={`material-symbols-outlined text-2xl`}>account_balance_wallet</span>
-          <span className="text-[10px] font-medium">Finance</span>
-        </Link>
-        
-        <Link to="/tools" className={`flex flex-col items-center gap-1 w-full pb-2 ${isActive('/tools')}`}>
-          <span className={`material-symbols-outlined text-2xl`}>grid_view</span>
-          <span className="text-[10px] font-medium">Tools</span>
-        </Link>
+        <NavItem path="/" icon="dashboard" label="Home" />
+        <NavItem path="/customers" icon="group" label="Clients" />
+        <NavItem path="/loans" icon="credit_score" isFab />
+        <NavItem path="/finance" icon="account_balance_wallet" label="Finance" />
+        <NavItem path="/tools" icon="grid_view" label="Tools" />
       </div>
     </nav>
   );
