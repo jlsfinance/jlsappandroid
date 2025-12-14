@@ -8,7 +8,7 @@ import { format, parseISO, isValid, addMonths, startOfMonth } from 'date-fns';
 
 // --- Configuration ---
 const companyDetails = {
-    name: "MicroFin Connect",
+    name: "JLS Finance Company",
     address: "123 Finance Street, City Center",
     phone: "+91 98765 43210"
 };

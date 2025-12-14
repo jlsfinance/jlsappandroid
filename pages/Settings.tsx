@@ -60,11 +60,16 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-8 mx-4">
+      <div className="mt-8 mx-4 mb-4">
         <button onClick={handleLogout} className="w-full bg-white dark:bg-[#1a2235] hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2">
           <span className="material-symbols-outlined text-lg">logout</span>
           Log Out
         </button>
+      </div>
+
+      <div className="mt-4 mb-4 text-center">
+        <p className="text-xs text-slate-400 uppercase tracking-widest">JLS FINANCE SUITE v1.0</p>
+        <p className="text-[10px] text-slate-300 mt-1 font-bold">App Created by LUVI</p>
       </div>
     </div>
   );

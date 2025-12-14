@@ -20,7 +20,11 @@ import Disbursal from './pages/Disbursal';
 import DueList from './pages/DueList';
 import Partners from './pages/Partners';
 import UserManagement from './pages/UserManagement';
+import LegalNotice from './pages/LegalNotice';
+import Reports from './pages/Reports';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import BottomNav from './components/BottomNav';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -55,6 +59,8 @@ const App: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
         <Route path="/" element={
           <ProtectedRoute>
@@ -124,6 +130,18 @@ const App: React.FC = () => {
           <ProtectedRoute>
             <Tools />
             <BottomNav />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/tools/legal-notice" element={
+          <ProtectedRoute>
+            <LegalNotice />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/reports" element={
+          <ProtectedRoute>
+            <Reports />
           </ProtectedRoute>
         } />
 

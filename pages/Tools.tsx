@@ -60,11 +60,11 @@ const Tools: React.FC = () => {
                     <span className="font-bold text-sm">EMI Check</span>
                 </Link>
 
-                <Link to="/customers/new" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-4 hover:shadow-md transition-all active:scale-95">
-                    <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">person_add</span>
+                <Link to="/tools/legal-notice" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-4 hover:shadow-md transition-all active:scale-95">
+                    <div className="h-10 w-10 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center">
+                        <span className="material-symbols-outlined">gavel</span>
                     </div>
-                    <span className="font-bold text-sm">New Lead</span>
+                    <span className="font-bold text-sm">Legal Notice</span>
                 </Link>
 
                 <Link to="/customers" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-4 hover:shadow-md transition-all active:scale-95">
@@ -80,6 +80,19 @@ const Tools: React.FC = () => {
         <div>
             <h3 className="text-lg font-bold mb-3 px-1">Operational Reports</h3>
             <div className="space-y-3">
+                <Link to="/reports" className="flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center">
+                            <span className="material-symbols-outlined">bar_chart</span>
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-sm">Financial Reports</h4>
+                            <p className="text-[10px] text-slate-500 font-medium">All financial analytics</p>
+                        </div>
+                    </div>
+                    <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+                </Link>
+
                 <Link to="/due-list" className="flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
@@ -100,7 +113,7 @@ const Tools: React.FC = () => {
                         </div>
                         <div>
                             <h4 className="font-bold text-sm">Arrears & Default List</h4>
-                            <p className="text-[10px] text-slate-500 font-medium">5 critical items</p>
+                            <p className="text-[10px] text-slate-500 font-medium">Critical items</p>
                         </div>
                     </div>
                     <span className="material-symbols-outlined text-slate-300">chevron_right</span>
@@ -113,43 +126,11 @@ const Tools: React.FC = () => {
                         </div>
                         <div>
                             <h4 className="font-bold text-sm">Pending Approvals</h4>
-                            <p className="text-[10px] text-slate-500 font-medium">3 applications</p>
+                            <p className="text-[10px] text-slate-500 font-medium">Queue status</p>
                         </div>
                     </div>
                     <span className="material-symbols-outlined text-slate-300">chevron_right</span>
                 </Link>
-            </div>
-        </div>
-
-        {/* Analytics */}
-        <div>
-            <h3 className="text-lg font-bold mb-3 px-1">Analytics</h3>
-            <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center">
-                            <span className="material-symbols-outlined">monitoring</span>
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-sm">Branch Performance</h4>
-                            <p className="text-[10px] text-slate-500 font-medium">Weekly summary</p>
-                        </div>
-                    </div>
-                    <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 flex items-center justify-center">
-                            <span className="material-symbols-outlined">history</span>
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-sm">Field Officer Log</h4>
-                            <p className="text-[10px] text-slate-500 font-medium">Activity history</p>
-                        </div>
-                    </div>
-                    <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-                </div>
             </div>
         </div>
 

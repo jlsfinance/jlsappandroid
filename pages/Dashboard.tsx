@@ -17,11 +17,9 @@ interface MetricCardProps {
 }
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
+    return `Rs. ${new Intl.NumberFormat('en-IN', {
         maximumFractionDigits: 0
-    }).format(amount);
+    }).format(amount)}`;
 };
 
 const Dashboard: React.FC = () => {
@@ -308,17 +306,17 @@ const Dashboard: React.FC = () => {
   const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtext, colorClass, icon, onClick }) => (
     <div 
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-lg transition-transform active:scale-95 cursor-pointer ${colorClass}`}
+      className={`relative overflow-hidden rounded-xl p-4 text-white shadow-lg transition-transform active:scale-95 cursor-pointer ${colorClass}`}
     >
-      <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10 blur-2xl"></div>
-      <div className="relative z-10 flex flex-col h-full justify-between min-h-[140px]">
+      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl"></div>
+      <div className="relative z-10 flex flex-col h-full justify-between min-h-[100px]">
         <div>
-          <h3 className="text-lg font-bold opacity-100">{title}</h3>
-          {icon && <span className="material-symbols-outlined absolute top-4 right-4 opacity-20 text-5xl">{icon}</span>}
+          <h3 className="text-sm font-bold opacity-90 uppercase tracking-wide">{title}</h3>
+          {icon && <span className="material-symbols-outlined absolute top-3 right-3 opacity-20 text-4xl">{icon}</span>}
         </div>
-        <div>
-          <h2 className="text-3xl font-extrabold tracking-tight mb-1">{loading ? '...' : value}</h2>
-          <p className="text-sm font-medium opacity-90">{subtext}</p>
+        <div className="mt-2">
+          <h2 className="text-2xl font-extrabold tracking-tight mb-0.5">{loading ? '...' : value}</h2>
+          <p className="text-xs font-medium opacity-80">{subtext}</p>
         </div>
       </div>
     </div>
@@ -359,7 +357,7 @@ const Dashboard: React.FC = () => {
             
             <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-extrabold tracking-tight">
-                    {loading ? '...' : formatCurrency(metrics.cashBalance).replace('₹', 'Rs. ')}
+                    {loading ? '...' : formatCurrency(metrics.cashBalance)}
                 </span>
             </div>
             
@@ -378,18 +376,26 @@ const Dashboard: React.FC = () => {
         {/* Quick Actions */}
         <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-4">
-                <Link to="/loans/new" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-3 hover:shadow-md transition-all active:scale-95">
+            <div className="grid grid-cols-3 gap-3">
+                <Link to="/loans/new" className="bg-white dark:bg-[#1e2736] p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center gap-2 hover:shadow-md transition-all active:scale-95">
                     <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">add</span>
+                        <span className="material-symbols-outlined">add_circle</span>
                     </div>
-                    <span className="font-bold text-sm text-slate-800 dark:text-white">New Loan</span>
+                    <span className="font-bold text-xs text-slate-800 dark:text-white">New Loan</span>
                 </Link>
-                <Link to="/due-list" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-3 hover:shadow-md transition-all active:scale-95">
+                
+                <Link to="/due-list" className="bg-white dark:bg-[#1e2736] p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center gap-2 hover:shadow-md transition-all active:scale-95">
                     <div className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 h-10 w-10 rounded-full flex items-center justify-center">
                         <span className="material-symbols-outlined">payments</span>
                     </div>
-                    <span className="font-bold text-sm text-slate-800 dark:text-white">Collect Payment</span>
+                    <span className="font-bold text-xs text-slate-800 dark:text-white">Collect EMI</span>
+                </Link>
+
+                <Link to="/customers/new" className="bg-white dark:bg-[#1e2736] p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center gap-2 hover:shadow-md transition-all active:scale-95">
+                    <div className="bg-purple-100 dark:bg-purple-900/30 text-purple-600 h-10 w-10 rounded-full flex items-center justify-center">
+                        <span className="material-symbols-outlined">person_add</span>
+                    </div>
+                    <span className="font-bold text-xs text-slate-800 dark:text-white">Add Client</span>
                 </Link>
             </div>
         </div>
@@ -397,7 +403,7 @@ const Dashboard: React.FC = () => {
         {/* Loan Summary - The 3 Specific Cards */}
         <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">Loan Summary</h3>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
                 {/* Card 1: Total Disbursed Loans (Blue) */}
                 <MetricCard 
                     title="Total Disbursed" 
