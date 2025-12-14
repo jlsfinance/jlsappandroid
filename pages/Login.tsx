@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -33,7 +33,7 @@ const Login: React.FC = () => {
             <span className="material-symbols-outlined text-4xl">savings</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome Back</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to MicroFin Connect</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to JLS FINANCE SUITE</p>
         </div>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
@@ -56,7 +56,10 @@ const Login: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Password</label>
+            <div className="flex justify-between">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Password</label>
+                <Link to="/forgot-password" className="text-xs font-bold text-primary hover:underline">Forgot?</Link>
+            </div>
             <input
               type="password"
               required
@@ -80,8 +83,16 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-xs font-medium text-slate-400">
-          Powered by Firebase
+        <div className="mt-6 text-center text-sm">
+          <span className="text-slate-500 dark:text-slate-400">Don't have an account? </span>
+          <Link to="/register" className="font-bold text-primary hover:underline">
+            Sign Up
+          </Link>
+        </div>
+      </div>
+      <div className="mt-8 text-center">
+        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+            App Created by LUVI
         </p>
       </div>
     </div>

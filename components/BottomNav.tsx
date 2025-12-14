@@ -27,7 +27,7 @@ const BottomNav: React.FC = () => {
         
         <div className="w-full flex justify-center pb-6">
           <Link to="/loans" className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white shadow-lg shadow-primary/40 active:scale-95 transition-all">
-            <span className="material-symbols-outlined text-[28px]">qr_code_scanner</span>
+            <span className="material-symbols-outlined text-[28px]">credit_score</span>
           </Link>
         </div>
         
