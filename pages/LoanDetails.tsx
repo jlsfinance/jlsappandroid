@@ -105,6 +105,8 @@ const LoanDetails: React.FC = () => {
   // Form State
   const [foreclosureCharges, setForeclosureCharges] = useState(2); // Default 2%
   const [topUpAmount, setTopUpAmount] = useState(0);
+  const [amountReceived, setAmountReceived] = useState(true); // Checkbox for amount received
+  const [isUndoingForeclosure, setIsUndoingForeclosure] = useState(false);
 
   const fetchLoanAndCustomer = useCallback(async () => {
     if (!loanId) return;
@@ -351,6 +353,7 @@ const LoanDetails: React.FC = () => {
             outstandingPrincipal: outstandingPrincipal,
             chargesPercentage: foreclosureCharges,
             totalPaid: foreclosureAmount,
+            amountReceived: amountReceived,
         };
 
         const updatedSchedule = loan.repaymentSchedule.map(emi => 
@@ -374,6 +377,32 @@ const LoanDetails: React.FC = () => {
         alert('Error pre-closing loan.');
     } finally {
         setIsPreclosing(false);
+    }
+  };
+
+  const handleUndoForeclosure = async () => {
+    if (!loan) return;
+    if (!confirm('Are you sure you want to undo this foreclosure? The loan will become active again with pending EMIs restored.')) return;
+    
+    setIsUndoingForeclosure(true);
+    try {
+        const updatedSchedule = loan.repaymentSchedule.map(emi => 
+            emi.status === 'Cancelled' ? { ...emi, status: 'Pending' as 'Pending' } : emi
+        );
+
+        await updateDoc(doc(db, "loans", loan.id), {
+            status: 'Disbursed',
+            repaymentSchedule: updatedSchedule,
+            foreclosureDetails: null
+        });
+
+        alert('Foreclosure undone successfully. Loan is now active again.');
+        fetchLoanAndCustomer();
+    } catch(error) {
+        console.error("Failed to undo foreclosure:", error);
+        alert('Error undoing foreclosure.');
+    } finally {
+        setIsUndoingForeclosure(false);
     }
   };
 
@@ -652,6 +681,24 @@ const LoanDetails: React.FC = () => {
                 </button>
              </div>
         )}
+        
+        {/* Undo Foreclosure for Completed Loans */}
+        {loan.status === 'Completed' && (loan as any).foreclosureDetails && (
+             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar print:hidden">
+                <button 
+                  onClick={handleUndoForeclosure}
+                  disabled={isUndoingForeclosure}
+                  className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 font-bold text-sm hover:bg-orange-200 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50"
+                >
+                    {isUndoingForeclosure ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-700 border-t-transparent"></div>
+                    ) : (
+                        <span className="material-symbols-outlined text-[18px]">undo</span>
+                    )}
+                    Undo Foreclosure
+                </button>
+             </div>
+        )}
 
         {/* Main Info Card */}
         <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -792,6 +839,18 @@ const LoanDetails: React.FC = () => {
                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">
                          <span className="text-sm font-bold text-blue-800 dark:text-blue-300">Total Payable</span>
                          <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(foreclosureAmount)}</span>
+                     </div>
+                     <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                         <input 
+                            type="checkbox" 
+                            id="amountReceived"
+                            checked={amountReceived}
+                            onChange={(e) => setAmountReceived(e.target.checked)}
+                            className="w-5 h-5 rounded border-green-400 text-green-600 focus:ring-green-500"
+                         />
+                         <label htmlFor="amountReceived" className="text-sm font-bold text-green-800 dark:text-green-300 cursor-pointer">
+                            Amount Received - Add to Cash
+                         </label>
                      </div>
                  </div>
                  

@@ -14,7 +14,7 @@ interface LedgerEntry {
     date: Date;
     particulars: string;
     type: 'credit' | 'debit';
-    category: 'loan' | 'emi' | 'partner' | 'expense' | 'fee';
+    category: 'loan' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure';
     amount: number;
 }
 interface MonthlyLedger {
@@ -125,6 +125,18 @@ const FinanceOverview: React.FC = () => {
                             amount: Number(emi.amount),
                         });
                     }
+                });
+            }
+            
+            // Credit: Foreclosure Payment (if amountReceived is true)
+            const foreclosureDetails = (loan as any).foreclosureDetails;
+            if (foreclosureDetails && foreclosureDetails.amountReceived && foreclosureDetails.date) {
+                flatLedgerEntries.push({
+                    date: parseISO(foreclosureDetails.date),
+                    particulars: `Foreclosure Recd: ${loan.customerName}`,
+                    type: 'credit',
+                    category: 'foreclosure',
+                    amount: Number(foreclosureDetails.totalPaid),
                 });
             }
         });
