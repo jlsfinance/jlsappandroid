@@ -108,6 +108,12 @@ const Dashboard: React.FC = () => {
                   }
               });
           }
+          
+          // Add foreclosure payment if amountReceived is true
+          const foreclosureDetails = (loan as any).foreclosureDetails;
+          if (foreclosureDetails && foreclosureDetails.amountReceived) {
+              calculatedBalance += Number(foreclosureDetails.totalPaid) || 0;
+          }
 
           if (['Disbursed', 'Active', 'Overdue'].includes(status)) {
               activeLoansCount++;
