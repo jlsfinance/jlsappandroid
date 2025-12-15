@@ -100,6 +100,7 @@ const LoanDetails: React.FC = () => {
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState<number | null>(null);
   const [isPreclosing, setIsPreclosing] = useState(false);
   const [isToppingUp, setIsToppingUp] = useState(false);
+  const [isPreviewingForeclosure, setIsPreviewingForeclosure] = useState(false);
 
   // Form State
   const [foreclosureCharges, setForeclosureCharges] = useState(2); // Default 2%
@@ -313,6 +314,31 @@ const LoanDetails: React.FC = () => {
     }
 
     return pdfDoc;
+  };
+
+  // Check if foreclosure charges percentage is valid
+  const isForeclosureChargesValid = foreclosureCharges >= 0 && foreclosureCharges !== null && !isNaN(foreclosureCharges);
+
+  // Preview Foreclosure PDF (without closing the loan)
+  const handlePreviewForeclosurePDF = async () => {
+    if (!loan) return;
+    setIsPreviewingForeclosure(true);
+    try {
+        const foreclosureData = {
+            date: new Date().toISOString(),
+            outstandingPrincipal: outstandingPrincipal,
+            chargesPercentage: foreclosureCharges,
+            totalPaid: foreclosureAmount,
+        };
+
+        const pdfDoc = await generateForeclosurePDF(loan, foreclosureData);
+        pdfDoc.save(`Foreclosure_Preview_${loan.id}.pdf`);
+    } catch(error) {
+        console.error("Failed to generate preview PDF:", error);
+        alert('Error generating preview PDF.');
+    } finally {
+        setIsPreviewingForeclosure(false);
+    }
   };
 
   // Actions
@@ -769,8 +795,17 @@ const LoanDetails: React.FC = () => {
                      </div>
                  </div>
                  
-                 <div className="flex gap-3 justify-end">
+                 <div className="flex gap-3 justify-end flex-wrap">
                      <button onClick={() => setIsPrecloseModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">Cancel</button>
+                     <button 
+                        onClick={handlePreviewForeclosurePDF}
+                        disabled={!isForeclosureChargesValid || isPreviewingForeclosure}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                     >
+                         {isPreviewingForeclosure && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                         <span className="material-symbols-outlined text-[16px]">download</span>
+                         Preview PDF
+                     </button>
                      <button 
                         onClick={handlePrecloseLoan}
                         disabled={isPreclosing}
