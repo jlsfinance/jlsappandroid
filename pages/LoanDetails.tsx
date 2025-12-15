@@ -205,11 +205,128 @@ const LoanDetails: React.FC = () => {
   }, [loan]);
 
 
+  const generateForeclosurePDF = async (loanData: Loan, foreclosureData: { date: string; outstandingPrincipal: number; chargesPercentage: number; totalPaid: number; }) => {
+    const pdfDoc = new jsPDF();
+    let y = 15;
+
+    pdfDoc.setFontSize(18);
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+    y += 8;
+    pdfDoc.setFontSize(10);
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text(companyDetails.address, pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+    y += 5;
+    pdfDoc.text(`Phone: ${companyDetails.phone}`, pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+    y += 10;
+
+    pdfDoc.setFontSize(14);
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.text("LOAN FORECLOSURE CERTIFICATE", pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+    y += 10;
+
+    pdfDoc.line(14, y, 196, y);
+    y += 8;
+
+    pdfDoc.setFontSize(11);
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text(`Foreclosure Date: ${safeFormatDate(foreclosureData.date, 'dd MMMM yyyy')}`, 14, y);
+    y += 7;
+    pdfDoc.text(`Certificate No: FC-${loanData.id}`, 14, y);
+    y += 10;
+
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.text("CUSTOMER DETAILS", 14, y);
+    y += 7;
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text(`Customer Name: ${loanData.customerName}`, 14, y);
+    y += 6;
+    pdfDoc.text(`Customer ID: ${loanData.customerId}`, 14, y);
+    y += 10;
+
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.text("LOAN DETAILS", 14, y);
+    y += 7;
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text(`Loan ID: ${loanData.id}`, 14, y);
+    y += 6;
+    pdfDoc.text(`Original Loan Amount: ${formatCurrency(loanData.amount)}`, 14, y);
+    y += 6;
+    pdfDoc.text(`Interest Rate: ${loanData.interestRate}% p.a.`, 14, y);
+    y += 6;
+    pdfDoc.text(`Tenure: ${loanData.tenure} Months`, 14, y);
+    y += 6;
+    pdfDoc.text(`Monthly EMI: ${formatCurrency(loanData.emi)}`, 14, y);
+    y += 6;
+    pdfDoc.text(`Disbursement Date: ${safeFormatDate(loanData.disbursalDate)}`, 14, y);
+    y += 10;
+
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.text("PAYMENT SUMMARY", 14, y);
+    y += 7;
+
+    const paidEmis = loanData.repaymentSchedule.filter(e => e.status === 'Paid');
+    const totalEmiPaid = paidEmis.reduce((sum, e) => sum + (e.amountPaid || e.amount), 0);
+
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text(`EMIs Paid: ${paidEmis.length} of ${loanData.tenure}`, 14, y);
+    y += 6;
+    pdfDoc.text(`Total EMI Amount Paid: ${formatCurrency(totalEmiPaid)}`, 14, y);
+    y += 10;
+
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.text("FORECLOSURE CALCULATION", 14, y);
+    y += 7;
+
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text(`Outstanding Principal: ${formatCurrency(foreclosureData.outstandingPrincipal)}`, 14, y);
+    y += 6;
+    pdfDoc.text(`Foreclosure Charges (${foreclosureData.chargesPercentage}%): ${formatCurrency(foreclosureData.outstandingPrincipal * (foreclosureData.chargesPercentage / 100))}`, 14, y);
+    y += 8;
+
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.setFillColor(240, 240, 240);
+    pdfDoc.rect(14, y - 5, 182, 12, 'F');
+    pdfDoc.text(`TOTAL FORECLOSURE AMOUNT PAID: ${formatCurrency(foreclosureData.totalPaid)}`, 14, y + 2);
+    y += 15;
+
+    pdfDoc.line(14, y, 196, y);
+    y += 8;
+
+    pdfDoc.setFont("helvetica", "italic");
+    pdfDoc.setFontSize(10);
+    pdfDoc.text("This certificate confirms that the above loan has been foreclosed and all dues have been cleared.", 14, y);
+    y += 6;
+    pdfDoc.text("The customer has no further liability towards this loan.", 14, y);
+    y += 15;
+
+    pdfDoc.setFont("helvetica", "normal");
+    pdfDoc.text("Authorized Signature: ____________________", 14, y);
+    pdfDoc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 140, y);
+
+    const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdfDoc.setPage(i);
+      pdfDoc.setFontSize(8);
+      pdfDoc.setTextColor(150);
+      pdfDoc.text(`© ${new Date().getFullYear()} ${companyDetails.name}`, pdfDoc.internal.pageSize.getWidth() / 2, 287, { align: 'center' });
+    }
+
+    return pdfDoc;
+  };
+
   // Actions
   const handlePrecloseLoan = async () => {
     if (!loan) return;
     setIsPreclosing(true);
     try {
+        const foreclosureData = {
+            date: new Date().toISOString(),
+            outstandingPrincipal: outstandingPrincipal,
+            chargesPercentage: foreclosureCharges,
+            totalPaid: foreclosureAmount,
+        };
+
         const updatedSchedule = loan.repaymentSchedule.map(emi => 
             emi.status === 'Pending' ? { ...emi, status: 'Cancelled' as 'Cancelled' } : emi
         );
@@ -217,14 +334,13 @@ const LoanDetails: React.FC = () => {
         await updateDoc(doc(db, "loans", loan.id), {
             status: 'Completed',
             repaymentSchedule: updatedSchedule,
-            foreclosureDetails: {
-                date: new Date().toISOString(),
-                outstandingPrincipal: outstandingPrincipal,
-                chargesPercentage: foreclosureCharges,
-                totalPaid: foreclosureAmount,
-            }
+            foreclosureDetails: foreclosureData
         });
-        alert('Loan Pre-closed successfully.');
+
+        const pdfDoc = await generateForeclosurePDF({...loan, repaymentSchedule: updatedSchedule}, foreclosureData);
+        pdfDoc.save(`Foreclosure_Certificate_${loan.id}.pdf`);
+
+        alert('Loan Pre-closed successfully. Certificate downloaded.');
         setIsPrecloseModalOpen(false);
         fetchLoanAndCustomer();
     } catch(error) {
