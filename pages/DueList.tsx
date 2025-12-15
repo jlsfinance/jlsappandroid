@@ -43,7 +43,11 @@ const DueList: React.FC = () => {
     // Modal State
     const [selectedEmi, setSelectedEmi] = useState<PendingEmi | null>(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [customAmount, setCustomAmount] = useState<number>(0);
+    const [paymentRemark, setPaymentRemark] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showPdfPreview, setShowPdfPreview] = useState(false);
+    const [pendingReceiptData, setPendingReceiptData] = useState<any>(null);
     
     const [lastCollectedEmi, setLastCollectedEmi] = useState<PendingEmi | null>(null);
     const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
@@ -151,11 +155,165 @@ const DueList: React.FC = () => {
         alert(`Opening WhatsApp for ${count} customers... allow popups if blocked.`);
     };
 
+    const generatePaymentReceiptPDF = (receiptData: {
+        receiptId: string;
+        customerName: string;
+        customerId: string;
+        loanId: string;
+        emiNumber: number;
+        tenure: number;
+        emiAmount: number;
+        amountPaid: number;
+        paymentDate: string;
+        paymentMethod: string;
+        remark: string;
+        isExtraPayment: boolean;
+        phoneNumber?: string;
+    }) => {
+        const pdfDoc = new jsPDF();
+        let y = 15;
+
+        pdfDoc.setFontSize(18);
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+        y += 8;
+        pdfDoc.setFontSize(10);
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text(companyDetails.address, pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+        y += 5;
+        pdfDoc.text(`Phone: ${companyDetails.phone}`, pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+        y += 10;
+
+        pdfDoc.setFontSize(14);
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.text(receiptData.isExtraPayment ? "EXTRA PAYMENT RECEIPT" : "PAYMENT RECEIPT", pdfDoc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+        y += 10;
+
+        pdfDoc.line(14, y, 196, y);
+        y += 8;
+
+        pdfDoc.setFontSize(11);
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text(`Receipt No: ${receiptData.receiptId}`, 14, y);
+        pdfDoc.text(`Date: ${format(parseISO(receiptData.paymentDate), 'dd MMMM yyyy')}`, 140, y);
+        y += 10;
+
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.text("CUSTOMER DETAILS", 14, y);
+        y += 7;
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text(`Name: ${receiptData.customerName}`, 14, y);
+        y += 6;
+        pdfDoc.text(`Customer ID: ${receiptData.customerId}`, 14, y);
+        if (receiptData.phoneNumber) {
+            y += 6;
+            pdfDoc.text(`Phone: ${receiptData.phoneNumber}`, 14, y);
+        }
+        y += 10;
+
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.text("LOAN DETAILS", 14, y);
+        y += 7;
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text(`Loan ID: ${receiptData.loanId}`, 14, y);
+        y += 6;
+        pdfDoc.text(`EMI Number: ${receiptData.emiNumber} of ${receiptData.tenure}`, 14, y);
+        y += 6;
+        pdfDoc.text(`Regular EMI Amount: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
+        y += 10;
+
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.text("PAYMENT DETAILS", 14, y);
+        y += 7;
+
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text(`Payment Method: ${receiptData.paymentMethod.toUpperCase()}`, 14, y);
+        y += 6;
+
+        if (receiptData.isExtraPayment) {
+            const extraAmount = receiptData.amountPaid - receiptData.emiAmount;
+            pdfDoc.text(`Regular EMI: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
+            y += 6;
+            pdfDoc.text(`Extra Payment: ${formatCurrency(extraAmount)}`, 14, y);
+            y += 8;
+        }
+
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.setFillColor(240, 240, 240);
+        pdfDoc.rect(14, y - 5, 182, 12, 'F');
+        pdfDoc.text(`TOTAL AMOUNT PAID: ${formatCurrency(receiptData.amountPaid)}`, 14, y + 2);
+        y += 15;
+
+        if (receiptData.remark) {
+            pdfDoc.setFont("helvetica", "normal");
+            pdfDoc.text(`Remark: ${receiptData.remark}`, 14, y);
+            y += 10;
+        }
+
+        pdfDoc.line(14, y, 196, y);
+        y += 10;
+
+        pdfDoc.setFont("helvetica", "italic");
+        pdfDoc.setFontSize(10);
+        pdfDoc.text("Thank you for your payment. This is a computer generated receipt.", 14, y);
+        y += 15;
+
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text("Authorized Signature: ____________________", 14, y);
+
+        const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdfDoc.setPage(i);
+            pdfDoc.setFontSize(8);
+            pdfDoc.setTextColor(150);
+            pdfDoc.text(`© ${new Date().getFullYear()} ${companyDetails.name}`, pdfDoc.internal.pageSize.getWidth() / 2, 287, { align: 'center' });
+        }
+
+        return pdfDoc;
+    };
+
+    const handlePreviewPdf = () => {
+        if (!selectedEmi) return;
+        
+        const amountToPay = customAmount > 0 ? customAmount : selectedEmi.amount;
+        const isExtra = amountToPay > selectedEmi.amount;
+        
+        const receiptData = {
+            receiptId: `RCPT-PREVIEW`,
+            customerName: selectedEmi.customerName,
+            customerId: selectedEmi.customerId,
+            loanId: selectedEmi.loanId,
+            emiNumber: selectedEmi.emiNumber,
+            tenure: selectedEmi.tenure,
+            emiAmount: selectedEmi.amount,
+            amountPaid: amountToPay,
+            paymentDate: format(new Date(), 'yyyy-MM-dd'),
+            paymentMethod: paymentMethod,
+            remark: paymentRemark,
+            isExtraPayment: isExtra,
+            phoneNumber: selectedEmi.phoneNumber
+        };
+        
+        const pdfDoc = generatePaymentReceiptPDF(receiptData);
+        pdfDoc.save(`Receipt_Preview_${selectedEmi.loanId}_EMI_${selectedEmi.emiNumber}.pdf`);
+    };
+
     const handleCollectEmi = async () => {
         if (!selectedEmi || isSubmitting) return;
 
+        const amountToPay = customAmount > 0 ? customAmount : selectedEmi.amount;
+        
+        if (amountToPay < selectedEmi.amount) {
+            alert(`Amount cannot be less than EMI amount (${formatCurrency(selectedEmi.amount)})`);
+            return;
+        }
+        
+        const isExtraPayment = amountToPay > selectedEmi.amount;
+
         setIsSubmitting(true);
         try {
+            let receiptDocId = '';
+            
             await runTransaction(db, async (transaction) => {
                 const loanRef = doc(db, "loans", selectedEmi.loanId);
                 const receiptCounterRef = doc(db, 'counters', 'receiptId_counter');
@@ -169,6 +327,10 @@ const DueList: React.FC = () => {
                 const today = new Date();
                 const paymentDate = format(today, 'yyyy-MM-dd');
 
+                const remarkText = isExtraPayment 
+                    ? `Extra Payment: ${formatCurrency(amountToPay - selectedEmi.amount)}${paymentRemark ? ' - ' + paymentRemark : ''}`
+                    : paymentRemark;
+
                 const updatedSchedule = loanData.repaymentSchedule.map((emi: any) => {
                     if (emi.emiNumber === selectedEmi.emiNumber) {
                         return { 
@@ -176,7 +338,8 @@ const DueList: React.FC = () => {
                             status: 'Paid', 
                             paymentDate: paymentDate, 
                             paymentMethod: paymentMethod, 
-                            amountPaid: emi.amount,
+                            amountPaid: amountToPay,
+                            remark: remarkText,
                         };
                     }
                     return emi;
@@ -187,7 +350,7 @@ const DueList: React.FC = () => {
                     nextReceiptId = (counterDoc.data().lastId || 0) + 1;
                 }
                 
-                const receiptDocId = `RCPT-${nextReceiptId}`;
+                receiptDocId = `RCPT-${nextReceiptId}`;
                 const receiptRef = doc(db, "receipts", receiptDocId);
 
                 transaction.update(loanRef, { repaymentSchedule: updatedSchedule });
@@ -196,20 +359,49 @@ const DueList: React.FC = () => {
                     loanId: selectedEmi.loanId,
                     customerId: selectedEmi.customerId,
                     customerName: selectedEmi.customerName,
-                    amount: selectedEmi.amount,
+                    amount: amountToPay,
+                    emiAmount: selectedEmi.amount,
+                    isExtraPayment: isExtraPayment,
+                    extraAmount: isExtraPayment ? amountToPay - selectedEmi.amount : 0,
                     paymentDate: paymentDate,
                     paymentMethod: paymentMethod,
                     emiNumber: selectedEmi.emiNumber,
+                    remark: remarkText,
                     createdAt: new Date().toISOString(),
                 });
                 transaction.set(receiptCounterRef, { lastId: nextReceiptId }, { merge: true });
             });
+
+            const finalRemark = isExtraPayment 
+                ? `Extra Payment: ${formatCurrency(amountToPay - selectedEmi.amount)}${paymentRemark ? ' - ' + paymentRemark : ''}`
+                : paymentRemark;
+
+            const receiptData = {
+                receiptId: receiptDocId,
+                customerName: selectedEmi.customerName,
+                customerId: selectedEmi.customerId,
+                loanId: selectedEmi.loanId,
+                emiNumber: selectedEmi.emiNumber,
+                tenure: selectedEmi.tenure,
+                emiAmount: selectedEmi.amount,
+                amountPaid: amountToPay,
+                paymentDate: format(new Date(), 'yyyy-MM-dd'),
+                paymentMethod: paymentMethod,
+                remark: finalRemark,
+                isExtraPayment: isExtraPayment,
+                phoneNumber: selectedEmi.phoneNumber
+            };
+
+            const pdfDoc = generatePaymentReceiptPDF(receiptData);
+            pdfDoc.save(`Receipt_${receiptDocId}.pdf`);
             
-            setLastCollectedEmi(selectedEmi);
+            setLastCollectedEmi({...selectedEmi, amount: amountToPay});
             setAllPendingEmis(prev => prev.filter(e => !(e.emiNumber === selectedEmi.emiNumber && e.loanId === selectedEmi.loanId)));
             setSelectedEmi(null);
+            setCustomAmount(0);
+            setPaymentRemark('');
             setIsNotificationModalOpen(true);
-            alert("Collection Successful!");
+            alert("Collection Successful! Receipt downloaded.");
             
         } catch (error: any) {
             console.error("Error collecting EMI:", error);
@@ -365,7 +557,7 @@ const DueList: React.FC = () => {
             {/* Collection Modal */}
             {selectedEmi && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                         <h3 className="text-lg font-bold mb-1">Collect Payment</h3>
                         <p className="text-sm text-slate-500 mb-4">
                             EMI #{selectedEmi.emiNumber} from {selectedEmi.customerName}
@@ -373,8 +565,22 @@ const DueList: React.FC = () => {
                         
                         <div className="space-y-4 mb-6">
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">
-                                <span className="text-sm font-bold text-blue-800 dark:text-blue-300">Amount Due</span>
+                                <span className="text-sm font-bold text-blue-800 dark:text-blue-300">EMI Amount</span>
                                 <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(selectedEmi.amount)}</span>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Amount Received (Extra Payment ke liye zyada dalo)</label>
+                                <input
+                                    type="number"
+                                    value={customAmount || selectedEmi.amount}
+                                    onChange={(e) => setCustomAmount(Number(e.target.value))}
+                                    placeholder={`Min: ${selectedEmi.amount}`}
+                                    className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none text-lg font-bold"
+                                />
+                                {customAmount > selectedEmi.amount && (
+                                    <p className="text-xs text-green-600 mt-1">Extra Payment: {formatCurrency(customAmount - selectedEmi.amount)}</p>
+                                )}
                             </div>
 
                             <div>
@@ -395,23 +601,43 @@ const DueList: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Remark (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={paymentRemark}
+                                    onChange={(e) => setPaymentRemark(e.target.value)}
+                                    placeholder="Any notes..."
+                                    className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                                />
+                            </div>
                         </div>
                         
-                        <div className="flex gap-3 justify-end">
+                        <div className="flex flex-col gap-3">
                             <button 
-                                onClick={() => setSelectedEmi(null)} 
-                                className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                                onClick={handlePreviewPdf}
+                                className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center gap-2"
                             >
-                                Cancel
+                                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                                Preview PDF (Save se pehle download)
                             </button>
-                            <button 
-                                onClick={handleCollectEmi}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {isSubmitting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
-                                Confirm
-                            </button>
+                            <div className="flex gap-3 justify-end">
+                                <button 
+                                    onClick={() => { setSelectedEmi(null); setCustomAmount(0); setPaymentRemark(''); }} 
+                                    className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleCollectEmi}
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {isSubmitting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                                    Save & Download PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
