@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useCompany } from '../contexts/CompanyContext';
 import { Customer } from '../types';
 
 const Customers: React.FC = () => {
+  const { activeCompany } = useCompany();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,18 +14,23 @@ const Customers: React.FC = () => {
 
   useEffect(() => {
     const fetchCustomers = async () => {
+      if (!activeCompany) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Fetching directly from Firestore as requested
-        const q = query(collection(db, "customers"));
+        const q = query(
+          collection(db, "customers"),
+          where("companyId", "==", activeCompany.id)
+        );
         const querySnapshot = await getDocs(q);
         const data = querySnapshot.docs.map(doc => {
           const docData = doc.data();
           return { 
             id: doc.id, 
             ...docData,
-            // Ensure status has a default if missing
             status: docData.status || 'Active',
-            // Map photo_url to avatar property for easier handling, fallback to avatar field if exists
             avatar: docData.photo_url || docData.avatar || '',
             name: docData.name || 'Unknown Customer'
           };
@@ -37,9 +44,8 @@ const Customers: React.FC = () => {
     };
 
     fetchCustomers();
-  }, []);
+  }, [activeCompany]);
 
-  // Filter Logic
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
       const matchesSearch = 
@@ -56,7 +62,6 @@ const Customers: React.FC = () => {
     });
   }, [customers, searchTerm, filter]);
 
-  // Helper to generate initials from name
   const getInitials = (name: string) => {
     if (!name) return '??';
     return name
@@ -67,7 +72,6 @@ const Customers: React.FC = () => {
       .toUpperCase();
   };
 
-  // Helper to deterministically pick a pastel color based on name
   const getColorFromName = (name: string) => {
     if (!name) return 'bg-slate-100 text-slate-500';
     const colors = [
@@ -88,9 +92,19 @@ const Customers: React.FC = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  if (!activeCompany) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="text-center">
+          <p className="text-slate-500 dark:text-slate-400 mb-4">No company selected</p>
+          <Link to="/select-company" className="text-primary font-bold">Select a company</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden pb-24 bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
-      {/* Header */}
       <header className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm transition-colors duration-200">
         <div className="flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
@@ -103,7 +117,6 @@ const Customers: React.FC = () => {
             <span className="material-symbols-outlined">add</span>
           </Link>
         </div>
-        {/* Search Bar */}
         <div className="px-4 pb-2">
           <label className="group flex h-12 w-full items-center gap-3 rounded-lg bg-white dark:bg-[#1e2736] px-3 shadow-sm ring-1 ring-slate-900/5 dark:ring-white/10 focus-within:ring-2 focus-within:ring-primary transition-all">
             <span className="material-symbols-outlined text-slate-400">search</span>
@@ -116,7 +129,6 @@ const Customers: React.FC = () => {
             />
           </label>
         </div>
-        {/* Filter Chips */}
         <div className="flex w-full gap-2 overflow-x-auto px-4 py-3 no-scrollbar">
           <button 
             onClick={() => setFilter('All')}
@@ -145,7 +157,6 @@ const Customers: React.FC = () => {
         </div>
       </header>
 
-      {/* List */}
       <main className="flex flex-col gap-3 px-4 pt-2">
         {loading ? (
           <div className="flex justify-center p-8">
@@ -165,14 +176,12 @@ const Customers: React.FC = () => {
             >
               <div className="flex items-center gap-4 flex-1 min-w-0">
                 <div className="relative h-14 w-14 flex-shrink-0">
-                  {/* Smart Avatar Logic: Checks avatar (mapped from photo_url) */}
                   {customer.avatar && customer.avatar.length > 5 ? (
                     <img 
                       src={customer.avatar} 
                       alt={customer.name} 
                       className="h-full w-full rounded-full object-cover bg-slate-200 dark:bg-slate-700" 
                       onError={(e) => {
-                        // Fallback to text if image fails to load
                         e.currentTarget.style.display = 'none';
                         e.currentTarget.parentElement?.classList.add('fallback-mode');
                       }}
@@ -182,12 +191,10 @@ const Customers: React.FC = () => {
                       {getInitials(customer.name)}
                     </div>
                   )}
-                  {/* Helper for onError to show fallback if image broken */}
                   <div className={`hidden fallback-mode:flex h-full w-full absolute top-0 left-0 rounded-full items-center justify-center font-bold text-lg ${getColorFromName(customer.name)}`}>
                       {getInitials(customer.name)}
                   </div>
                   
-                  {/* Status Indicator Dot */}
                   <div className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-[#1e2736] ${
                     customer.status === 'Active' ? 'bg-green-500' : 
                     customer.status === 'Overdue' ? 'bg-red-500' : 'bg-orange-500'
@@ -210,7 +217,6 @@ const Customers: React.FC = () => {
                   'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 ring-orange-600/20'
                 }`}>{customer.status}</span>
                 
-                {/* Phone Call Button - Stop propagation to allow clicking row for details without calling */}
                 <button 
                   onClick={(e) => {
                     e.preventDefault();

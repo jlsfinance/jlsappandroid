@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
+import { useCompany } from '../contexts/CompanyContext';
+import CompanySelector from '../components/CompanySelector';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO } from 'date-fns';
 
-// Type definitions for the dashboard
 interface MetricCardProps {
   title: string;
   value: string;
@@ -23,6 +24,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const Dashboard: React.FC = () => {
+  const { activeCompany, user } = useCompany();
   const [activeCard, setActiveCard] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -35,17 +37,23 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+        if (!activeCompany) {
+            setLoading(false);
+            return;
+        }
+
         try {
-            const user = auth.currentUser;
             if (user?.email) {
                 setUserName(user.email.split('@')[0]);
             }
 
+            const companyId = activeCompany.id;
+
             const [loansSnap, customersSnap, partnerTxSnap, expensesSnap] = await Promise.all([
-                getDocs(query(collection(db, "loans"), orderBy("date", "desc"))),
-                getDocs(collection(db, "customers")),
-                getDocs(collection(db, "partner_transactions")),
-                getDocs(collection(db, "expenses"))
+                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), orderBy("date", "desc"))),
+                getDocs(query(collection(db, "customers"), where("companyId", "==", companyId))),
+                getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))
             ]);
 
             const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -65,7 +73,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [activeCompany, user]);
 
   const metrics = useMemo(() => {
       let totalDisbursedCount = 0;
@@ -109,7 +117,6 @@ const Dashboard: React.FC = () => {
               });
           }
           
-          // Add foreclosure payment if amountReceived is true
           const foreclosureDetails = (loan as any).foreclosureDetails;
           if (foreclosureDetails && foreclosureDetails.amountReceived) {
               calculatedBalance += Number(foreclosureDetails.totalPaid) || 0;
@@ -206,7 +213,7 @@ const Dashboard: React.FC = () => {
     const { data, columns } = getModalContent();
     if (!data || data.length === 0) { alert("No data available."); return; }
     const doc = new jsPDF('l', 'mm', 'a4');
-    doc.text("JLS Finance Company Report", 14, 15);
+    doc.text(`${activeCompany?.name || 'Company'} Report`, 14, 15);
     const tableRows = data.map((row) => Object.values(row).slice(0, columns.length));
     autoTable(doc, { head: [columns], body: tableRows, startY: 25 });
     doc.save('report.pdf');
@@ -240,10 +247,20 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
+  if (!activeCompany) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="text-center">
+          <p className="text-slate-500 dark:text-slate-400 mb-4">No company selected</p>
+          <Link to="/select-company" className="text-primary font-bold">Select a company</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
       
-      {/* M3 Header */}
       <div className="px-4 py-4 sticky top-0 z-20 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm transition-colors">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -255,18 +272,23 @@ const Dashboard: React.FC = () => {
                     <h1 className="text-xl font-normal text-on-surface-light dark:text-on-surface-dark capitalize">{userName}</h1>
                 </div>
             </div>
-            <Link to="/settings" className="p-2 rounded-full hover:bg-surface-variant-light/50 dark:hover:bg-surface-variant-dark/50 transition-colors">
-                <span className="material-symbols-outlined">settings</span>
-            </Link>
+            <div className="flex items-center gap-2">
+                <CompanySelector />
+                <Link to="/settings" className="p-2 rounded-full hover:bg-surface-variant-light/50 dark:hover:bg-surface-variant-dark/50 transition-colors">
+                    <span className="material-symbols-outlined">settings</span>
+                </Link>
+            </div>
         </div>
       </div>
 
       <div className="px-4 space-y-6 mt-2">
         
-        {/* Hero Card (Primary Container) */}
         <div className="rounded-2xl bg-primary-container dark:bg-primary-container-dark p-6 text-on-primary-container dark:text-on-primary-container shadow-m3-1 relative overflow-hidden">
             <div className="flex justify-between items-start mb-6 relative z-10">
-                <h2 className="text-sm font-medium opacity-80">Cash Account Balance</h2>
+                <div>
+                    <h2 className="text-sm font-medium opacity-80">Cash Account Balance</h2>
+                    <p className="text-xs opacity-60 mt-1">{activeCompany.name}</p>
+                </div>
                 <Link to="/finance" className="bg-on-primary-container/10 hover:bg-on-primary-container/20 p-2 rounded-full transition-colors">
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </Link>
@@ -277,11 +299,9 @@ const Dashboard: React.FC = () => {
             <div className="relative z-10 flex gap-2 items-center">
                  <span className="text-xs font-medium opacity-70">Total Liquid Assets</span>
             </div>
-            {/* Decoration */}
             <div className="absolute right-[-20px] top-[-20px] w-32 h-32 rounded-full bg-on-primary-container/5"></div>
         </div>
 
-        {/* Action Chips */}
         <div>
             <h3 className="text-sm font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark mb-3 px-1">Quick Actions</h3>
             <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
@@ -300,7 +320,6 @@ const Dashboard: React.FC = () => {
             </div>
         </div>
 
-        {/* Analytics Cards */}
         <div>
             <h3 className="text-sm font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark mb-3 px-1">Overview</h3>
             <div className="flex flex-col gap-3">
@@ -329,33 +348,37 @@ const Dashboard: React.FC = () => {
             </div>
         </div>
 
-        {/* Recent List */}
         <div>
             <div className="flex items-center justify-between mb-3 px-1">
                 <h3 className="text-sm font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark">Recent Activity</h3>
                 <Link to="/loans" className="text-sm font-medium text-primary hover:text-primary-dark">View All</Link>
             </div>
             <div className="bg-surface-light dark:bg-[#1e2736] rounded-xl border border-outline-light/10 overflow-hidden">
-                {loans.slice(0, 5).map((loan: any, i) => (
-                    <div key={loan.id} className={`p-4 flex items-center justify-between hover:bg-surface-variant-light/30 transition-colors ${i !== 0 ? 'border-t border-outline-light/10' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 rounded-full bg-secondary-container dark:bg-secondary-container flex items-center justify-center text-on-secondary-container">
-                                <span className="material-symbols-outlined text-lg">{loan.status === 'Disbursed' ? 'check' : 'schedule'}</span>
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-medium text-on-surface-light dark:text-on-surface-dark">{loan.customerName}</h4>
-                                <p className="text-xs text-on-surface-variant-light dark:text-on-surface-variant-dark">Loan #{loan.id}</p>
-                            </div>
-                        </div>
-                        <span className="text-sm font-bold">{formatCurrency(loan.amount)}</span>
+                {loans.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500">
+                        <p>No loans yet for this company</p>
                     </div>
-                ))}
+                ) : (
+                    loans.slice(0, 5).map((loan: any, i) => (
+                        <div key={loan.id} className={`p-4 flex items-center justify-between hover:bg-surface-variant-light/30 transition-colors ${i !== 0 ? 'border-t border-outline-light/10' : ''}`}>
+                            <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-full bg-secondary-container dark:bg-secondary-container flex items-center justify-center text-on-secondary-container">
+                                    <span className="material-symbols-outlined text-lg">{loan.status === 'Disbursed' ? 'check' : 'schedule'}</span>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-medium text-on-surface-light dark:text-on-surface-dark">{loan.customerName}</h4>
+                                    <p className="text-xs text-on-surface-variant-light dark:text-on-surface-variant-dark">Loan #{loan.id}</p>
+                                </div>
+                            </div>
+                            <span className="text-sm font-bold">{formatCurrency(loan.amount)}</span>
+                        </div>
+                    ))
+                )}
             </div>
         </div>
 
       </div>
 
-      {/* Modal */}
       {activeCard && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-4xl h-[90vh] sm:h-[600px] bg-surface-light dark:bg-surface-dark rounded-t-2xl sm:rounded-2xl flex flex-col shadow-m3-3 overflow-hidden">

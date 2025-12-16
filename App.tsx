@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from './firebaseConfig';
+import { CompanyProvider, useCompany } from './contexts/CompanyContext';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import CustomerProfile from './pages/CustomerProfile';
@@ -25,19 +24,12 @@ import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import NewCompany from './pages/NewCompany';
+import CompanySelection from './pages/CompanySelection';
 import BottomNav from './components/BottomNav';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+  const { user, loading, activeCompany, companies } = useCompany();
 
   if (loading) {
     return (
@@ -51,143 +43,156 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
+  if (companies.length > 0 && !activeCompany) {
+    return <Navigate to="/select-company" replace />;
+  }
+
   return <>{children}</>;
 };
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Dashboard />
-            <BottomNav />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/customers" element={
-          <ProtectedRoute>
-            <Customers />
-            <BottomNav />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/customers/new" element={
-          <ProtectedRoute>
-            <NewCustomer />
-          </ProtectedRoute>
-        } />
+    <CompanyProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/select-company" element={<CompanySelection />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Dashboard />
+              <BottomNav />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/customers" element={
+            <ProtectedRoute>
+              <Customers />
+              <BottomNav />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/customers/new" element={
+            <ProtectedRoute>
+              <NewCustomer />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/customers/edit/:id" element={
-          <ProtectedRoute>
-            <EditCustomer />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/customers/:id" element={
-          <ProtectedRoute>
-            <CustomerProfile />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/loans" element={
-          <ProtectedRoute>
-            <Loans />
-            <BottomNav />
-          </ProtectedRoute>
-        } />
+          <Route path="/customers/edit/:id" element={
+            <ProtectedRoute>
+              <EditCustomer />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/customers/:id" element={
+            <ProtectedRoute>
+              <CustomerProfile />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/loans" element={
+            <ProtectedRoute>
+              <Loans />
+              <BottomNav />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/loans/new" element={
-          <ProtectedRoute>
-            <NewLoan />
-          </ProtectedRoute>
-        } />
+          <Route path="/loans/new" element={
+            <ProtectedRoute>
+              <NewLoan />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/loans/:id" element={
-          <ProtectedRoute>
-            <LoanDetails />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/finance" element={
-          <ProtectedRoute>
-            <FinanceOverview />
-            <BottomNav />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/partners" element={
-          <ProtectedRoute>
-            <Partners />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/tools" element={
-          <ProtectedRoute>
-            <Tools />
-            <BottomNav />
-          </ProtectedRoute>
-        } />
+          <Route path="/loans/:id" element={
+            <ProtectedRoute>
+              <LoanDetails />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/finance" element={
+            <ProtectedRoute>
+              <FinanceOverview />
+              <BottomNav />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/partners" element={
+            <ProtectedRoute>
+              <Partners />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/tools" element={
+            <ProtectedRoute>
+              <Tools />
+              <BottomNav />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/tools/legal-notice" element={
-          <ProtectedRoute>
-            <LegalNotice />
-          </ProtectedRoute>
-        } />
+          <Route path="/tools/legal-notice" element={
+            <ProtectedRoute>
+              <LegalNotice />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/reports" element={
-          <ProtectedRoute>
-            <Reports />
-          </ProtectedRoute>
-        } />
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/receipts" element={
-          <ProtectedRoute>
-            <Receipts />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/approvals" element={
-          <ProtectedRoute>
-            <Approvals />
-          </ProtectedRoute>
-        } />
+          <Route path="/receipts" element={
+            <ProtectedRoute>
+              <Receipts />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/approvals" element={
+            <ProtectedRoute>
+              <Approvals />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/disbursal" element={
-          <ProtectedRoute>
-            <Disbursal />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/due-list" element={
-          <ProtectedRoute>
-            <DueList />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/tools/emi" element={
-          <ProtectedRoute>
-            <EMICalculator />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        } />
+          <Route path="/disbursal" element={
+            <ProtectedRoute>
+              <Disbursal />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/due-list" element={
+            <ProtectedRoute>
+              <DueList />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/tools/emi" element={
+            <ProtectedRoute>
+              <EMICalculator />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/user-management" element={
-          <ProtectedRoute>
-            <UserManagement />
-          </ProtectedRoute>
-        } />
-      </Routes>
-    </Router>
+          <Route path="/user-management" element={
+            <ProtectedRoute>
+              <UserManagement />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/company/new" element={
+            <ProtectedRoute>
+              <NewCompany />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
+    </CompanyProvider>
   );
 };
 

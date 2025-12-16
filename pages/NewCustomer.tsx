@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useCompany } from '../contexts/CompanyContext';
 
 const IMGBB_API_KEY = "c9f4edabbd1fe1bc3a063e26bc6a2ecd";
 
 const NewCustomer: React.FC = () => {
   const navigate = useNavigate();
+  const { activeCompany } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -65,6 +67,7 @@ const NewCustomer: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
+    if (!activeCompany) return alert("Please select a company first");
     
     if (!formData.fullName) return alert("Full Name is required");
     if (!formData.mobile) return alert("Mobile Number is required");
@@ -78,6 +81,7 @@ const NewCustomer: React.FC = () => {
       }
 
       await addDoc(collection(db, 'customers'), {
+        companyId: activeCompany.id,
         name: formData.fullName,
         phone: formData.mobile,
         email: formData.email,
@@ -86,7 +90,7 @@ const NewCustomer: React.FC = () => {
         pan: formData.pan,
         voterId: formData.voterId,
         photo_url: photoUrl,
-        status: 'Active', // Default status
+        status: 'Active',
         createdAt: new Date().toISOString(),
         createdBy: auth.currentUser.uid,
         guarantor: {

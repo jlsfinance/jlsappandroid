@@ -1,5 +1,40 @@
+export interface Company {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstin?: string;
+  pan?: string;
+  logo?: string;
+  ownerId: string;
+  createdAt: string;
+}
+
+export interface CompanyUser {
+  id: string;
+  companyId: string;
+  userId: string;
+  role: 'owner' | 'admin' | 'manager' | 'staff';
+  permissions?: string[];
+  joinedAt: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  activeCompanyId?: string;
+}
+
 export interface Customer {
   id: string;
+  companyId: string;
   name: string;
   role?: string;
   avatar?: string;
@@ -14,11 +49,9 @@ export interface Customer {
   nextPayment?: string;
   arrears?: string;
   createdAt?: any;
-  // KYC Details
   aadhaar?: string;
   pan?: string;
   voterId?: string;
-  // Guarantor Details
   guarantor?: {
     name?: string;
     mobile?: string;
@@ -29,13 +62,14 @@ export interface Customer {
 
 export interface Loan {
   id: string;
+  companyId: string;
   customerId?: string;
   amount: number;
   emi: number;
   interestRate: number;
-  tenure: number; // in months
+  tenure: number;
   status: 'Pending' | 'Approved' | 'Disbursed' | 'Rejected' | 'Completed' | 'Active' | 'Overdue';
-  date: string; // ISO date string
+  date: string;
   type?: string;
   progress?: number;
   paid?: number;
@@ -44,6 +78,7 @@ export interface Loan {
 
 export interface Transaction {
   id: string;
+  companyId: string;
   title: string;
   subtitle: string;
   amount: number;
@@ -51,4 +86,27 @@ export interface Transaction {
   status: 'success' | 'pending' | 'failed';
   date: string;
   icon: string;
+}
+
+export interface Receipt {
+  id: string;
+  companyId: string;
+  customerId: string;
+  loanId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMode: string;
+  receiptNumber: string;
+  status: 'paid' | 'pending';
+}
+
+export interface Partner {
+  id: string;
+  companyId: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  commission?: number;
+  status: 'Active' | 'Inactive';
+  createdAt: string;
 }

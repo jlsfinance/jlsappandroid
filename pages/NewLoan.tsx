@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, doc, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
+import { useCompany } from '../contexts/CompanyContext';
 
 interface LoanFormState {
   amount: number;
@@ -14,6 +15,7 @@ interface LoanFormState {
 
 const NewLoan: React.FC = () => {
   const navigate = useNavigate();
+  const { activeCompany } = useCompany();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,10 +35,17 @@ const NewLoan: React.FC = () => {
   // Load Initial Data
   useEffect(() => {
     const fetchData = async () => {
+      if (!activeCompany) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        // Fetch customers
-        const customersQuery = query(collection(db, "customers"), orderBy("name", "asc"));
+        // Fetch customers for this company
+        const customersQuery = query(
+          collection(db, "customers"), 
+          where("companyId", "==", activeCompany.id)
+        );
         const customersSnap = await getDocs(customersQuery);
         const customersData = customersSnap.docs.map(doc => ({ 
             id: doc.id, 
@@ -46,7 +55,11 @@ const NewLoan: React.FC = () => {
         setCustomers(customersData);
 
         // Fetch active loans to prevent duplicates
-        const activeLoansQuery = query(collection(db, "loans"), where("status", "==", "Disbursed"));
+        const activeLoansQuery = query(
+          collection(db, "loans"), 
+          where("companyId", "==", activeCompany.id),
+          where("status", "==", "Disbursed")
+        );
         const activeLoansSnap = await getDocs(activeLoansQuery);
         const activeLoanCustomerIds = new Set(activeLoansSnap.docs.map(doc => doc.data().customerId));
         setCustomersWithActiveLoans(activeLoanCustomerIds);
@@ -59,7 +72,7 @@ const NewLoan: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [activeCompany]);
 
   const filteredCustomers = useMemo(() => {
     const lowerSearch = searchTerm.toLowerCase();
@@ -106,7 +119,7 @@ const NewLoan: React.FC = () => {
   // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomer || !auth.currentUser) return;
+    if (!selectedCustomer || !auth.currentUser || !activeCompany) return;
     
     // Validation
     if (form.amount < 1000) return alert("Minimum loan amount is 1000");
@@ -133,6 +146,7 @@ const NewLoan: React.FC = () => {
         // Construct Loan Object
         const loanData = {
             id: nextId.toString(),
+            companyId: activeCompany.id,
             customerId: selectedCustomer.id,
             customerName: selectedCustomer.name,
             amount: form.amount,
