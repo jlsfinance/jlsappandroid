@@ -149,6 +149,7 @@ const NewLoan: React.FC = () => {
             id: nextId.toString(),
             customerId: selectedCustomer.id,
             customerName: selectedCustomer.name,
+            companyId: currentCompany!.id,
             amount: form.amount,
             interestRate: form.interestRate,
             tenure: form.tenure,
