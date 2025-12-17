@@ -61,15 +61,40 @@ const formatCurrency = (value: number | undefined) => {
     return `Rs. ${new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(value)}`;
 };
 
-async function toBase64(url: string) {
+async function toBase64(url: string, maxWidth: number = 200, quality: number = 0.6): Promise<string> {
     try {
         const response = await fetch(url);
         const blob = await response.blob();
+        
         return new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedBase64);
+                } else {
+                    reject(new Error('Canvas context not available'));
+                }
+            };
+            
+            img.onerror = () => reject(new Error('Image load failed'));
+            img.src = URL.createObjectURL(blob);
         });
     } catch (e) {
         console.error("Image load failed", e);
