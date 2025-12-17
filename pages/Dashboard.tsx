@@ -190,17 +190,28 @@ const Dashboard: React.FC = () => {
         break;
       case 'Active Loan Value':
         modalData = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status)).map(l => {
-            const totalPI = (Number(l.emi) || 0) * (Number(l.tenure) || 0);
+            const principal = Number(l.amount) || 0;
+            const emi = Number(l.emi) || 0;
+            const tenure = Number(l.tenure) || 0;
+            const totalPI = emi * tenure;
+            const totalInterest = totalPI - principal;
+            const emiPrincipal = tenure > 0 ? principal / tenure : 0;
+            const emiInterest = emi - emiPrincipal;
             const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
             const paidAmount = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
             const pendingPI = Math.max(0, totalPI - paidAmount);
-            return { ...l, totalLoanPI: totalPI, totalReceivedPI: paidAmount, balancePI: pendingPI };
+            return { ...l, principal, totalInterest, totalLoanPI: totalPI, emiPrincipal, emiInterest, emi, totalReceivedPI: paidAmount, balancePI: pendingPI };
         });
-        columns = ['Customer', 'Total (P+I)', 'Received', 'Balance'];
+        columns = ['Customer', 'Principal', 'Interest', 'Total', 'EMI (P)', 'EMI (I)', 'EMI', 'Received', 'Balance'];
         renderRow = (row, index) => (
             <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
               <td className="px-4 py-4 font-medium">{row.customerName}</td>
+              <td className="px-4 py-4">{formatCurrency(row.principal)}</td>
+              <td className="px-4 py-4">{formatCurrency(row.totalInterest)}</td>
               <td className="px-4 py-4">{formatCurrency(row.totalLoanPI)}</td>
+              <td className="px-4 py-4">{formatCurrency(row.emiPrincipal)}</td>
+              <td className="px-4 py-4">{formatCurrency(row.emiInterest)}</td>
+              <td className="px-4 py-4">{formatCurrency(row.emi)}</td>
               <td className="px-4 py-4 text-primary">{formatCurrency(row.totalReceivedPI)}</td>
               <td className="px-4 py-4 font-bold text-tertiary">{formatCurrency(row.balancePI)}</td>
             </tr>
@@ -242,14 +253,20 @@ const Dashboard: React.FC = () => {
     } else if (activeCard === 'Active Loan Value') {
       tableRows = data.map((row: any) => [
         row.customerName || '-',
+        formatCurrency(row.principal),
+        formatCurrency(row.totalInterest),
         formatCurrency(row.totalLoanPI),
+        formatCurrency(row.emiPrincipal),
+        formatCurrency(row.emiInterest),
+        formatCurrency(row.emi),
         formatCurrency(row.totalReceivedPI),
         formatCurrency(row.balancePI)
       ]);
     }
     
     autoTable(doc, { head: [columns], body: tableRows, startY: 25 });
-    doc.save('report.pdf');
+    const today = format(new Date(), 'dd-MMM-yyyy');
+    doc.save(`report_${today}.pdf`);
   };
 
   const { data, columns, renderRow } = getModalContent();
