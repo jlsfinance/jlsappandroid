@@ -105,12 +105,17 @@ const Loans: React.FC = () => {
     
     setLoading(true);
     try {
-        const q = query(collection(db, "loans"), where("companyId", "==", currentCompany.id), orderBy("date", "desc"));
+        const q = query(collection(db, "loans"), where("companyId", "==", currentCompany.id));
         const querySnapshot = await getDocs(q);
         const loansData = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         })) as Loan[];
+        loansData.sort((a: any, b: any) => {
+            const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
+            const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
+            return dateB.getTime() - dateA.getTime();
+        });
         setLoans(loansData);
     } catch (error) {
         console.error("Error fetching loans:", error);
