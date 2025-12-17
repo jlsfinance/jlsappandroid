@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { useCompany } from '../context/CompanyContext';
 
 interface LoanApplication {
     id: string;
@@ -13,6 +14,7 @@ interface LoanApplication {
 
 const Approvals: React.FC = () => {
     const navigate = useNavigate();
+    const { currentCompany } = useCompany();
     const [applications, setApplications] = useState<LoanApplication[]>([]);
     const [loading, setLoading] = useState(true);
     
@@ -24,9 +26,18 @@ const Approvals: React.FC = () => {
 
     useEffect(() => {
         const fetchPendingApplications = async () => {
+            if (!currentCompany) {
+                setLoading(false);
+                return;
+            }
+            
             setLoading(true);
             try {
-                const q = query(collection(db, "loans"), where("status", "==", "Pending"));
+                const q = query(
+                    collection(db, "loans"), 
+                    where("status", "==", "Pending"),
+                    where("companyId", "==", currentCompany.id)
+                );
                 const querySnapshot = await getDocs(q);
                 const pendingApps = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LoanApplication[];
                 setApplications(pendingApps);
@@ -37,7 +48,7 @@ const Approvals: React.FC = () => {
             }
         };
         fetchPendingApplications();
-    }, []);
+    }, [currentCompany]);
 
     const openModal = (type: 'approve' | 'reject', app: LoanApplication) => {
         setModalType(type);

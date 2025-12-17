@@ -31,9 +31,18 @@ const Disbursal: React.FC = () => {
 
     useEffect(() => {
         const fetchApprovedLoans = async () => {
+            if (!currentCompany) {
+                setLoading(false);
+                return;
+            }
+            
             setLoading(true);
             try {
-                const q = query(collection(db, "loans"), where("status", "==", "Approved"));
+                const q = query(
+                    collection(db, "loans"), 
+                    where("status", "==", "Approved"),
+                    where("companyId", "==", currentCompany.id)
+                );
                 const querySnapshot = await getDocs(q);
                 const approved = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ApprovedLoan[];
                 setApprovedLoans(approved);
@@ -44,7 +53,7 @@ const Disbursal: React.FC = () => {
             }
         };
         fetchApprovedLoans();
-    }, []);
+    }, [currentCompany]);
 
     const handleDisburse = async () => {
         if (!selectedLoan || !disbursalDate) {
