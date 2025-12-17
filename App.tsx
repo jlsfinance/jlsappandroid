@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './firebaseConfig';
+import { CompanyProvider, useCompany } from './context/CompanyContext';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import CustomerProfile from './pages/CustomerProfile';
@@ -25,9 +26,10 @@ import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import CompanySelector from './pages/CompanySelector';
 import BottomNav from './components/BottomNav';
 
-const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
+const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.ReactNode; requireCompany?: boolean }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,20 +56,51 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const CompanyRequiredRoute = ({ children }: { children?: React.ReactNode }) => {
+  const { currentCompany, loading, companies } = useCompany();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  if (!currentCompany && companies.length === 0) {
+    return <Navigate to="/company-selector" replace />;
+  }
+
+  if (!currentCompany && companies.length > 0) {
+    return <Navigate to="/company-selector" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const App: React.FC = () => {
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Dashboard />
-            <BottomNav />
-          </ProtectedRoute>
-        } />
+      <CompanyProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          
+          <Route path="/company-selector" element={
+            <ProtectedRoute>
+              <CompanySelector />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <CompanyRequiredRoute>
+                <Dashboard />
+                <BottomNav />
+              </CompanyRequiredRoute>
+            </ProtectedRoute>
+          } />
         
         <Route path="/customers" element={
           <ProtectedRoute>
@@ -186,7 +219,8 @@ const App: React.FC = () => {
             <UserManagement />
           </ProtectedRoute>
         } />
-      </Routes>
+        </Routes>
+      </CompanyProvider>
     </Router>
   );
 };

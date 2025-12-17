@@ -52,3 +52,13 @@ export interface Transaction {
   date: string;
   icon: string;
 }
+
+export interface Company {
+  id: string;
+  name: string;
+  ownerEmail: string;
+  createdAt: string;
+  address?: string;
+  phone?: string;
+  gstin?: string;
+}
