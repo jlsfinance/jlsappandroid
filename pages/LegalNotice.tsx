@@ -91,11 +91,23 @@ const LegalNotice: React.FC = () => {
 
   // Fetch Smart Data (Customers with Overdue EMIs)
   const fetchSmartData = useCallback(async () => {
+    if (!currentCompany) {
+        setLoadingData(false);
+        return;
+    }
+    
     setLoadingData(true);
     try {
         const [customersSnap, loansSnap] = await Promise.all([
-            getDocs(query(collection(db, "customers"), orderBy("name"))),
-            getDocs(query(collection(db, "loans"), where("status", "in", ["Disbursed", "Active", "Overdue"])))
+            getDocs(query(
+                collection(db, "customers"), 
+                where("companyId", "==", currentCompany.id)
+            )),
+            getDocs(query(
+                collection(db, "loans"), 
+                where("status", "in", ["Disbursed", "Active", "Overdue"]),
+                where("companyId", "==", currentCompany.id)
+            ))
         ]);
 
         const allCustomers = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Customer[];
@@ -121,7 +133,7 @@ const LegalNotice: React.FC = () => {
     } finally {
         setLoadingData(false);
     }
-  }, []);
+  }, [currentCompany]);
 
   useEffect(() => {
     fetchSmartData();

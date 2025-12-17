@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, doc, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
+import { useCompany } from '../context/CompanyContext';
 
 interface LoanFormState {
   amount: number;
@@ -14,6 +15,7 @@ interface LoanFormState {
 
 const NewLoan: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,10 +35,18 @@ const NewLoan: React.FC = () => {
   // Load Initial Data
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentCompany) {
+        setLoading(false);
+        return;
+      }
+      
       setLoading(true);
       try {
-        // Fetch customers
-        const customersQuery = query(collection(db, "customers"), orderBy("name", "asc"));
+        // Fetch customers filtered by company
+        const customersQuery = query(
+          collection(db, "customers"), 
+          where("companyId", "==", currentCompany.id)
+        );
         const customersSnap = await getDocs(customersQuery);
         const customersData = customersSnap.docs.map(doc => ({ 
             id: doc.id, 
@@ -45,8 +55,12 @@ const NewLoan: React.FC = () => {
         } as Customer));
         setCustomers(customersData);
 
-        // Fetch active loans to prevent duplicates
-        const activeLoansQuery = query(collection(db, "loans"), where("status", "==", "Disbursed"));
+        // Fetch active loans to prevent duplicates (also filter by company)
+        const activeLoansQuery = query(
+          collection(db, "loans"), 
+          where("status", "==", "Disbursed"),
+          where("companyId", "==", currentCompany.id)
+        );
         const activeLoansSnap = await getDocs(activeLoansQuery);
         const activeLoanCustomerIds = new Set(activeLoansSnap.docs.map(doc => doc.data().customerId));
         setCustomersWithActiveLoans(activeLoanCustomerIds);
@@ -59,7 +73,7 @@ const NewLoan: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [currentCompany]);
 
   const filteredCustomers = useMemo(() => {
     const lowerSearch = searchTerm.toLowerCase();
