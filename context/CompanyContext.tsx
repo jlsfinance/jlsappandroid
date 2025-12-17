@@ -12,7 +12,8 @@ interface CompanyContextType {
   refreshCompanies: () => Promise<void>;
   addCompany: (name: string, address?: string, phone?: string, gstin?: string) => Promise<string>;
   deleteCompany: (companyId: string) => Promise<void>;
-  updateCompany: (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string }) => Promise<void>;
+  updateCompany: (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string; upiId?: string }) => Promise<void>;
+  userRole: 'admin' | 'agent' | 'customer' | null;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -29,37 +30,67 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentCompany, setCurrentCompanyState] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<'admin' | 'agent' | 'customer' | null>(null);
 
   const fetchCompanies = async () => {
     const user = auth.currentUser;
     if (!user) {
       setCompanies([]);
       setCurrentCompanyState(null);
+      setUserRole(null);
       setLoading(false);
       return;
     }
 
     try {
-      const companiesQuery = query(
+      const ownedCompaniesQuery = query(
         collection(db, "companies"),
         where("ownerEmail", "==", user.email)
       );
-      const snapshot = await getDocs(companiesQuery);
-      const companyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
-      setCompanies(companyList);
+      const ownedSnapshot = await getDocs(ownedCompaniesQuery);
+      const ownedCompanies = ownedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
+
+      const usersQuery = query(
+        collection(db, "users"),
+        where("email", "==", user.email)
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+      
+      let assignedCompanies: Company[] = [];
+      let role: 'admin' | 'agent' | 'customer' | null = null;
+      
+      if (!usersSnapshot.empty) {
+        const userData = usersSnapshot.docs[0].data();
+        role = userData.role || 'customer';
+        setUserRole(role);
+        
+        if (userData.companyId && (role === 'admin' || role === 'agent')) {
+          const companyRef = doc(db, "companies", userData.companyId);
+          const companySnap = await getDoc(companyRef);
+          if (companySnap.exists()) {
+            const assignedCompany = { id: companySnap.id, ...companySnap.data() } as Company;
+            if (!ownedCompanies.find(c => c.id === assignedCompany.id)) {
+              assignedCompanies.push(assignedCompany);
+            }
+          }
+        }
+      }
+
+      const allCompanies = [...ownedCompanies, ...assignedCompanies];
+      setCompanies(allCompanies);
 
       const savedCompanyId = localStorage.getItem(`selectedCompany_${user.uid}`);
       if (savedCompanyId) {
-        const savedCompany = companyList.find(c => c.id === savedCompanyId);
+        const savedCompany = allCompanies.find(c => c.id === savedCompanyId);
         if (savedCompany) {
           setCurrentCompanyState(savedCompany);
-        } else if (companyList.length > 0) {
-          setCurrentCompanyState(companyList[0]);
-          localStorage.setItem(`selectedCompany_${user.uid}`, companyList[0].id);
+        } else if (allCompanies.length > 0) {
+          setCurrentCompanyState(allCompanies[0]);
+          localStorage.setItem(`selectedCompany_${user.uid}`, allCompanies[0].id);
         }
-      } else if (companyList.length > 0) {
-        setCurrentCompanyState(companyList[0]);
-        localStorage.setItem(`selectedCompany_${user.uid}`, companyList[0].id);
+      } else if (allCompanies.length > 0) {
+        setCurrentCompanyState(allCompanies[0]);
+        localStorage.setItem(`selectedCompany_${user.uid}`, allCompanies[0].id);
       }
     } catch (error) {
       console.error("Error fetching companies:", error);
@@ -88,7 +119,8 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       createdAt: new Date().toISOString(),
       address: address || '',
       phone: phone || '',
-      gstin: gstin || ''
+      gstin: gstin || '',
+      upiId: ''
     };
 
     const docRef = await addDoc(collection(db, "companies"), newCompany);
@@ -116,7 +148,7 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     await fetchCompanies();
   };
 
-  const updateCompany = async (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string }): Promise<void> => {
+  const updateCompany = async (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string; upiId?: string }): Promise<void> => {
     const user = auth.currentUser;
     if (!user) {
       throw new Error("User not authenticated");
@@ -133,6 +165,7 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       } else {
         setCompanies([]);
         setCurrentCompanyState(null);
+        setUserRole(null);
         setLoading(false);
       }
     });
@@ -149,7 +182,8 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshCompanies,
       addCompany,
       deleteCompany,
-      updateCompany
+      updateCompany,
+      userRole
     }}>
       {children}
     </CompanyContext.Provider>

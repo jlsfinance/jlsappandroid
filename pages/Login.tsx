@@ -102,6 +102,12 @@ const Login: React.FC = () => {
             Sign Up
           </Link>
         </div>
+
+        <div className="mt-4 pt-4 border-t border-outline-light/20 dark:border-outline-dark/20 text-center">
+          <Link to="/customer-login" className="text-sm text-on-surface-variant-light dark:text-on-surface-variant-dark hover:text-primary dark:hover:text-primary-dark">
+            Customer Login (Pay EMI)
+          </Link>
+        </div>
       </div>
       <div className="mt-12 text-center">
         <p className="text-[10px] font-bold text-outline-light dark:text-outline-dark uppercase tracking-widest">

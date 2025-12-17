@@ -61,4 +61,20 @@ export interface Company {
   address?: string;
   phone?: string;
   gstin?: string;
+  upiId?: string;
+}
+
+export interface AppUser {
+  id: string;
+  uid?: string;
+  name?: string;
+  email: string;
+  role: 'admin' | 'agent' | 'customer';
+  companyId?: string;
+  permissions?: {
+    canViewLoans?: boolean;
+    canCollectEMI?: boolean;
+    canViewCustomers?: boolean;
+  };
+  createdAt?: string;
 }
