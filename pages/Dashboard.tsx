@@ -218,8 +218,36 @@ const Dashboard: React.FC = () => {
     const { data, columns } = getModalContent();
     if (!data || data.length === 0) { alert("No data available."); return; }
     const doc = new jsPDF('l', 'mm', 'a4');
-    doc.text("JLS Finance Company Report", 14, 15);
-    const tableRows = data.map((row) => Object.values(row).slice(0, columns.length));
+    doc.text("JLS Finance Company Report - " + activeCard, 14, 15);
+    
+    let tableRows: any[] = [];
+    
+    if (activeCard === 'Total Disbursed Loans') {
+      tableRows = data.map((row: any) => [
+        row.customerName || '-',
+        row.id || '-',
+        formatCurrency(row.amount),
+        row.disbursalDate ? format(parseISO(row.disbursalDate), 'dd-MMM-yy') : '-',
+        formatCurrency(row.emi),
+        row.status || '-'
+      ]);
+    } else if (activeCard === 'Active Loans') {
+      tableRows = data.map((row: any) => [
+        row.customerName || '-',
+        formatCurrency(row.loanAmountPI),
+        formatCurrency(row.emiPI),
+        row.emisPaidCount || '-',
+        formatCurrency(row.amountPendingPI)
+      ]);
+    } else if (activeCard === 'Active Loan Value') {
+      tableRows = data.map((row: any) => [
+        row.customerName || '-',
+        formatCurrency(row.totalLoanPI),
+        formatCurrency(row.totalReceivedPI),
+        formatCurrency(row.balancePI)
+      ]);
+    }
+    
     autoTable(doc, { head: [columns], body: tableRows, startY: 25 });
     doc.save('report.pdf');
   };
