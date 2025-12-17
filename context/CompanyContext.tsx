@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { collection, getDocs, query, where, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { Company } from '../types';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -11,6 +11,7 @@ interface CompanyContextType {
   loading: boolean;
   refreshCompanies: () => Promise<void>;
   addCompany: (name: string, address?: string, phone?: string, gstin?: string) => Promise<string>;
+  deleteCompany: (companyId: string) => Promise<void>;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -98,6 +99,22 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     await fetchCompanies();
   };
 
+  const deleteCompany = async (companyId: string): Promise<void> => {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    await deleteDoc(doc(db, "companies", companyId));
+    
+    if (currentCompany?.id === companyId) {
+      setCurrentCompanyState(null);
+      localStorage.removeItem(`selectedCompany_${user.uid}`);
+    }
+    
+    await fetchCompanies();
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -119,7 +136,8 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       setCurrentCompany,
       loading,
       refreshCompanies,
-      addCompany
+      addCompany,
+      deleteCompany
     }}>
       {children}
     </CompanyContext.Provider>
