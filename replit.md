@@ -45,6 +45,9 @@ A React + TypeScript finance management application built with Vite with Capacit
 3. **Amount Received Checkbox** - When foreclosing a loan, checkbox to confirm amount received. When checked, the foreclosure amount is automatically added as credit to cash ledger
 4. **Undo Foreclosure** - For loans that were pre-closed, an "Undo Foreclosure" button restores the loan to active status with pending EMIs
 5. **Loan Disbursal** - Added Loan Disbursal option in Tools page. Approved loans can be disbursed with date selection, automatic EMI schedule generation, and WhatsApp notification
+6. **Role-Based Company Access** - Users assigned admin/agent roles in a company now automatically see that company when they login, no need to add company again
+7. **Customer Portal** - Customers can login using phone number (as both user ID and password) to view their loan details and EMI schedule
+8. **UPI Payment for EMI** - Customer portal generates QR code and UPI payment link for EMI payments to 9413821007@superyes
 
 ## Configuration
 - Vite is configured to allow all hosts for Replit proxy compatibility
