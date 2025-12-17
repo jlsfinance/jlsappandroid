@@ -2,9 +2,11 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
+import { useCompany } from '../context/CompanyContext';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
 
   const handleLogout = async () => {
     try {
@@ -33,6 +35,22 @@ const Settings: React.FC = () => {
             <p className="text-slate-500 dark:text-gray-400 text-sm font-medium leading-normal truncate">Loan Officer</p>
             <p className="text-slate-400 dark:text-gray-500 text-xs font-normal mt-0.5">ID: {auth.currentUser?.uid.slice(0, 6).toUpperCase()}</p>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <h3 className="text-slate-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider px-6 pb-2 pt-2">Company</h3>
+        <div className="mx-4 bg-white dark:bg-[#1a2235] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
+          <Link to="/company-selector" className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+            <div className="flex items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 size-9">
+              <span className="material-symbols-outlined text-[20px]">business</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-medium leading-normal truncate">{currentCompany?.name || 'Select Company'}</p>
+              <p className="text-xs text-slate-400">Tap to switch or add company</p>
+            </div>
+            <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
+          </Link>
         </div>
       </div>
 

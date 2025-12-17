@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Customer } from '../types';
+import { useCompany } from '../context/CompanyContext';
 
 const Customers: React.FC = () => {
+  const { currentCompany } = useCompany();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,18 +14,17 @@ const Customers: React.FC = () => {
 
   useEffect(() => {
     const fetchCustomers = async () => {
+      if (!currentCompany) return;
+      
       try {
-        // Fetching directly from Firestore as requested
-        const q = query(collection(db, "customers"));
+        const q = query(collection(db, "customers"), where("companyId", "==", currentCompany.id));
         const querySnapshot = await getDocs(q);
         const data = querySnapshot.docs.map(doc => {
           const docData = doc.data();
           return { 
             id: doc.id, 
             ...docData,
-            // Ensure status has a default if missing
             status: docData.status || 'Active',
-            // Map photo_url to avatar property for easier handling, fallback to avatar field if exists
             avatar: docData.photo_url || docData.avatar || '',
             name: docData.name || 'Unknown Customer'
           };
@@ -37,7 +38,7 @@ const Customers: React.FC = () => {
     };
 
     fetchCustomers();
-  }, []);
+  }, [currentCompany]);
 
   // Filter Logic
   const filteredCustomers = useMemo(() => {

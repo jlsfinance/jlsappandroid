@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, addDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useCompany } from '../context/CompanyContext';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -30,6 +31,7 @@ const formatCurrency = (value: number | null) => {
 }
 
 const FinanceOverview: React.FC = () => {
+  const { currentCompany } = useCompany();
   const [monthlyLedgers, setMonthlyLedgers] = useState<MonthlyLedger[]>([]);
   const [allEntries, setAllEntries] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,12 +51,15 @@ const FinanceOverview: React.FC = () => {
   const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
 
   const generateLedger = useCallback(async () => {
+    if (!currentCompany) return;
+    
     setLoading(true);
     try {
+        const companyId = currentCompany.id;
         const [partnerTxSnap, loansSnap, expensesSnap] = await Promise.all([
-            getDocs(query(collection(db, "partner_transactions"))),
-            getDocs(query(collection(db, "loans"), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
-            getDocs(query(collection(db, "expenses")))
+            getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+            getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
+            getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))
         ]);
         
         const partnerTxs = partnerTxSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerTransaction));
@@ -188,7 +193,7 @@ const FinanceOverview: React.FC = () => {
     } finally {
         setLoading(false);
     }
-  }, []);
+  }, [currentCompany]);
 
   useEffect(() => {
     generateLedger();
@@ -197,6 +202,7 @@ const FinanceOverview: React.FC = () => {
   const handleAddExpense = async (e: React.FormEvent) => {
       e.preventDefault();
       if(!expenseForm.amount || !expenseForm.narration) return alert("Please fill all fields");
+      if(!currentCompany) return alert("No company selected");
       
       setIsSubmittingExpense(true);
       try {
@@ -204,6 +210,7 @@ const FinanceOverview: React.FC = () => {
               date: expenseForm.date,
               amount: Number(expenseForm.amount),
               narration: expenseForm.narration,
+              companyId: currentCompany.id,
               createdAt: new Date().toISOString()
           });
           alert("Expense recorded successfully.");
