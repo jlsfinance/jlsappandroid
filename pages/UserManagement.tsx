@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useCompany } from '../context/CompanyContext';
 
 interface UserPermissions {
   canViewLoans: boolean;
@@ -14,6 +15,7 @@ interface User {
   name?: string;
   email: string;
   role: 'admin' | 'agent' | 'customer';
+  companyId?: string;
   permissions?: Partial<UserPermissions>;
 }
 
@@ -25,12 +27,12 @@ const defaultPermissions: UserPermissions = {
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Edit State
   const [editedRole, setEditedRole] = useState<'admin' | 'agent' | 'customer'>('customer');
   const [editedPermissions, setEditedPermissions] = useState<UserPermissions>(defaultPermissions);
 
@@ -59,12 +61,16 @@ const UserManagement: React.FC = () => {
   };
 
   const handleUserUpdate = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || !currentCompany) return;
     setIsSubmitting(true);
     try {
       const userRef = doc(db, "users", selectedUser.id);
       
-      const updateData: any = { role: editedRole };
+      const updateData: any = { 
+        role: editedRole,
+        companyId: currentCompany.id
+      };
+      
       if (editedRole === 'agent') {
         updateData.permissions = editedPermissions;
       } else {
@@ -73,7 +79,7 @@ const UserManagement: React.FC = () => {
 
       await updateDoc(userRef, updateData);
       
-      alert(`User profile for ${selectedUser.name || selectedUser.email} has been updated.`);
+      alert(`User profile for ${selectedUser.name || selectedUser.email} has been updated and assigned to ${currentCompany.name}.`);
       await fetchUsers();
       setSelectedUser(null);
     } catch (error) {
@@ -90,7 +96,6 @@ const UserManagement: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
@@ -101,6 +106,14 @@ const UserManagement: React.FC = () => {
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
+        {currentCompany && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              Users will be assigned to: <strong>{currentCompany.name}</strong>
+            </p>
+          </div>
+        )}
+        
         <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                 <h2 className="font-bold text-lg">System Users</h2>
@@ -162,7 +175,6 @@ const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Modal */}
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
