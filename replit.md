@@ -34,10 +34,26 @@ A React + TypeScript finance management application built with Vite with Capacit
 - Capacitor sync: `npm run cap:sync`
 - Build + Sync: `npm run cap:build`
 
-## Android App
-- Download `android` folder and open in Android Studio
-- Build APK: Build > Build Bundle(s) / APK(s) > Build APK(s)
-- APK location: `android/app/build/outputs/apk/debug/app-debug.apk`
+## Android App (Play Store Ready)
+- **Full Guide**: See `ANDROID_BUILD_GUIDE.md` for detailed instructions
+- **Capacitor Version**: 7.x (compatible with Node.js 20)
+- **App ID**: com.jls.financesuite
+- **Target SDK**: 35 (Android 15)
+- **Min SDK**: 23 (Android 6.0)
+
+### Quick Build Steps:
+1. Download entire project from Replit
+2. Open `android` folder in Android Studio
+3. Add `google-services.json` from Firebase Console
+4. Generate signing key: `keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-finance`
+5. Build: Build > Generate Signed Bundle / APK > Android App Bundle
+6. Upload AAB to Play Console
+
+### Update App After Web Changes:
+```bash
+npm run build
+npx cap sync android
+```
 
 ## Recent Features (Dec 2025)
 1. **Foreclosure PDF Certificate** - Auto-generates detailed PDF when loan is pre-closed with full loan details, payment summary, and foreclosure calculation
