@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../firebaseConfig';
-import { collection, getDocs, query, orderBy, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, getDoc, deleteDoc, where } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useCompany } from '../context/CompanyContext';
 
 // --- Types ---
 interface Loan {
@@ -80,6 +81,7 @@ async function toBase64(url: string) {
 
 const Loans: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
   const [searchTerm, setSearchTerm] = useState('');
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,9 +101,11 @@ const Loans: React.FC = () => {
 
   // Fetch Data
   const fetchLoans = useCallback(async () => {
+    if (!currentCompany) return;
+    
     setLoading(true);
     try {
-        const q = query(collection(db, "loans"), orderBy("date", "desc"));
+        const q = query(collection(db, "loans"), where("companyId", "==", currentCompany.id), orderBy("date", "desc"));
         const querySnapshot = await getDocs(q);
         const loansData = querySnapshot.docs.map(doc => ({
             id: doc.id,
@@ -113,7 +117,7 @@ const Loans: React.FC = () => {
     } finally {
         setLoading(false);
     }
-  }, []);
+  }, [currentCompany]);
 
   useEffect(() => {
     fetchLoans();

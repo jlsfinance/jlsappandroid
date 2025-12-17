@@ -104,119 +104,157 @@ const App: React.FC = () => {
         
         <Route path="/customers" element={
           <ProtectedRoute>
-            <Customers />
-            <BottomNav />
+            <CompanyRequiredRoute>
+              <Customers />
+              <BottomNav />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/customers/new" element={
           <ProtectedRoute>
-            <NewCustomer />
+            <CompanyRequiredRoute>
+              <NewCustomer />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/customers/edit/:id" element={
           <ProtectedRoute>
-            <EditCustomer />
+            <CompanyRequiredRoute>
+              <EditCustomer />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/customers/:id" element={
           <ProtectedRoute>
-            <CustomerProfile />
+            <CompanyRequiredRoute>
+              <CustomerProfile />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/loans" element={
           <ProtectedRoute>
-            <Loans />
-            <BottomNav />
+            <CompanyRequiredRoute>
+              <Loans />
+              <BottomNav />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/loans/new" element={
           <ProtectedRoute>
-            <NewLoan />
+            <CompanyRequiredRoute>
+              <NewLoan />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/loans/:id" element={
           <ProtectedRoute>
-            <LoanDetails />
+            <CompanyRequiredRoute>
+              <LoanDetails />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/finance" element={
           <ProtectedRoute>
-            <FinanceOverview />
-            <BottomNav />
+            <CompanyRequiredRoute>
+              <FinanceOverview />
+              <BottomNav />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/partners" element={
           <ProtectedRoute>
-            <Partners />
+            <CompanyRequiredRoute>
+              <Partners />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/tools" element={
           <ProtectedRoute>
-            <Tools />
-            <BottomNav />
+            <CompanyRequiredRoute>
+              <Tools />
+              <BottomNav />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/tools/legal-notice" element={
           <ProtectedRoute>
-            <LegalNotice />
+            <CompanyRequiredRoute>
+              <LegalNotice />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/reports" element={
           <ProtectedRoute>
-            <Reports />
+            <CompanyRequiredRoute>
+              <Reports />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/receipts" element={
           <ProtectedRoute>
-            <Receipts />
+            <CompanyRequiredRoute>
+              <Receipts />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/approvals" element={
           <ProtectedRoute>
-            <Approvals />
+            <CompanyRequiredRoute>
+              <Approvals />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/disbursal" element={
           <ProtectedRoute>
-            <Disbursal />
+            <CompanyRequiredRoute>
+              <Disbursal />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/due-list" element={
           <ProtectedRoute>
-            <DueList />
+            <CompanyRequiredRoute>
+              <DueList />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/tools/emi" element={
           <ProtectedRoute>
-            <EMICalculator />
+            <CompanyRequiredRoute>
+              <EMICalculator />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/settings" element={
           <ProtectedRoute>
-            <Settings />
+            <CompanyRequiredRoute>
+              <Settings />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
 
         <Route path="/user-management" element={
           <ProtectedRoute>
-            <UserManagement />
+            <CompanyRequiredRoute>
+              <UserManagement />
+            </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
         </Routes>

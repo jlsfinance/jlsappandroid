@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useCompany } from '../context/CompanyContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO } from 'date-fns';
@@ -23,6 +24,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const Dashboard: React.FC = () => {
+  const { currentCompany } = useCompany();
   const [activeCard, setActiveCard] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -35,17 +37,21 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+        if (!currentCompany) return;
+        
         try {
             const user = auth.currentUser;
             if (user?.email) {
                 setUserName(user.email.split('@')[0]);
             }
 
+            const companyId = currentCompany.id;
+            
             const [loansSnap, customersSnap, partnerTxSnap, expensesSnap] = await Promise.all([
-                getDocs(query(collection(db, "loans"), orderBy("date", "desc"))),
-                getDocs(collection(db, "customers")),
-                getDocs(collection(db, "partner_transactions")),
-                getDocs(collection(db, "expenses"))
+                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), orderBy("date", "desc"))),
+                getDocs(query(collection(db, "customers"), where("companyId", "==", companyId))),
+                getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))
             ]);
 
             const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -65,7 +71,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [currentCompany]);
 
   const metrics = useMemo(() => {
       let totalDisbursedCount = 0;

@@ -2,9 +2,15 @@ import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, Firest
 import { db } from '../firebaseConfig';
 import { Customer, Loan } from '../types';
 
-export const fetchCustomers = async (): Promise<Customer[]> => {
+export const fetchCustomers = async (companyId?: string): Promise<Customer[]> => {
   try {
-    const querySnapshot = await getDocs(collection(db, "customers"));
+    let q;
+    if (companyId) {
+      q = query(collection(db, "customers"), where("companyId", "==", companyId));
+    } else {
+      q = collection(db, "customers");
+    }
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
   } catch (error) {
     console.error("Error fetching customers from Firebase:", error);
@@ -44,7 +50,23 @@ export const fetchLoansByCustomerId = async (customerId: string): Promise<Loan[]
   }
 };
 
-export const createCustomer = async (customer: Omit<Customer, 'id'>) => {
+export const fetchLoans = async (companyId?: string): Promise<Loan[]> => {
+  try {
+    let q;
+    if (companyId) {
+      q = query(collection(db, "loans"), where("companyId", "==", companyId));
+    } else {
+      q = collection(db, "loans");
+    }
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+  } catch (error) {
+    console.error("Error fetching loans from Firebase:", error);
+    return [];
+  }
+};
+
+export const createCustomer = async (customer: Omit<Customer, 'id'> & { companyId: string }) => {
   try {
     const docRef = await addDoc(collection(db, "customers"), customer);
     return docRef.id;
