@@ -90,6 +90,7 @@ const App: React.FC = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/customer-login" element={<CustomerLogin />} />
+          <Route path="/customer-login/:companyId" element={<CustomerLogin />} />
           <Route path="/customer-portal" element={<CustomerPortal />} />
           
           <Route path="/company-selector" element={
