@@ -654,6 +654,9 @@ const LoanDetails: React.FC = () => {
         </button>
         <h1 className="text-lg font-bold">Loan Details</h1>
         <div className="flex gap-2">
+           <button onClick={() => navigate(`/loans/edit/${loanId}`)} className="flex items-center justify-center p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors" title="Edit Loan">
+              <span className="material-symbols-outlined">edit</span>
+           </button>
            <button onClick={handleDownloadSchedule} disabled={isDownloadingSchedule} className="flex items-center justify-center p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
               {isDownloadingSchedule ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div> : <span className="material-symbols-outlined">download</span>}
            </button>

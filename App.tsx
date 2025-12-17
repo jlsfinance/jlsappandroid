@@ -11,6 +11,7 @@ import EditCustomer from './pages/EditCustomer';
 import Loans from './pages/Loans';
 import LoanDetails from './pages/LoanDetails';
 import NewLoan from './pages/NewLoan';
+import EditLoan from './pages/EditLoan';
 import Tools from './pages/Tools';
 import EMICalculator from './pages/EMICalculator';
 import Settings from './pages/Settings';
@@ -156,6 +157,14 @@ const App: React.FC = () => {
           <ProtectedRoute>
             <CompanyRequiredRoute>
               <LoanDetails />
+            </CompanyRequiredRoute>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/loans/edit/:id" element={
+          <ProtectedRoute>
+            <CompanyRequiredRoute>
+              <EditLoan />
             </CompanyRequiredRoute>
           </ProtectedRoute>
         } />
