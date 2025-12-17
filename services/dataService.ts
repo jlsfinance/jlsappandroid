@@ -39,11 +39,16 @@ export const fetchLoansByCustomerId = async (customerId: string): Promise<Loan[]
   try {
     const loansQuery = query(
       collection(db, "loans"), 
-      where("customerId", "==", customerId),
-      orderBy("date", "desc")
+      where("customerId", "==", customerId)
     );
     const querySnapshot = await getDocs(loansQuery);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+    const loans = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+    loans.sort((a: any, b: any) => {
+      const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
+      const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
+    return loans;
   } catch (error) {
     console.error("Error fetching loans:", error);
     return [];
