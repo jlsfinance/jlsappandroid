@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { db } from '../firebaseConfig';
 import { collection, query, where, getDocs, doc, runTransaction, getDoc } from "firebase/firestore";
 import { format, parseISO, isPast, subMonths, addMonths } from 'date-fns';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useCompany } from '../context/CompanyContext';
 
 // WhatsApp Icon Component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -24,13 +25,8 @@ interface PendingEmi {
     phoneNumber?: string;
 }
 
-const companyDetails = {
-    name: "JLS Finance Company",
-    address: "123 Finance Street, City Center",
-    phone: "+91 98765 43210"
-};
-
 const DueList: React.FC = () => {
+    const { currentCompany } = useCompany();
     const [allPendingEmis, setAllPendingEmis] = useState<PendingEmi[]>([]);
     const [filteredEmis, setFilteredEmis] = useState<PendingEmi[]>([]);
     const [viewDate, setViewDate] = useState(new Date());
@@ -51,6 +47,12 @@ const DueList: React.FC = () => {
     
     const [lastCollectedEmi, setLastCollectedEmi] = useState<PendingEmi | null>(null);
     const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+
+    const companyDetails = useMemo(() => ({
+        name: currentCompany?.name || "Finance Company",
+        address: currentCompany?.address || "",
+        phone: currentCompany?.phone || ""
+    }), [currentCompany]);
 
     const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat("en-IN").format(value)}`;
 

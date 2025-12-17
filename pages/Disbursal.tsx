@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { addMonths, startOfMonth, format, parse, isValid } from 'date-fns';
+import { useCompany } from '../context/CompanyContext';
 
 interface ApprovedLoan {
     id: string;
@@ -17,8 +18,11 @@ interface ApprovedLoan {
 
 const Disbursal: React.FC = () => {
     const navigate = useNavigate();
+    const { currentCompany } = useCompany();
     const [approvedLoans, setApprovedLoans] = useState<ApprovedLoan[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const companyName = useMemo(() => currentCompany?.name || "Finance Company", [currentCompany]);
     
     // Modal State
     const [selectedLoan, setSelectedLoan] = useState<ApprovedLoan | null>(null);
@@ -92,7 +96,7 @@ const Disbursal: React.FC = () => {
                         const amountFormatted = `Rs. ${selectedLoan.amount.toLocaleString('en-IN')}`;
                         const dateFormatted = format(dateObj, 'dd MMMM, yyyy');
 
-                        const message = `Namaste ${selectedLoan.customerName},\n\nAapka JLS Finance Company se ${amountFormatted} ka loan aaj dinank ${dateFormatted} ko disburse kar diya gaya hai.\n\nDhanyavaad.`;
+                        const message = `Namaste ${selectedLoan.customerName},\n\nAapka ${companyName} se ${amountFormatted} ka loan aaj dinank ${dateFormatted} ko disburse kar diya gaya hai.\n\nDhanyavaad.`;
                         const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
                         
                         window.open(whatsappUrl, '_blank');

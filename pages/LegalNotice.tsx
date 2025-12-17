@@ -4,6 +4,7 @@ import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { addMonths, format, parseISO, differenceInDays, startOfDay, isPast, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
+import { useCompany } from '../context/CompanyContext';
 
 // --- Icons ---
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -48,16 +49,17 @@ interface Template extends NoticeForm {
   templateName: string;
 }
 
-const companyDetails = {
-    name: "JLS Finance Company",
-    address: "123 Finance Street, City Center, Jaipur, Rajasthan",
-    phone: "+91 98765 43210"
-};
-
 const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(value)}`;
 
 const LegalNotice: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
+  
+  const companyDetails = useMemo(() => ({
+    name: currentCompany?.name || "Finance Company",
+    address: currentCompany?.address || "",
+    phone: currentCompany?.phone || ""
+  }), [currentCompany]);
   
   // Data State
   const [customers, setCustomers] = useState<Customer[]>([]);

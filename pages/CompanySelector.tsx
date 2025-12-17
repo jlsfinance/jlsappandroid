@@ -7,7 +7,7 @@ import { db } from '../firebaseConfig';
 
 const CompanySelector: React.FC = () => {
   const navigate = useNavigate();
-  const { companies, currentCompany, setCurrentCompany, addCompany, deleteCompany, loading, refreshCompanies } = useCompany();
+  const { companies, currentCompany, setCurrentCompany, addCompany, deleteCompany, updateCompany, loading, refreshCompanies } = useCompany();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyAddress, setNewCompanyAddress] = useState('');
@@ -25,6 +25,14 @@ const CompanySelector: React.FC = () => {
   const [showMigrateModal, setShowMigrateModal] = useState(false);
   const [selectedCompanyForMigration, setSelectedCompanyForMigration] = useState<Company | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
+  
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editCompanyAddress, setEditCompanyAddress] = useState('');
+  const [editCompanyPhone, setEditCompanyPhone] = useState('');
+  const [editCompanyGstin, setEditCompanyGstin] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     const checkOrphanedData = async () => {
@@ -131,6 +139,42 @@ const CompanySelector: React.FC = () => {
     e.stopPropagation();
     setCompanyToDelete(company);
     setShowDeleteConfirm(true);
+  };
+
+  const handleEditClick = (e: React.MouseEvent, company: Company) => {
+    e.stopPropagation();
+    setCompanyToEdit(company);
+    setEditCompanyName(company.name);
+    setEditCompanyAddress(company.address || '');
+    setEditCompanyPhone(company.phone || '');
+    setEditCompanyGstin(company.gstin || '');
+    setShowEditModal(true);
+  };
+
+  const handleEditCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!companyToEdit || !editCompanyName.trim()) {
+      alert("Company name is required");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await updateCompany(companyToEdit.id, {
+        name: editCompanyName,
+        address: editCompanyAddress,
+        phone: editCompanyPhone,
+        gstin: editCompanyGstin
+      });
+      setShowEditModal(false);
+      setCompanyToEdit(null);
+      alert("Company updated successfully!");
+    } catch (error) {
+      console.error("Error updating company:", error);
+      alert("Failed to update company");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -256,6 +300,13 @@ const CompanySelector: React.FC = () => {
                   {currentCompany?.id === company.id && (
                     <span className="material-symbols-outlined text-primary">check_circle</span>
                   )}
+                  <button
+                    onClick={(e) => handleEditClick(e, company)}
+                    className="p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/20 text-blue-500 transition-colors"
+                    title="Edit company"
+                  >
+                    <span className="material-symbols-outlined text-xl">edit</span>
+                  </button>
                   <button
                     onClick={(e) => handleDeleteClick(e, company)}
                     className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
@@ -417,6 +468,76 @@ const CompanySelector: React.FC = () => {
                   className="flex-1 px-4 py-3 bg-primary text-on-primary font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {isSubmitting ? 'Adding...' : 'Add Company'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && companyToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+            <h3 className="text-xl font-bold mb-6 text-on-surface-light dark:text-on-surface-dark">Edit Company</h3>
+            <form onSubmit={handleEditCompany} className="space-y-4">
+              <div>
+                <label className="text-sm text-on-surface-variant-light block mb-1">Company Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editCompanyName}
+                  onChange={(e) => setEditCompanyName(e.target.value)}
+                  className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="Enter company name"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-on-surface-variant-light block mb-1">Address</label>
+                <input
+                  type="text"
+                  value={editCompanyAddress}
+                  onChange={(e) => setEditCompanyAddress(e.target.value)}
+                  className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="Enter address"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-on-surface-variant-light block mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editCompanyPhone}
+                  onChange={(e) => setEditCompanyPhone(e.target.value)}
+                  className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-on-surface-variant-light block mb-1">GSTIN</label>
+                <input
+                  type="text"
+                  value={editCompanyGstin}
+                  onChange={(e) => setEditCompanyGstin(e.target.value)}
+                  className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="Enter GSTIN"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setCompanyToEdit(null);
+                  }}
+                  className="flex-1 px-4 py-3 text-primary font-medium border border-primary rounded-xl hover:bg-primary/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="flex-1 px-4 py-3 bg-primary text-on-primary font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {isUpdating ? 'Updating...' : 'Update'}
                 </button>
               </div>
             </form>

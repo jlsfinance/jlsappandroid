@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import { db } from '../firebaseConfig';
-import { collection, getDocs, query, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
+import { useCompany } from '../context/CompanyContext';
 
 interface Receipt {
     id: string;
@@ -15,24 +16,27 @@ interface Receipt {
     paymentMethod: string;
     receiptId: string;
     emiNumber: number;
+    companyId?: string;
 }
-
-const companyDetails = {
-    name: "JLS Finance Company",
-    address: "123 Finance Street, City Center",
-    phone: "+91 98765 43210"
-};
 
 const Receipts: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
+  const companyDetails = useMemo(() => ({
+    name: currentCompany?.name || "Finance Company",
+    address: currentCompany?.address || "",
+    phone: currentCompany?.phone || ""
+  }), [currentCompany]);
+
   const loadData = useCallback(async () => {
+    if (!currentCompany) return;
     setLoading(true);
     try {
-        const q = query(collection(db, "receipts"), orderBy("paymentDate", "desc"));
+        const q = query(collection(db, "receipts"), where("companyId", "==", currentCompany.id), orderBy("paymentDate", "desc"));
         const querySnapshot = await getDocs(q);
         const receiptsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Receipt[];
         setReceipts(receiptsData);
@@ -41,7 +45,7 @@ const Receipts: React.FC = () => {
     } finally {
         setLoading(false);
     }
-  }, []);
+  }, [currentCompany]);
 
   useEffect(() => {
     loadData();
