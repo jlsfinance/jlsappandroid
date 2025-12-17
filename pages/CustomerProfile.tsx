@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { fetchCustomerById, fetchLoansByCustomerId } from '../services/dataService';
+import { fetchCustomerById, fetchLoansByCustomerId, deleteCustomer } from '../services/dataService';
 import { Customer, Loan } from '../types';
 
 const CustomerProfile: React.FC = () => {
@@ -9,6 +9,8 @@ const CustomerProfile: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Helper to get initials
   const getInitials = (name: string) => {
@@ -114,6 +116,10 @@ const CustomerProfile: React.FC = () => {
                 <span className="material-symbols-outlined text-sm">edit</span>
                 <span className="font-bold text-xs hidden sm:inline">Edit</span>
             </Link>
+            <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <span className="material-symbols-outlined text-sm">delete</span>
+                <span className="font-bold text-xs hidden sm:inline">Delete</span>
+            </button>
             <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <span className="material-symbols-outlined text-sm">print</span>
                 <span className="font-bold text-xs hidden sm:inline">Print</span>
@@ -271,6 +277,66 @@ const CustomerProfile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-lg p-6">
+            <div className="text-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-3xl text-red-600">warning</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Delete Customer?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Are you sure you want to delete <strong>{customer?.name}</strong>? This action cannot be undone.
+              </p>
+              {loans.length > 0 && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-2 font-medium">
+                  Warning: This customer has {loans.length} loan(s) linked to them.
+                </p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!id) return;
+                  setIsDeleting(true);
+                  try {
+                    await deleteCustomer(id);
+                    navigate('/customers');
+                  } catch (error) {
+                    console.error('Error deleting customer:', error);
+                    alert('Failed to delete customer');
+                  } finally {
+                    setIsDeleting(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="flex-1 py-3 px-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

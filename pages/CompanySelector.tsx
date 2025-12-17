@@ -33,6 +33,7 @@ const CompanySelector: React.FC = () => {
   const [editCompanyPhone, setEditCompanyPhone] = useState('');
   const [editCompanyGstin, setEditCompanyGstin] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkOrphanedData = async () => {
@@ -300,6 +301,22 @@ const CompanySelector: React.FC = () => {
                   {currentCompany?.id === company.id && (
                     <span className="material-symbols-outlined text-primary">check_circle</span>
                   )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const baseUrl = window.location.origin + window.location.pathname;
+                      const link = `${baseUrl}#/customer-login/${company.id}`;
+                      navigator.clipboard.writeText(link);
+                      setCopiedLinkId(company.id);
+                      setTimeout(() => setCopiedLinkId(null), 2000);
+                    }}
+                    className="p-2 rounded-full hover:bg-green-100 dark:hover:bg-green-900/20 text-green-600 transition-colors"
+                    title="Copy Customer Login Link"
+                  >
+                    <span className="material-symbols-outlined text-xl">
+                      {copiedLinkId === company.id ? 'check' : 'link'}
+                    </span>
+                  </button>
                   <button
                     onClick={(e) => handleEditClick(e, company)}
                     className="p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/20 text-blue-500 transition-colors"
