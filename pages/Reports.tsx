@@ -5,6 +5,7 @@ import { db } from '../firebaseConfig';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useCompany } from '../context/CompanyContext';
 
 // --- Types ---
 interface Loan { id: string; customerId: string; customerName: string; amount: number; interestRate: number; disbursalDate: string; status: string; repaymentSchedule: any[]; processingFee: number; }
@@ -16,6 +17,7 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { styl
 
 const Reports: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
   const [activeTab, setActiveTab] = useState('summary');
   const [loading, setLoading] = useState(true);
   
@@ -30,11 +32,16 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentCompany) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const [loansSnap, receiptsSnap, customersSnap] = await Promise.all([
-          getDocs(query(collection(db, "loans"))),
-          getDocs(query(collection(db, "receipts"), orderBy("paymentDate", "desc"))),
-          getDocs(query(collection(db, "customers"), orderBy("name")))
+          getDocs(query(collection(db, "loans"), where("companyId", "==", currentCompany.id))),
+          getDocs(query(collection(db, "receipts"), where("companyId", "==", currentCompany.id))),
+          getDocs(query(collection(db, "customers"), where("companyId", "==", currentCompany.id)))
         ]);
 
         setLoans(loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan)));
@@ -47,7 +54,7 @@ const Reports: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [currentCompany]);
 
   // --- Reports Logic ---
 

@@ -57,11 +57,23 @@ const DueList: React.FC = () => {
     const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat("en-IN").format(value)}`;
 
     const fetchPendingEmis = useCallback(async () => {
+        if (!currentCompany) {
+            setLoading(false);
+            return;
+        }
+        
         setLoading(true);
         try {
-            // 1. Fetch all disbursed loans and customers
-            const loansQuery = query(collection(db, "loans"), where("status", "in", ["Disbursed", "Active", "Overdue"]));
-            const customersQuery = query(collection(db, "customers"));
+            // 1. Fetch all disbursed loans and customers filtered by company
+            const loansQuery = query(
+                collection(db, "loans"), 
+                where("status", "in", ["Disbursed", "Active", "Overdue"]),
+                where("companyId", "==", currentCompany.id)
+            );
+            const customersQuery = query(
+                collection(db, "customers"),
+                where("companyId", "==", currentCompany.id)
+            );
 
             const [loansSnapshot, customersSnapshot] = await Promise.all([
                 getDocs(loansQuery),
@@ -105,7 +117,7 @@ const DueList: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [currentCompany]);
 
     useEffect(() => {
         fetchPendingEmis();
