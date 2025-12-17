@@ -131,6 +131,19 @@ const Tools: React.FC = () => {
                     </div>
                     <span className="material-symbols-outlined text-slate-300">chevron_right</span>
                 </Link>
+
+                <Link to="/disbursal" className="flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+                            <span className="material-symbols-outlined">payments</span>
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-sm">Loan Disbursal</h4>
+                            <p className="text-[10px] text-slate-500 font-medium">Approved loans ready for payout</p>
+                        </div>
+                    </div>
+                    <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+                </Link>
             </div>
         </div>
 

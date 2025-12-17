@@ -44,6 +44,7 @@ A React + TypeScript finance management application built with Vite with Capacit
 2. **Extra Payment Feature** - In Due List, can now enter custom amount higher than EMI for extra payments, with PDF preview before save and auto-download after
 3. **Amount Received Checkbox** - When foreclosing a loan, checkbox to confirm amount received. When checked, the foreclosure amount is automatically added as credit to cash ledger
 4. **Undo Foreclosure** - For loans that were pre-closed, an "Undo Foreclosure" button restores the loan to active status with pending EMIs
+5. **Loan Disbursal** - Added Loan Disbursal option in Tools page. Approved loans can be disbursed with date selection, automatic EMI schedule generation, and WhatsApp notification
 
 ## Configuration
 - Vite is configured to allow all hosts for Replit proxy compatibility
