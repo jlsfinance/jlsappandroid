@@ -1,14 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
+interface Company {
+  id: string;
+  name: string;
+}
+
 const CustomerLogin: React.FC = () => {
   const navigate = useNavigate();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const companiesSnapshot = await getDocs(collection(db, "companies"));
+        const companiesData = companiesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || 'Unnamed Company'
+        }));
+        companiesData.sort((a, b) => a.name.localeCompare(b.name));
+        setCompanies(companiesData);
+      } catch (err) {
+        console.error('Error fetching companies:', err);
+        setError('Failed to load companies. Please refresh the page.');
+      } finally {
+        setLoadingCompanies(false);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,6 +45,12 @@ const CustomerLogin: React.FC = () => {
     setError('');
 
     try {
+      if (!selectedCompany) {
+        setError('Please select a finance company');
+        setLoading(false);
+        return;
+      }
+
       const cleanPhone = phone.replace(/\D/g, '');
       
       if (cleanPhone.length !== 10) {
@@ -30,21 +65,25 @@ const CustomerLogin: React.FC = () => {
         return;
       }
 
+      // Query customers with phone and companyId filter
       const customersQuery = query(
         collection(db, "customers"),
-        where("phone", "==", cleanPhone)
+        where("phone", "==", cleanPhone),
+        where("companyId", "==", selectedCompany)
       );
       const snapshot = await getDocs(customersQuery);
 
       if (snapshot.empty) {
+        // Try with +91 prefix
         const customersQueryWithPrefix = query(
           collection(db, "customers"),
-          where("phone", "==", `+91${cleanPhone}`)
+          where("phone", "==", `+91${cleanPhone}`),
+          where("companyId", "==", selectedCompany)
         );
         const snapshotWithPrefix = await getDocs(customersQueryWithPrefix);
         
         if (snapshotWithPrefix.empty) {
-          setError('No account found with this phone number. Please contact your finance company.');
+          setError('No account found with this phone number in the selected company. Please check your details or contact your finance company.');
           setLoading(false);
           return;
         }
@@ -52,6 +91,7 @@ const CustomerLogin: React.FC = () => {
         const customerDoc = snapshotWithPrefix.docs[0];
         localStorage.setItem('customerPortalId', customerDoc.id);
         localStorage.setItem('customerPortalPhone', cleanPhone);
+        localStorage.setItem('customerPortalCompanyId', selectedCompany);
         navigate('/customer-portal');
         return;
       }
@@ -59,6 +99,7 @@ const CustomerLogin: React.FC = () => {
       const customerDoc = snapshot.docs[0];
       localStorage.setItem('customerPortalId', customerDoc.id);
       localStorage.setItem('customerPortalPhone', cleanPhone);
+      localStorage.setItem('customerPortalCompanyId', selectedCompany);
       navigate('/customer-portal');
 
     } catch (err: any) {
@@ -87,6 +128,40 @@ const CustomerLogin: React.FC = () => {
                 {error}
               </div>
             )}
+
+            <div>
+              <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">
+                Select Finance Company
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <span className="material-symbols-outlined text-xl">business</span>
+                </span>
+                {loadingCompanies ? (
+                  <div className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 flex items-center">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent mr-2"></div>
+                    Loading companies...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCompany}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary outline-none text-slate-900 dark:text-white appearance-none cursor-pointer"
+                    required
+                  >
+                    <option value="">-- Select your finance company --</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <span className="material-symbols-outlined text-xl">expand_more</span>
+                </span>
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">
@@ -129,7 +204,7 @@ const CustomerLogin: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || loadingCompanies}
               className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
