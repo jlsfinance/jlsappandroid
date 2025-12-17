@@ -7,13 +7,19 @@ import { db } from '../firebaseConfig';
 
 const CompanySelector: React.FC = () => {
   const navigate = useNavigate();
-  const { companies, currentCompany, setCurrentCompany, addCompany, loading, refreshCompanies } = useCompany();
+  const { companies, currentCompany, setCurrentCompany, addCompany, deleteCompany, loading, refreshCompanies } = useCompany();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyAddress, setNewCompanyAddress] = useState('');
   const [newCompanyPhone, setNewCompanyPhone] = useState('');
   const [newCompanyGstin, setNewCompanyGstin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
+  const [deletedCompany, setDeletedCompany] = useState<Company | null>(null);
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const [orphanedData, setOrphanedData] = useState<{customers: number, loans: number, partners: number, expenses: number}>({customers: 0, loans: 0, partners: 0, expenses: 0});
   const [showMigrateModal, setShowMigrateModal] = useState(false);
@@ -121,6 +127,54 @@ const CompanySelector: React.FC = () => {
     navigate('/');
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, company: Company) => {
+    e.stopPropagation();
+    setCompanyToDelete(company);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!companyToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const companyData = { ...companyToDelete };
+      await deleteCompany(companyToDelete.id);
+      setDeletedCompany(companyData);
+      setShowDeleteConfirm(false);
+      setCompanyToDelete(null);
+      setShowUndoToast(true);
+      
+      setTimeout(() => {
+        setShowUndoToast(false);
+        setDeletedCompany(null);
+      }, 5000);
+    } catch (error) {
+      console.error("Error deleting company:", error);
+      alert("Failed to delete company");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleUndoDelete = async () => {
+    if (!deletedCompany) return;
+    
+    try {
+      await addCompany(
+        deletedCompany.name,
+        deletedCompany.address,
+        deletedCompany.phone,
+        deletedCompany.gstin
+      );
+      setShowUndoToast(false);
+      setDeletedCompany(null);
+    } catch (error) {
+      console.error("Error restoring company:", error);
+      alert("Failed to restore company");
+    }
+  };
+
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompanyName.trim()) {
@@ -198,9 +252,18 @@ const CompanySelector: React.FC = () => {
                     </p>
                   )}
                 </div>
-                {currentCompany?.id === company.id && (
-                  <span className="material-symbols-outlined text-primary">check_circle</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {currentCompany?.id === company.id && (
+                    <span className="material-symbols-outlined text-primary">check_circle</span>
+                  )}
+                  <button
+                    onClick={(e) => handleDeleteClick(e, company)}
+                    className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                    title="Delete company"
+                  >
+                    <span className="material-symbols-outlined text-xl">delete</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -357,6 +420,57 @@ const CompanySelector: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && companyToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20">
+                <span className="material-symbols-outlined text-red-500 text-2xl">warning</span>
+              </div>
+              <h3 className="text-xl font-bold text-on-surface-light dark:text-on-surface-dark">Delete Company?</h3>
+            </div>
+            <p className="text-on-surface-variant-light dark:text-on-surface-variant-dark mb-6">
+              Are you sure you want to delete <strong>"{companyToDelete.name}"</strong>? This action can be undone within 5 seconds.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setCompanyToDelete(null);
+                }}
+                className="flex-1 px-4 py-3 text-primary font-medium border border-outline-light rounded-xl hover:bg-surface-variant-light/30 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-3 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUndoToast && deletedCompany && (
+        <div className="fixed bottom-20 left-4 right-4 z-50 max-w-md mx-auto">
+          <div className="bg-slate-800 dark:bg-slate-900 text-white rounded-xl p-4 shadow-lg flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-red-400">delete</span>
+              <span className="text-sm">"{deletedCompany.name}" deleted</span>
+            </div>
+            <button
+              onClick={handleUndoDelete}
+              className="px-4 py-2 bg-primary text-on-primary font-bold rounded-lg text-sm hover:opacity-90 transition-opacity"
+            >
+              UNDO
+            </button>
           </div>
         </div>
       )}

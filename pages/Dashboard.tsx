@@ -136,6 +136,30 @@ const Dashboard: React.FC = () => {
           }
       });
 
+      let totalCollections = 0;
+      let totalProcessingFees = 0;
+      
+      loans.forEach(loan => {
+          const processingFee = Number(loan.processingFee) || 0;
+          const status = loan.status;
+          if (['Disbursed', 'Active', 'Completed', 'Overdue'].includes(status)) {
+              totalProcessingFees += processingFee;
+          }
+          if (loan.repaymentSchedule && Array.isArray(loan.repaymentSchedule)) {
+              loan.repaymentSchedule.forEach((e: any) => {
+                  if (e.status === 'Paid') {
+                      totalCollections += Number(e.amount) || 0;
+                  }
+              });
+          }
+          const foreclosureDetails = (loan as any).foreclosureDetails;
+          if (foreclosureDetails && foreclosureDetails.amountReceived) {
+              totalCollections += Number(foreclosureDetails.totalPaid) || 0;
+          }
+      });
+
+      const netDisbursed = totalDisbursedPrincipal - totalProcessingFees;
+
       return {
           totalDisbursedCount,
           totalDisbursedPrincipal,
@@ -143,7 +167,10 @@ const Dashboard: React.FC = () => {
           activeLoansPrincipal,
           activeLoansOutstandingPI,
           customerCount: customers.length,
-          cashBalance: calculatedBalance
+          cashBalance: calculatedBalance,
+          netDisbursed,
+          totalCollections,
+          totalProcessingFees
       };
   }, [loans, customers, partnerTransactions, expenses]);
 
@@ -217,6 +244,65 @@ const Dashboard: React.FC = () => {
             </tr>
         );
         break;
+      case 'Net Disbursed':
+        modalData = loans.filter(l => ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status)).map(l => ({
+            ...l,
+            processingFee: Number(l.processingFee) || 0,
+            netAmount: (Number(l.amount) || 0) - (Number(l.processingFee) || 0)
+        }));
+        columns = ['Customer', 'Loan Amount', 'Processing Fee', 'Net Disbursed', 'Status'];
+        renderRow = (row, index) => (
+            <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
+              <td className="px-4 py-4 font-medium">{row.customerName}</td>
+              <td className="px-4 py-4">{formatCurrency(row.amount)}</td>
+              <td className="px-4 py-4 text-error">{formatCurrency(row.processingFee)}</td>
+              <td className="px-4 py-4 font-bold text-primary">{formatCurrency(row.netAmount)}</td>
+              <td className="px-4 py-4"><span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-primary-container text-on-primary-container">{row.status}</span></td>
+            </tr>
+        );
+        break;
+      case 'Portfolio Outstanding':
+        modalData = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status)).map(l => {
+            const principal = Number(l.amount) || 0;
+            const emi = Number(l.emi) || 0;
+            const tenure = Number(l.tenure) || 0;
+            const totalPI = emi * tenure;
+            const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
+            const paidAmount = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+            const outstanding = Math.max(0, totalPI - paidAmount);
+            return { ...l, principal, totalPI, paidAmount, outstanding };
+        });
+        columns = ['Customer', 'Principal', 'Total (P+I)', 'Collected', 'Outstanding'];
+        renderRow = (row, index) => (
+            <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
+              <td className="px-4 py-4 font-medium">{row.customerName}</td>
+              <td className="px-4 py-4">{formatCurrency(row.principal)}</td>
+              <td className="px-4 py-4">{formatCurrency(row.totalPI)}</td>
+              <td className="px-4 py-4 text-primary">{formatCurrency(row.paidAmount)}</td>
+              <td className="px-4 py-4 font-bold text-error">{formatCurrency(row.outstanding)}</td>
+            </tr>
+        );
+        break;
+      case 'Total Collections':
+        modalData = loans.filter(l => ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status)).map(l => {
+            const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
+            const emiCollected = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+            const foreclosureDetails = (l as any).foreclosureDetails;
+            const foreclosureAmount = (foreclosureDetails && foreclosureDetails.amountReceived) ? (Number(foreclosureDetails.totalPaid) || 0) : 0;
+            const totalCollected = emiCollected + foreclosureAmount;
+            return { ...l, emisPaid: paidEmis.length, emiCollected, foreclosureAmount, totalCollected };
+        }).filter(l => l.totalCollected > 0);
+        columns = ['Customer', 'EMIs Paid', 'EMI Collected', 'Foreclosure', 'Total Collected'];
+        renderRow = (row, index) => (
+            <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
+              <td className="px-4 py-4 font-medium">{row.customerName}</td>
+              <td className="px-4 py-4">{row.emisPaid}</td>
+              <td className="px-4 py-4">{formatCurrency(row.emiCollected)}</td>
+              <td className="px-4 py-4">{formatCurrency(row.foreclosureAmount)}</td>
+              <td className="px-4 py-4 font-bold text-primary">{formatCurrency(row.totalCollected)}</td>
+            </tr>
+        );
+        break;
       default:
         modalData = [];
         break;
@@ -261,6 +347,30 @@ const Dashboard: React.FC = () => {
         formatCurrency(row.emi),
         formatCurrency(row.totalReceivedPI),
         formatCurrency(row.balancePI)
+      ]);
+    } else if (activeCard === 'Net Disbursed') {
+      tableRows = data.map((row: any) => [
+        row.customerName || '-',
+        formatCurrency(row.amount),
+        formatCurrency(row.processingFee),
+        formatCurrency(row.netAmount),
+        row.status || '-'
+      ]);
+    } else if (activeCard === 'Portfolio Outstanding') {
+      tableRows = data.map((row: any) => [
+        row.customerName || '-',
+        formatCurrency(row.principal),
+        formatCurrency(row.totalPI),
+        formatCurrency(row.paidAmount),
+        formatCurrency(row.outstanding)
+      ]);
+    } else if (activeCard === 'Total Collections') {
+      tableRows = data.map((row: any) => [
+        row.customerName || '-',
+        row.emisPaid?.toString() || '0',
+        formatCurrency(row.emiCollected),
+        formatCurrency(row.foreclosureAmount),
+        formatCurrency(row.totalCollected)
       ]);
     }
     
@@ -381,6 +491,29 @@ const Dashboard: React.FC = () => {
                         value={formatCurrency(metrics.activeLoansOutstandingPI)} 
                         subtext="Outstanding" 
                         onClick={() => setActiveCard('Active Loan Value')}
+                    />
+                </div>
+                
+                <MetricCard 
+                    title="Net Disbursed" 
+                    value={formatCurrency(metrics.netDisbursed)} 
+                    subtext={`After Rs. ${new Intl.NumberFormat('en-IN').format(metrics.totalProcessingFees)} fees`}
+                    icon="payments"
+                    onClick={() => setActiveCard('Net Disbursed')}
+                />
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <MetricCard 
+                        title="Portfolio Outstanding" 
+                        value={formatCurrency(metrics.activeLoansOutstandingPI)} 
+                        subtext="To Collect"
+                        onClick={() => setActiveCard('Portfolio Outstanding')}
+                    />
+                    <MetricCard 
+                        title="Total Collections" 
+                        value={formatCurrency(metrics.totalCollections)} 
+                        subtext="Collected"
+                        onClick={() => setActiveCard('Total Collections')}
                     />
                 </div>
             </div>
