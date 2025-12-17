@@ -304,17 +304,17 @@ const CompanySelector: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const baseUrl = window.location.origin + window.location.pathname;
-                      const link = `${baseUrl}#/customer-login/${company.id}`;
-                      navigator.clipboard.writeText(link);
+                      const code = company.name.substring(0, 3).toLowerCase();
+                      navigator.clipboard.writeText(code);
                       setCopiedLinkId(company.id);
                       setTimeout(() => setCopiedLinkId(null), 2000);
                     }}
-                    className="p-2 rounded-full hover:bg-green-100 dark:hover:bg-green-900/20 text-green-600 transition-colors"
-                    title="Copy Customer Login Link"
+                    className="px-2 py-1 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/20 text-green-600 transition-colors flex items-center gap-1"
+                    title="Copy Company Code for Customer Login"
                   >
-                    <span className="material-symbols-outlined text-xl">
-                      {copiedLinkId === company.id ? 'check' : 'link'}
+                    <span className="font-mono font-bold text-sm uppercase">{company.name.substring(0, 3)}</span>
+                    <span className="material-symbols-outlined text-sm">
+                      {copiedLinkId === company.id ? 'check' : 'content_copy'}
                     </span>
                   </button>
                   <button
