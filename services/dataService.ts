@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, Firestore } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Customer, Loan } from '../types';
 
@@ -77,6 +77,15 @@ export const createCustomer = async (customer: Omit<Customer, 'id'> & { companyI
     return docRef.id;
   } catch (error) {
     console.error("Error adding customer:", error);
+    throw error;
+  }
+};
+
+export const deleteCustomer = async (customerId: string): Promise<void> => {
+  try {
+    await deleteDoc(doc(db, "customers", customerId));
+  } catch (error) {
+    console.error("Error deleting customer:", error);
     throw error;
   }
 };
