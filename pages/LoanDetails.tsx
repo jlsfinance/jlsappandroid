@@ -5,13 +5,7 @@ import { db } from "../firebaseConfig";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO, isValid, addMonths, startOfMonth } from 'date-fns';
-
-// --- Configuration ---
-const companyDetails = {
-    name: "JLS Finance Company",
-    address: "123 Finance Street, City Center",
-    phone: "+91 98765 43210"
-};
+import { useCompany } from '../context/CompanyContext';
 
 // --- Interfaces ---
 interface Emi {
@@ -85,6 +79,7 @@ async function toBase64(url: string) {
 
 const LoanDetails: React.FC = () => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
   const { id: loanId } = useParams(); // React Router uses 'id' usually, depends on route definition
   
   const [loan, setLoan] = useState<Loan | null>(null);
@@ -107,6 +102,12 @@ const LoanDetails: React.FC = () => {
   const [topUpAmount, setTopUpAmount] = useState(0);
   const [amountReceived, setAmountReceived] = useState(true); // Checkbox for amount received
   const [isUndoingForeclosure, setIsUndoingForeclosure] = useState(false);
+
+  const companyDetails = useMemo(() => ({
+    name: currentCompany?.name || "Finance Company",
+    address: currentCompany?.address || "",
+    phone: currentCompany?.phone || ""
+  }), [currentCompany]);
 
   const fetchLoanAndCustomer = useCallback(async () => {
     if (!loanId) return;

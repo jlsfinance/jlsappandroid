@@ -252,7 +252,7 @@ const FinanceOverview: React.FC = () => {
     
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text("JLS Finance Company", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+    doc.text(currentCompany?.name || "Finance Company", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
     doc.setFontSize(14);
     doc.text("Cash Account Ledger", doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
     doc.setFontSize(10);

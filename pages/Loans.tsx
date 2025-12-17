@@ -99,6 +99,12 @@ const Loans: React.FC = () => {
   const [currentPdfName, setCurrentPdfName] = useState('');
   const [showPdfModal, setShowPdfModal] = useState(false);
 
+  const companyDetails = useMemo(() => ({
+    name: currentCompany?.name || "Finance Company",
+    address: currentCompany?.address || "",
+    phone: currentCompany?.phone || ""
+  }), [currentCompany]);
+
   // Fetch Data
   const fetchLoans = useCallback(async () => {
     if (!currentCompany) return;
@@ -184,7 +190,7 @@ const Loans: React.FC = () => {
         // Header
         pdfDoc.setFont("helvetica", "bold");
         pdfDoc.setFontSize(18);
-        pdfDoc.text("JLS Finance Company", pdfDoc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
         pdfDoc.setFontSize(14);
         pdfDoc.text("LOAN AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
 
@@ -195,7 +201,7 @@ const Loans: React.FC = () => {
         pdfDoc.text(`Loan ID: ${loan.id}`, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
         
         let startY = 40;
-        const partiesBody = [[`This agreement is made between:\n\nTHE LENDER:\nJLS Finance Company\n[Company Address Here]\n\nAND\n\nTHE BORROWER:\n${customer.name}\n${customer.address || 'Address not provided'}\nMobile: ${customer.phone}`]];
+        const partiesBody = [[`This agreement is made between:\n\nTHE LENDER:\n${companyDetails.name}\n${companyDetails.address || '[Company Address]'}\n\nAND\n\nTHE BORROWER:\n${customer.name}\n${customer.address || 'Address not provided'}\nMobile: ${customer.phone}`]];
 
         // Using autoTable for parties layout
         autoTable(pdfDoc, {
@@ -305,7 +311,7 @@ const Loans: React.FC = () => {
         startY += 5;
         pdfDoc.setFontSize(10);
         pdfDoc.setFont("helvetica", "bold");
-        pdfDoc.text("For JLS Finance Company", 50, startY, { align: 'center' });
+        pdfDoc.text(`For ${companyDetails.name}`, 50, startY, { align: 'center' });
         pdfDoc.text("Borrower's Signature", 160, startY, { align: 'center' });
 
         const pdfBlob = pdfDoc.output('blob');
@@ -344,7 +350,7 @@ const Loans: React.FC = () => {
 
         pdfDoc.setFontSize(18);
         pdfDoc.setFont("helvetica", "bold");
-        pdfDoc.text("JLS Finance Company", pageWidth / 2, y, { align: 'center' });
+        pdfDoc.text(companyDetails.name, pageWidth / 2, y, { align: 'center' });
         y += 8;
         pdfDoc.setFontSize(12);
         pdfDoc.text('Loan Summary Card', pageWidth / 2, y, { align: 'center' });

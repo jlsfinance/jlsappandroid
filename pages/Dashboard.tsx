@@ -315,7 +315,7 @@ const Dashboard: React.FC = () => {
     const { data, columns } = getModalContent();
     if (!data || data.length === 0) { alert("No data available."); return; }
     const doc = new jsPDF('l', 'mm', 'a4');
-    doc.text("JLS Finance Company Report - " + activeCard, 14, 15);
+    doc.text((currentCompany?.name || "Finance Company") + " Report - " + activeCard, 14, 15);
     
     let tableRows: any[] = [];
     
@@ -408,137 +408,224 @@ const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 max-w-md mx-auto bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 text-on-surface-light dark:text-on-surface-dark font-sans">
       
-      {/* M3 Header */}
-      <div className="px-4 py-4 sticky top-0 z-20 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm transition-colors">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-primary-container dark:bg-primary-container-dark flex items-center justify-center text-on-primary-container dark:text-on-primary-container text-lg font-bold">
-                    {userName.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                    <span className="block text-xs font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark">Welcome back,</span>
-                    <h1 className="text-xl font-normal text-on-surface-light dark:text-on-surface-dark capitalize">{userName}</h1>
-                </div>
+      {/* Modern Header with Gradient */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/50 dark:border-slate-800/50">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-purple-500/30">
+                      {userName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                      <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">Welcome back</span>
+                      <h1 className="text-lg font-semibold text-slate-900 dark:text-white capitalize">{userName}</h1>
+                  </div>
+              </div>
+              <Link to="/settings" className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95">
+                  <span className="material-symbols-outlined text-slate-600 dark:text-slate-300">settings</span>
+              </Link>
+          </div>
+          {currentCompany && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+              <span className="material-symbols-outlined text-indigo-500 text-sm">business</span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{currentCompany.name}</span>
             </div>
-            <Link to="/settings" className="p-2 rounded-full hover:bg-surface-variant-light/50 dark:hover:bg-surface-variant-dark/50 transition-colors">
-                <span className="material-symbols-outlined">settings</span>
-            </Link>
+          )}
         </div>
       </div>
 
-      <div className="px-4 space-y-6 mt-2">
+      <div className="px-4 space-y-5 mt-4">
         
-        {/* Hero Card (Primary Container) */}
-        <div className="rounded-2xl bg-primary-container dark:bg-primary-container-dark p-6 text-on-primary-container dark:text-on-primary-container shadow-m3-1 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-6 relative z-10">
-                <h2 className="text-sm font-medium opacity-80">Cash Account Balance</h2>
-                <Link to="/finance" className="bg-on-primary-container/10 hover:bg-on-primary-container/20 p-2 rounded-full transition-colors">
+        {/* Hero Balance Card - Modern Glassmorphism */}
+        <div className="relative rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-700 p-6 text-white shadow-xl shadow-purple-500/25 overflow-hidden">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
+            
+            <div className="relative z-10">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-white/70">account_balance_wallet</span>
+                        <h2 className="text-sm font-medium text-white/80">Available Balance</h2>
+                    </div>
+                    <Link to="/finance" className="bg-white/20 hover:bg-white/30 p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm">
+                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </Link>
+                </div>
+                <span className="text-4xl font-bold tracking-tight block mb-1">
+                    {loading ? '...' : formatCurrency(metrics.cashBalance)}
+                </span>
+                <div className="flex gap-2 items-center mt-3">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 backdrop-blur-sm text-xs font-medium">
+                        <span className="material-symbols-outlined text-xs text-green-300">trending_up</span>
+                        Total Liquid Assets
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {/* Quick Actions - Modern Pills */}
+        <div>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">Quick Actions</h3>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                <Link to="/loans/new" className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 active:scale-[0.98] whitespace-nowrap transition-all">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-sm shadow-indigo-500/30">
+                        <span className="material-symbols-outlined text-white text-lg">add</span>
+                    </div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">New Loan</span>
+                </Link>
+                <Link to="/due-list" className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md hover:border-green-300 dark:hover:border-green-600 active:scale-[0.98] whitespace-nowrap transition-all">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-sm shadow-green-500/30">
+                        <span className="material-symbols-outlined text-white text-lg">payments</span>
+                    </div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Collect EMI</span>
+                </Link>
+                <Link to="/customers/new" className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md hover:border-orange-300 dark:hover:border-orange-600 active:scale-[0.98] whitespace-nowrap transition-all">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-sm shadow-orange-500/30">
+                        <span className="material-symbols-outlined text-white text-lg">person_add</span>
+                    </div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Add Client</span>
+                </Link>
+            </div>
+        </div>
+
+        {/* Modern Analytics Cards */}
+        <div>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 px-1">Performance Overview</h3>
+            <div className="flex flex-col gap-3">
+                {/* Feature Card */}
+                <div 
+                    onClick={() => setActiveCard('Total Disbursed Loans')}
+                    className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 active:scale-[0.99] cursor-pointer"
+                >
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-white text-lg">account_balance</span>
+                                </div>
+                                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Disbursed</h3>
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.totalDisbursedPrincipal)}</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{metrics.totalDisbursedCount} Loans in total</p>
+                        </div>
+                        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <div 
+                        onClick={() => setActiveCard('Active Loans')}
+                        className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:shadow-lg hover:border-blue-200 dark:hover:border-blue-700 active:scale-[0.99] cursor-pointer"
+                    >
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-2">
+                            <span className="material-symbols-outlined text-white text-base">trending_up</span>
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.activeLoansCount}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Active Loans</p>
+                    </div>
+                    <div 
+                        onClick={() => setActiveCard('Active Loan Value')}
+                        className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:shadow-lg hover:border-violet-200 dark:hover:border-violet-700 active:scale-[0.99] cursor-pointer"
+                    >
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center mb-2">
+                            <span className="material-symbols-outlined text-white text-base">analytics</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.activeLoansOutstandingPI)}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Portfolio Value</p>
+                    </div>
+                </div>
+                
+                <div 
+                    onClick={() => setActiveCard('Net Disbursed')}
+                    className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:shadow-lg hover:border-green-200 dark:hover:border-green-700 active:scale-[0.99] cursor-pointer"
+                >
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-white text-lg">payments</span>
+                                </div>
+                                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Disbursed</h3>
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.netDisbursed)}</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">After Rs. {new Intl.NumberFormat('en-IN').format(metrics.totalProcessingFees)} fees</p>
+                        </div>
+                        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <div 
+                        onClick={() => setActiveCard('Portfolio Outstanding')}
+                        className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:shadow-lg hover:border-amber-200 dark:hover:border-amber-700 active:scale-[0.99] cursor-pointer"
+                    >
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mb-2">
+                            <span className="material-symbols-outlined text-white text-base">pending_actions</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.activeLoansOutstandingPI)}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">To Collect</p>
+                    </div>
+                    <div 
+                        onClick={() => setActiveCard('Total Collections')}
+                        className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:shadow-lg hover:border-teal-200 dark:hover:border-teal-700 active:scale-[0.99] cursor-pointer"
+                    >
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-green-500 flex items-center justify-center mb-2">
+                            <span className="material-symbols-outlined text-white text-base">savings</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.totalCollections)}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Collected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Recent Activity - Modern List */}
+        <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Activity</h3>
+                <Link to="/loans" className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1">
+                    View All
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </Link>
             </div>
-            <span className="text-4xl font-normal tracking-tight relative z-10 block mb-2">
-                {loading ? '...' : formatCurrency(metrics.cashBalance)}
-            </span>
-            <div className="relative z-10 flex gap-2 items-center">
-                 <span className="text-xs font-medium opacity-70">Total Liquid Assets</span>
-            </div>
-            {/* Decoration */}
-            <div className="absolute right-[-20px] top-[-20px] w-32 h-32 rounded-full bg-on-primary-container/5"></div>
-        </div>
-
-        {/* Action Chips */}
-        <div>
-            <h3 className="text-sm font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark mb-3 px-1">Quick Actions</h3>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                <Link to="/loans/new" className="flex items-center gap-2 pl-3 pr-4 py-2.5 bg-surface-light dark:bg-[#1e2736] border border-outline-light/20 rounded-xl shadow-sm hover:bg-surface-variant-light/30 active:bg-surface-variant-light whitespace-nowrap transition-colors">
-                    <span className="material-symbols-outlined text-primary text-xl">add_circle</span>
-                    <span className="text-sm font-medium">New Loan</span>
-                </Link>
-                <Link to="/due-list" className="flex items-center gap-2 pl-3 pr-4 py-2.5 bg-surface-light dark:bg-[#1e2736] border border-outline-light/20 rounded-xl shadow-sm hover:bg-surface-variant-light/30 active:bg-surface-variant-light whitespace-nowrap transition-colors">
-                    <span className="material-symbols-outlined text-green-700 text-xl">payments</span>
-                    <span className="text-sm font-medium">Collect EMI</span>
-                </Link>
-                <Link to="/customers/new" className="flex items-center gap-2 pl-3 pr-4 py-2.5 bg-surface-light dark:bg-[#1e2736] border border-outline-light/20 rounded-xl shadow-sm hover:bg-surface-variant-light/30 active:bg-surface-variant-light whitespace-nowrap transition-colors">
-                    <span className="material-symbols-outlined text-secondary text-xl">person_add</span>
-                    <span className="text-sm font-medium">Add Client</span>
-                </Link>
-            </div>
-        </div>
-
-        {/* Analytics Cards */}
-        <div>
-            <h3 className="text-sm font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark mb-3 px-1">Overview</h3>
-            <div className="flex flex-col gap-3">
-                <MetricCard 
-                    title="Total Disbursed" 
-                    value={formatCurrency(metrics.totalDisbursedPrincipal)} 
-                    subtext={`${metrics.totalDisbursedCount} Loans in total`} 
-                    icon="account_balance"
-                    onClick={() => setActiveCard('Total Disbursed Loans')}
-                />
-                
-                <div className="grid grid-cols-2 gap-3">
-                    <MetricCard 
-                        title="Active Loans" 
-                        value={metrics.activeLoansCount.toString()} 
-                        subtext="Ongoing"
-                        onClick={() => setActiveCard('Active Loans')}
-                    />
-                    <MetricCard 
-                        title="Portfolio Value" 
-                        value={formatCurrency(metrics.activeLoansOutstandingPI)} 
-                        subtext="Outstanding" 
-                        onClick={() => setActiveCard('Active Loan Value')}
-                    />
-                </div>
-                
-                <MetricCard 
-                    title="Net Disbursed" 
-                    value={formatCurrency(metrics.netDisbursed)} 
-                    subtext={`After Rs. ${new Intl.NumberFormat('en-IN').format(metrics.totalProcessingFees)} fees`}
-                    icon="payments"
-                    onClick={() => setActiveCard('Net Disbursed')}
-                />
-                
-                <div className="grid grid-cols-2 gap-3">
-                    <MetricCard 
-                        title="Portfolio Outstanding" 
-                        value={formatCurrency(metrics.activeLoansOutstandingPI)} 
-                        subtext="To Collect"
-                        onClick={() => setActiveCard('Portfolio Outstanding')}
-                    />
-                    <MetricCard 
-                        title="Total Collections" 
-                        value={formatCurrency(metrics.totalCollections)} 
-                        subtext="Collected"
-                        onClick={() => setActiveCard('Total Collections')}
-                    />
-                </div>
-            </div>
-        </div>
-
-        {/* Recent List */}
-        <div>
-            <div className="flex items-center justify-between mb-3 px-1">
-                <h3 className="text-sm font-medium text-on-surface-variant-light dark:text-on-surface-variant-dark">Recent Activity</h3>
-                <Link to="/loans" className="text-sm font-medium text-primary hover:text-primary-dark">View All</Link>
-            </div>
-            <div className="bg-surface-light dark:bg-[#1e2736] rounded-xl border border-outline-light/10 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                {loans.length === 0 && !loading && (
+                    <div className="p-8 text-center">
+                        <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-2">receipt_long</span>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No recent loans</p>
+                    </div>
+                )}
                 {loans.slice(0, 5).map((loan: any, i) => (
-                    <div key={loan.id} className={`p-4 flex items-center justify-between hover:bg-surface-variant-light/30 transition-colors ${i !== 0 ? 'border-t border-outline-light/10' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 rounded-full bg-secondary-container dark:bg-secondary-container flex items-center justify-center text-on-secondary-container">
-                                <span className="material-symbols-outlined text-lg">{loan.status === 'Disbursed' ? 'check' : 'schedule'}</span>
+                    <Link key={loan.id} to={`/loan/${loan.id}`} className={`p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${i !== 0 ? 'border-t border-slate-100 dark:border-slate-700' : ''}`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+                                loan.status === 'Disbursed' || loan.status === 'Active' 
+                                    ? 'bg-gradient-to-br from-green-500 to-emerald-500' 
+                                    : loan.status === 'Completed' 
+                                        ? 'bg-gradient-to-br from-purple-500 to-violet-500'
+                                        : 'bg-gradient-to-br from-amber-500 to-orange-500'
+                            }`}>
+                                <span className="material-symbols-outlined text-white text-lg">
+                                    {loan.status === 'Completed' ? 'check_circle' : loan.status === 'Disbursed' || loan.status === 'Active' ? 'trending_up' : 'schedule'}
+                                </span>
                             </div>
                             <div>
-                                <h4 className="text-sm font-medium text-on-surface-light dark:text-on-surface-dark">{loan.customerName}</h4>
-                                <p className="text-xs text-on-surface-variant-light dark:text-on-surface-variant-dark">Loan #{loan.id}</p>
+                                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{loan.customerName}</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Loan #{loan.id?.slice(0, 8)}</p>
                             </div>
                         </div>
-                        <span className="text-sm font-bold">{formatCurrency(loan.amount)}</span>
-                    </div>
+                        <div className="text-right">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(loan.amount)}</span>
+                            <span className={`block text-xs font-medium mt-0.5 ${
+                                loan.status === 'Active' || loan.status === 'Disbursed' ? 'text-green-600 dark:text-green-400' 
+                                : loan.status === 'Completed' ? 'text-purple-600 dark:text-purple-400' 
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}>{loan.status}</span>
+                        </div>
+                    </Link>
                 ))}
             </div>
         </div>

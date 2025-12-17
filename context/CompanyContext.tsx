@@ -12,6 +12,7 @@ interface CompanyContextType {
   refreshCompanies: () => Promise<void>;
   addCompany: (name: string, address?: string, phone?: string, gstin?: string) => Promise<string>;
   deleteCompany: (companyId: string) => Promise<void>;
+  updateCompany: (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string }) => Promise<void>;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -115,6 +116,16 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     await fetchCompanies();
   };
 
+  const updateCompany = async (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string }): Promise<void> => {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    await updateDoc(doc(db, "companies", companyId), data);
+    await fetchCompanies();
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -137,7 +148,8 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       loading,
       refreshCompanies,
       addCompany,
-      deleteCompany
+      deleteCompany,
+      updateCompany
     }}>
       {children}
     </CompanyContext.Provider>
