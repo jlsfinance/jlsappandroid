@@ -33,7 +33,9 @@ interface Loan {
   approvalDate?: string;
   disbursalDate?: string;
   repaymentSchedule: Emi[];
-  topUpHistory?: { date: string; amount: number; previousAmount: number; }[];
+  topUpHistory?: { date: string; amount: number; previousAmount: number; newTenure?: number; }[];
+  lastTopUpDate?: string;
+  emiDueDay?: number; // Day of month for EMI (1-28)
 }
 
 interface Customer {
@@ -125,8 +127,10 @@ const LoanDetails: React.FC = () => {
   // Form State
   const [foreclosureCharges, setForeclosureCharges] = useState(2); // Default 2%
   const [topUpAmount, setTopUpAmount] = useState(0);
+  const [topUpTenure, setTopUpTenure] = useState(12); // New tenure for topup
   const [amountReceived, setAmountReceived] = useState(true); // Checkbox for amount received
   const [isUndoingForeclosure, setIsUndoingForeclosure] = useState(false);
+  const [isGeneratingAgreement, setIsGeneratingAgreement] = useState(false);
 
   const companyDetails = useMemo(() => ({
     name: currentCompany?.name || "Finance Company",
@@ -433,55 +437,237 @@ const LoanDetails: React.FC = () => {
   };
 
   const handleTopUpLoan = async () => {
-      if (!loan || topUpAmount <= 0) return;
+      if (!loan || topUpAmount <= 0 || topUpTenure <= 0) return;
       setIsToppingUp(true);
       try {
           const newPrincipal = outstandingPrincipal + topUpAmount;
           const monthlyRate = loan.interestRate / 12 / 100;
-          const remainingTenure = loan.tenure - paidEmisCount;
-
-          if (remainingTenure <= 0) {
-              alert('Cannot Top-up: This loan is already fully paid.');
-              return;
-          }
 
           const newEmi = Math.round(
-              (newPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingTenure)) /
-              (Math.pow(1 + monthlyRate, remainingTenure) - 1)
+              (newPrincipal * monthlyRate * Math.pow(1 + monthlyRate, topUpTenure)) /
+              (Math.pow(1 + monthlyRate, topUpTenure) - 1)
           );
           
-          const lastPaidEmi = loan.repaymentSchedule.filter(e => e.status === 'Paid').pop();
-          const startDate = lastPaidEmi ? addMonths(parseISO(lastPaidEmi.dueDate), 1) : startOfMonth(addMonths(new Date(loan.disbursalDate!), 1));
+          // Preserve original EMI due day from existing schedule
+          let emiDueDay = loan.emiDueDay || 1;
+          const firstPendingEmi = loan.repaymentSchedule.find(e => e.status === 'Pending');
+          if (firstPendingEmi) {
+              const pendingDate = parseISO(firstPendingEmi.dueDate);
+              if (isValid(pendingDate)) {
+                  emiDueDay = pendingDate.getDate();
+              }
+          }
+          
+          const today = new Date();
+          const nextMonth = addMonths(today, 1);
+          const firstEmiDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), emiDueDay);
           
           const newSchedule = loan.repaymentSchedule.filter(e => e.status === 'Paid');
-          for (let i = 0; i < remainingTenure; i++) {
+          for (let i = 0; i < topUpTenure; i++) {
+              const emiDate = addMonths(firstEmiDate, i);
               newSchedule.push({
                   emiNumber: paidEmisCount + i + 1,
-                  dueDate: format(addMonths(startDate, i), 'yyyy-MM-dd'),
+                  dueDate: format(emiDate, 'yyyy-MM-dd'),
                   amount: newEmi,
                   status: 'Pending',
               });
           }
 
+          const topUpDate = format(today, 'yyyy-MM-dd');
+          const newTotalTenure = paidEmisCount + topUpTenure;
+
           await updateDoc(doc(db, "loans", loan.id), {
               amount: newPrincipal,
               emi: newEmi,
+              tenure: newTotalTenure,
               repaymentSchedule: newSchedule,
+              emiDueDay: emiDueDay,
               topUpHistory: [
                   ...(loan.topUpHistory || []),
-                  { date: new Date().toISOString(), amount: topUpAmount, previousAmount: loan.amount }
+                  { date: new Date().toISOString(), amount: topUpAmount, previousAmount: loan.amount, newTenure: topUpTenure }
               ],
+              lastTopUpDate: topUpDate,
           });
 
-          alert(`Loan Topped Up! Added ${formatCurrency(topUpAmount)}. New EMI is ${formatCurrency(newEmi)}.`);
+          alert(`Loan Topped Up! Added ${formatCurrency(topUpAmount)}. New Duration: ${topUpTenure} months. New EMI is ${formatCurrency(newEmi)}.`);
           setIsTopUpModalOpen(false);
           setTopUpAmount(0);
+          setTopUpTenure(12);
+          
+          // Generate agreement and loan card with updated data
+          const firstEmiDateStr = format(firstEmiDate, 'yyyy-MM-dd');
+          generateTopUpAgreementPDF(newPrincipal, newEmi, topUpTenure, topUpDate, firstEmiDateStr);
+          generateUpdatedLoanCardPDF(newPrincipal, newEmi, newTotalTenure);
+          
           fetchLoanAndCustomer();
       } catch (error) {
           console.error("Failed to top-up loan:", error);
           alert('Top-up failed.');
       } finally {
           setIsToppingUp(false);
+      }
+  };
+
+  const generateTopUpAgreementPDF = async (newPrincipal: number, newEmi: number, newTenure: number, topUpDate: string, firstEmiDateStr: string) => {
+      if (!loan) return;
+      setIsGeneratingAgreement(true);
+      try {
+          const pdfDoc = new jsPDF();
+          
+          pdfDoc.setFontSize(18);
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+          
+          pdfDoc.setFontSize(14);
+          pdfDoc.text("LOAN TOP-UP AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+          
+          pdfDoc.setFontSize(10);
+          pdfDoc.setFont("helvetica", "normal");
+          let y = 40;
+          
+          pdfDoc.text(`Agreement Date: ${safeFormatDate(topUpDate, 'PPP')}`, 14, y);
+          y += 8;
+          pdfDoc.text(`Loan ID: ${loan.id}`, 14, y);
+          y += 8;
+          pdfDoc.text(`Customer Name: ${loan.customerName}`, 14, y);
+          y += 12;
+          
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text("LOAN TOP-UP DETAILS:", 14, y);
+          y += 8;
+          pdfDoc.setFont("helvetica", "normal");
+          
+          const tableData = [
+              ["Previous Outstanding", formatCurrency(outstandingPrincipal)],
+              ["Top-up Amount", formatCurrency(topUpAmount)],
+              ["New Principal", formatCurrency(newPrincipal)],
+              ["Interest Rate", `${loan.interestRate}% p.a.`],
+              ["New Tenure", `${newTenure} months`],
+              ["New EMI", formatCurrency(newEmi)],
+              ["First EMI Date", safeFormatDate(firstEmiDateStr)],
+          ];
+          
+          autoTable(pdfDoc, {
+              body: tableData,
+              startY: y,
+              theme: 'grid',
+              styles: { fontSize: 10 },
+              columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 }, 1: { cellWidth: 80 } },
+          });
+          
+          y = (pdfDoc as any).lastAutoTable.finalY + 15;
+          
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text("TERMS AND CONDITIONS:", 14, y);
+          y += 8;
+          pdfDoc.setFont("helvetica", "normal");
+          pdfDoc.setFontSize(9);
+          
+          const terms = [
+              "1. This agreement supersedes all previous EMI schedules.",
+              "2. The borrower agrees to pay the new EMI amount as per the revised schedule.",
+              "3. All other terms of the original loan agreement remain unchanged.",
+              "4. Pre-closure charges as per original agreement will apply.",
+          ];
+          
+          terms.forEach(term => {
+              pdfDoc.text(term, 14, y);
+              y += 6;
+          });
+          
+          y += 20;
+          pdfDoc.setFontSize(10);
+          pdfDoc.text("_______________________", 14, y);
+          pdfDoc.text("_______________________", 120, y);
+          y += 5;
+          pdfDoc.text("Borrower Signature", 14, y);
+          pdfDoc.text("Authorized Signatory", 120, y);
+          
+          pdfDoc.setFontSize(8);
+          pdfDoc.setTextColor(150);
+          pdfDoc.text(`© ${new Date().getFullYear()} ${companyDetails.name}`, pdfDoc.internal.pageSize.getWidth() / 2, 287, { align: 'center' });
+          
+          pdfDoc.save(`TopUp_Agreement_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      } catch (error) {
+          console.error("Failed to generate agreement PDF:", error);
+      } finally {
+          setIsGeneratingAgreement(false);
+      }
+  };
+
+  const generateLoanCardPDF = async () => {
+      if (!loan) return;
+      try {
+          const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+          
+          pdfDoc.setFillColor(30, 64, 175);
+          pdfDoc.rect(0, 0, 85.6, 20, 'F');
+          
+          pdfDoc.setTextColor(255, 255, 255);
+          pdfDoc.setFontSize(10);
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text(companyDetails.name, 42.8, 8, { align: 'center' });
+          pdfDoc.setFontSize(6);
+          pdfDoc.text("LOAN CARD", 42.8, 14, { align: 'center' });
+          
+          pdfDoc.setTextColor(0, 0, 0);
+          pdfDoc.setFontSize(8);
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text(loan.customerName, 5, 28);
+          
+          pdfDoc.setFontSize(6);
+          pdfDoc.setFont("helvetica", "normal");
+          pdfDoc.text(`Loan ID: ${loan.id}`, 5, 34);
+          pdfDoc.text(`Amount: ${formatCurrency(loan.amount)}`, 5, 39);
+          pdfDoc.text(`EMI: ${formatCurrency(loan.emi)}`, 5, 44);
+          pdfDoc.text(`Tenure: ${loan.tenure} months`, 45, 39);
+          pdfDoc.text(`Rate: ${loan.interestRate}% p.a.`, 45, 44);
+          
+          pdfDoc.setFontSize(5);
+          pdfDoc.setTextColor(100);
+          pdfDoc.text(`Generated: ${format(new Date(), 'dd-MMM-yyyy')}`, 5, 51);
+          
+          pdfDoc.save(`LoanCard_${loan.id}.pdf`);
+      } catch (error) {
+          console.error("Failed to generate loan card:", error);
+      }
+  };
+
+  const generateUpdatedLoanCardPDF = async (newAmount: number, newEmi: number, newTenure: number) => {
+      if (!loan) return;
+      try {
+          const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+          
+          pdfDoc.setFillColor(30, 64, 175);
+          pdfDoc.rect(0, 0, 85.6, 20, 'F');
+          
+          pdfDoc.setTextColor(255, 255, 255);
+          pdfDoc.setFontSize(10);
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text(companyDetails.name, 42.8, 8, { align: 'center' });
+          pdfDoc.setFontSize(6);
+          pdfDoc.text("LOAN CARD (TOP-UP)", 42.8, 14, { align: 'center' });
+          
+          pdfDoc.setTextColor(0, 0, 0);
+          pdfDoc.setFontSize(8);
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text(loan.customerName, 5, 28);
+          
+          pdfDoc.setFontSize(6);
+          pdfDoc.setFont("helvetica", "normal");
+          pdfDoc.text(`Loan ID: ${loan.id}`, 5, 34);
+          pdfDoc.text(`Amount: ${formatCurrency(newAmount)}`, 5, 39);
+          pdfDoc.text(`EMI: ${formatCurrency(newEmi)}`, 5, 44);
+          pdfDoc.text(`Tenure: ${newTenure} months`, 45, 39);
+          pdfDoc.text(`Rate: ${loan.interestRate}% p.a.`, 45, 44);
+          
+          pdfDoc.setFontSize(5);
+          pdfDoc.setTextColor(100);
+          pdfDoc.text(`Generated: ${format(new Date(), 'dd-MMM-yyyy')}`, 5, 51);
+          
+          pdfDoc.save(`LoanCard_TopUp_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      } catch (error) {
+          console.error("Failed to generate updated loan card:", error);
       }
   };
 
@@ -910,37 +1096,77 @@ const LoanDetails: React.FC = () => {
       {/* Top-up Modal */}
       {isTopUpModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+             <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl p-6">
                  <h3 className="text-lg font-bold mb-1">Top-up Loan</h3>
-                 <p className="text-sm text-slate-500 mb-4">Add amount to principal and recalculate EMI.</p>
+                 <p className="text-sm text-slate-500 mb-4">Add amount and set new duration. New agreement will be generated.</p>
                  
                  <div className="space-y-4 mb-6">
                      <div>
-                         <label className="block text-xs font-bold text-slate-500 mb-1">Current Principal</label>
+                         <label className="block text-xs font-bold text-slate-500 mb-1">Current Outstanding</label>
                          <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white font-mono">
                              {formatCurrency(outstandingPrincipal)}
                          </div>
                      </div>
                      <div>
-                         <label className="block text-xs font-bold text-slate-500 mb-1">Top-up Amount</label>
+                         <label className="block text-xs font-bold text-slate-500 mb-1">Top-up Amount (Rs.)</label>
                          <input 
                             type="number" 
                             value={topUpAmount}
                             onChange={(e) => setTopUpAmount(Number(e.target.value))}
+                            placeholder="Enter top-up amount"
                             className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
                          />
                      </div>
-                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">
-                         <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New Principal</span>
-                         <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(outstandingPrincipal + topUpAmount)}</span>
+                     <div>
+                         <label className="block text-xs font-bold text-slate-500 mb-1">New Duration (Months)</label>
+                         <input 
+                            type="number" 
+                            value={topUpTenure}
+                            onChange={(e) => setTopUpTenure(Number(e.target.value))}
+                            min={1}
+                            max={120}
+                            placeholder="Enter new tenure"
+                            className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                         />
+                         <p className="text-xs text-slate-400 mt-1">This will be the new loan duration from today</p>
+                     </div>
+                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
+                         <div className="flex justify-between items-center">
+                             <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New Principal</span>
+                             <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(outstandingPrincipal + topUpAmount)}</span>
+                         </div>
+                         {topUpAmount > 0 && topUpTenure > 0 && loan && (
+                             <div className="flex justify-between items-center border-t border-blue-200 dark:border-blue-800 pt-2">
+                                 <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New EMI (approx)</span>
+                                 <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">
+                                     {formatCurrency(Math.round(
+                                         ((outstandingPrincipal + topUpAmount) * (loan.interestRate / 12 / 100) * Math.pow(1 + (loan.interestRate / 12 / 100), topUpTenure)) /
+                                         (Math.pow(1 + (loan.interestRate / 12 / 100), topUpTenure) - 1)
+                                     ))}
+                                 </span>
+                             </div>
+                         )}
+                     </div>
+                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                         <p className="text-xs text-green-700 dark:text-green-400">
+                             <span className="font-bold">Note:</span> New Loan Agreement and Loan Card will be automatically generated after top-up.
+                         </p>
                      </div>
                  </div>
                  
-                 <div className="flex gap-3 justify-end">
+                 <div className="flex gap-3 justify-end flex-wrap">
                      <button onClick={() => setIsTopUpModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">Cancel</button>
                      <button 
+                        onClick={() => generateLoanCardPDF()}
+                        disabled={!loan}
+                        className="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-bold hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+                     >
+                         <span className="material-symbols-outlined text-[16px]">credit_card</span>
+                         Download Loan Card
+                     </button>
+                     <button 
                         onClick={handleTopUpLoan}
-                        disabled={isToppingUp || topUpAmount <= 0}
+                        disabled={isToppingUp || topUpAmount <= 0 || topUpTenure <= 0}
                         className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
                      >
                          {isToppingUp && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
