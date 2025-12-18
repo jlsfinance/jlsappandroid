@@ -25,8 +25,10 @@ interface TopUpHistoryEntry {
   id: string;
   date: string;
   topUpAmount: number;
+  previousAmount: number; // loan.amount before this top-up (for proper undo)
   previousOutstanding: number;
   previousEmi: number;
+  previousTenure: number; // loan.tenure before this top-up
   newEmi: number;
   newTenure: number;
   processingFee: number;
@@ -218,16 +220,44 @@ const LoanDetails: React.FC = () => {
   const outstandingPrincipal = useMemo(() => {
     if (!loan || loan.status !== 'Disbursed') return 0;
     
-    let balance = loan.amount;
     const monthlyInterestRate = loan.interestRate / 12 / 100;
     
-    for (let i = 1; i <= loan.tenure; i++) {
-        const emi = loan.repaymentSchedule.find(e => e.emiNumber === i);
-        if (emi?.status === 'Paid') {
+    // For loans with top-ups, we need to calculate outstanding correctly:
+    // After a top-up, the new principal = previousOutstanding + topUpAmount
+    // Only EMIs paid AFTER the top-up should be subtracted from this new balance
+    
+    // If there are top-ups, find the most recent one and use it as the baseline
+    if (loan.topUpHistory && loan.topUpHistory.length > 0) {
+        const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
+        // The new principal after the last top-up
+        const newPrincipalAfterTopUp = lastTopUp.previousOutstanding + lastTopUp.topUpAmount;
+        
+        // Find EMIs that are marked as top-up EMIs and are paid (these are EMIs paid after the last top-up)
+        const paidAfterTopUp = loan.repaymentSchedule
+            .filter(e => e.status === 'Paid' && e.isTopUpEmi === true)
+            .sort((a, b) => a.emiNumber - b.emiNumber);
+        
+        let balance = newPrincipalAfterTopUp;
+        for (const emi of paidAfterTopUp) {
             const interestPayment = balance * monthlyInterestRate;
-            const principalPayment = loan.emi - interestPayment;
+            const emiAmount = emi.amount || loan.emi;
+            const principalPayment = emiAmount - interestPayment;
             balance -= principalPayment;
         }
+        return Math.max(0, balance);
+    }
+    
+    // No top-ups: calculate from original amount
+    let balance = loan.originalAmount || loan.amount;
+    const paidEmis = loan.repaymentSchedule
+        .filter(e => e.status === 'Paid')
+        .sort((a, b) => a.emiNumber - b.emiNumber);
+    
+    for (const emi of paidEmis) {
+        const interestPayment = balance * monthlyInterestRate;
+        const emiAmount = emi.amount || loan.emi;
+        const principalPayment = emiAmount - interestPayment;
+        balance -= principalPayment;
     }
     return Math.max(0, balance);
   }, [loan]);
@@ -550,8 +580,10 @@ const LoanDetails: React.FC = () => {
               id: `TU-${Date.now()}`,
               date: new Date().toISOString(),
               topUpAmount: topUpAmount,
+              previousAmount: loan.amount, // Store the loan.amount before this top-up
               previousOutstanding: previousOutstanding,
               previousEmi: previousEmi,
+              previousTenure: loan.tenure, // Store the tenure before this top-up
               newEmi: newEmi,
               newTenure: topUpTenure,
               processingFee: processingFeeAmount,
@@ -635,24 +667,32 @@ Contact: ${companyDetails.phone}`;
           const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
           const previousSchedule = lastTopUp.previousScheduleSnapshot;
           
-          // Calculate previous values
-          const previousAmount = loan.amount - lastTopUp.topUpAmount;
+          // Restore exact values from the history snapshot
+          const restoredAmount = lastTopUp.previousAmount; // Use stored previousAmount
           const previousEmi = lastTopUp.previousEmi;
-          const previousTenure = previousSchedule.length;
+          const previousTenure = lastTopUp.previousTenure || previousSchedule.length;
+          
+          // If there was a prior top-up, we need to keep that state
+          const priorTopUp = loan.topUpHistory.length > 1 ? loan.topUpHistory[loan.topUpHistory.length - 2] : null;
           
           // Restore the previous schedule
           await updateDoc(doc(db, "loans", loan.id), {
-              amount: previousAmount,
+              amount: restoredAmount,
               emi: previousEmi,
               tenure: previousTenure,
               repaymentSchedule: previousSchedule,
               topUpHistory: loan.topUpHistory.slice(0, -1),
-              lastTopUpDate: loan.topUpHistory.length > 1 ? loan.topUpHistory[loan.topUpHistory.length - 2].date : null,
-              totalTopUpAmount: (loan.totalTopUpAmount || 0) - lastTopUp.topUpAmount,
-              topUpCount: Math.max(0, (loan.topUpCount || 1) - 1)
+              lastTopUpDate: priorTopUp ? priorTopUp.date : null,
+              totalTopUpAmount: Math.max(0, (loan.totalTopUpAmount || 0) - lastTopUp.topUpAmount),
+              topUpCount: Math.max(0, (loan.topUpCount || 1) - 1),
+              // Restore originalEmi and originalAmount if this was the first top-up being undone
+              ...(loan.topUpHistory.length === 1 ? { 
+                  originalEmi: null,
+                  originalAmount: null 
+              } : {})
           });
 
-          alert(`Top-up of ${formatCurrency(lastTopUp.topUpAmount)} has been undone.\n\nEMI restored to: ${formatCurrency(previousEmi)}\nSchedule restored to previous state.`);
+          alert(`Top-up of ${formatCurrency(lastTopUp.topUpAmount)} has been undone.\n\nEMI restored to: ${formatCurrency(previousEmi)}\nLoan amount restored to: ${formatCurrency(restoredAmount)}\nSchedule restored to previous state.`);
           fetchLoanAndCustomer();
       } catch (error) {
           console.error("Failed to undo top-up:", error);
