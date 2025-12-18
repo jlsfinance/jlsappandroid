@@ -17,6 +17,28 @@ interface Emi {
   paymentMethod?: string;
   amountPaid?: number;
   remark?: string;
+  isTopUpEmi?: boolean;
+  originalEmi?: number;
+}
+
+interface TopUpHistoryEntry {
+  id: string;
+  date: string;
+  topUpAmount: number;
+  previousOutstanding: number;
+  previousEmi: number;
+  newEmi: number;
+  newTenure: number;
+  processingFee: number;
+  processingFeePercentage: number;
+  interestRate: number;
+  firstEmiDate: string;
+  ledgerEntries: {
+    loanOutstandingDebit: number;
+    cashCredit: number;
+    processingFeeIncome: number;
+  };
+  previousScheduleSnapshot: Emi[];
 }
 
 interface Loan {
@@ -24,24 +46,29 @@ interface Loan {
   customerId: string;
   customerName: string;
   amount: number;
+  originalAmount?: number;
   tenure: number;
   interestRate: number;
   processingFee: number;
   emi: number;
-  date: string; // Applied date
+  originalEmi?: number;
+  date: string;
   status: 'Pending' | 'Approved' | 'Disbursed' | 'Rejected' | 'Completed';
   approvalDate?: string;
   disbursalDate?: string;
   repaymentSchedule: Emi[];
-  topUpHistory?: { date: string; amount: number; previousAmount: number; newTenure?: number; }[];
+  topUpHistory?: TopUpHistoryEntry[];
   lastTopUpDate?: string;
-  emiDueDay?: number; // Day of month for EMI (1-28)
+  emiDueDay?: number;
+  totalTopUpAmount?: number;
+  topUpCount?: number;
 }
 
 interface Customer {
   phone?: string;
   photo_url?: string;
   avatar?: string;
+  name?: string;
 }
 
 // --- Helpers ---
@@ -128,9 +155,15 @@ const LoanDetails: React.FC = () => {
   const [foreclosureCharges, setForeclosureCharges] = useState(2); // Default 2%
   const [topUpAmount, setTopUpAmount] = useState(0);
   const [topUpTenure, setTopUpTenure] = useState(12); // New tenure for topup
+  const [topUpProcessingFee, setTopUpProcessingFee] = useState(2); // Processing fee percentage
   const [amountReceived, setAmountReceived] = useState(true); // Checkbox for amount received
   const [isUndoingForeclosure, setIsUndoingForeclosure] = useState(false);
   const [isGeneratingAgreement, setIsGeneratingAgreement] = useState(false);
+  const [isUndoingTopUp, setIsUndoingTopUp] = useState(false);
+  const [showTopUpHistory, setShowTopUpHistory] = useState(false);
+  const [showAmortizationSchedule, setShowAmortizationSchedule] = useState(false);
+  const [smsMessage, setSmsMessage] = useState('');
+  const [showSmsModal, setShowSmsModal] = useState(false);
 
   const companyDetails = useMemo(() => ({
     name: currentCompany?.name || "Finance Company",
@@ -436,11 +469,35 @@ const LoanDetails: React.FC = () => {
     }
   };
 
+  // Calculate processing fee amount
+  const calculatedProcessingFee = useMemo(() => {
+    return Math.round(topUpAmount * (topUpProcessingFee / 100));
+  }, [topUpAmount, topUpProcessingFee]);
+
+  // Calculate new EMI for top-up preview
+  const previewNewEmi = useMemo(() => {
+    if (!loan || topUpAmount <= 0 || topUpTenure <= 0) return 0;
+    const newPrincipal = outstandingPrincipal + topUpAmount;
+    const monthlyRate = loan.interestRate / 12 / 100;
+    return Math.round(
+      (newPrincipal * monthlyRate * Math.pow(1 + monthlyRate, topUpTenure)) /
+      (Math.pow(1 + monthlyRate, topUpTenure) - 1)
+    );
+  }, [loan, topUpAmount, topUpTenure, outstandingPrincipal]);
+
+  // Net disbursement after processing fee
+  const netDisbursement = useMemo(() => {
+    return topUpAmount - calculatedProcessingFee;
+  }, [topUpAmount, calculatedProcessingFee]);
+
   const handleTopUpLoan = async () => {
       if (!loan || topUpAmount <= 0 || topUpTenure <= 0) return;
       setIsToppingUp(true);
       try {
-          const newPrincipal = outstandingPrincipal + topUpAmount;
+          const previousOutstanding = outstandingPrincipal;
+          const previousEmi = loan.emi;
+          const processingFeeAmount = calculatedProcessingFee;
+          const newPrincipal = previousOutstanding + topUpAmount;
           const monthlyRate = loan.interestRate / 12 / 100;
 
           const newEmi = Math.round(
@@ -462,42 +519,85 @@ const LoanDetails: React.FC = () => {
           const nextMonth = addMonths(today, 1);
           const firstEmiDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), emiDueDay);
           
-          const newSchedule = loan.repaymentSchedule.filter(e => e.status === 'Paid');
+          // Keep paid EMIs with their original amounts - NEVER change paid EMIs
+          const paidEmis = loan.repaymentSchedule.filter(e => e.status === 'Paid').map(e => ({
+            ...e,
+            isTopUpEmi: false,
+            originalEmi: e.amount
+          }));
+          
+          // Create new pending EMIs with new EMI amount
+          const newPendingEmis: Emi[] = [];
           for (let i = 0; i < topUpTenure; i++) {
               const emiDate = addMonths(firstEmiDate, i);
-              newSchedule.push({
+              newPendingEmis.push({
                   emiNumber: paidEmisCount + i + 1,
                   dueDate: format(emiDate, 'yyyy-MM-dd'),
                   amount: newEmi,
                   status: 'Pending',
+                  isTopUpEmi: true,
+                  originalEmi: previousEmi
               });
           }
-
+          
+          const newSchedule = [...paidEmis, ...newPendingEmis];
           const topUpDate = format(today, 'yyyy-MM-dd');
           const newTotalTenure = paidEmisCount + topUpTenure;
+          const firstEmiDateStr = format(firstEmiDate, 'yyyy-MM-dd');
+
+          // Create comprehensive top-up history entry
+          const topUpHistoryEntry: TopUpHistoryEntry = {
+              id: `TU-${Date.now()}`,
+              date: new Date().toISOString(),
+              topUpAmount: topUpAmount,
+              previousOutstanding: previousOutstanding,
+              previousEmi: previousEmi,
+              newEmi: newEmi,
+              newTenure: topUpTenure,
+              processingFee: processingFeeAmount,
+              processingFeePercentage: topUpProcessingFee,
+              interestRate: loan.interestRate,
+              firstEmiDate: firstEmiDateStr,
+              ledgerEntries: {
+                  loanOutstandingDebit: topUpAmount,
+                  cashCredit: topUpAmount - processingFeeAmount,
+                  processingFeeIncome: processingFeeAmount
+              },
+              previousScheduleSnapshot: loan.repaymentSchedule.map(e => ({...e}))
+          };
 
           await updateDoc(doc(db, "loans", loan.id), {
               amount: newPrincipal,
+              originalAmount: loan.originalAmount || loan.amount,
               emi: newEmi,
+              originalEmi: loan.originalEmi || previousEmi,
               tenure: newTotalTenure,
               repaymentSchedule: newSchedule,
               emiDueDay: emiDueDay,
               topUpHistory: [
                   ...(loan.topUpHistory || []),
-                  { date: new Date().toISOString(), amount: topUpAmount, previousAmount: loan.amount, newTenure: topUpTenure }
+                  topUpHistoryEntry
               ],
               lastTopUpDate: topUpDate,
+              totalTopUpAmount: (loan.totalTopUpAmount || 0) + topUpAmount,
+              topUpCount: (loan.topUpCount || 0) + 1
           });
 
-          alert(`Loan Topped Up! Added ${formatCurrency(topUpAmount)}. New Duration: ${topUpTenure} months. New EMI is ${formatCurrency(newEmi)}.`);
+          // Generate SMS/WhatsApp message
+          const smsMsg = generateTopUpSmsMessage(newEmi, topUpTenure, firstEmiDateStr);
+          setSmsMessage(smsMsg);
+
+          alert(`Loan Topped Up Successfully!\n\nTop-up Amount: ${formatCurrency(topUpAmount)}\nProcessing Fee: ${formatCurrency(processingFeeAmount)}\nNet Disbursement: ${formatCurrency(topUpAmount - processingFeeAmount)}\n\nNew Duration: ${topUpTenure} months\nNew EMI: ${formatCurrency(newEmi)}`);
           setIsTopUpModalOpen(false);
+          setShowSmsModal(true);
           setTopUpAmount(0);
           setTopUpTenure(12);
+          setTopUpProcessingFee(2);
           
           // Generate agreement and loan card with updated data
-          const firstEmiDateStr = format(firstEmiDate, 'yyyy-MM-dd');
-          generateTopUpAgreementPDF(newPrincipal, newEmi, topUpTenure, topUpDate, firstEmiDateStr);
-          generateUpdatedLoanCardPDF(newPrincipal, newEmi, newTotalTenure);
+          generateTopUpAgreementPDF(newPrincipal, newEmi, topUpTenure, topUpDate, firstEmiDateStr, processingFeeAmount, previousOutstanding, previousEmi);
+          generateUpdatedLoanCardPDF(newPrincipal, newEmi, newTotalTenure, true);
+          generateTopUpSchedulePDF(newPrincipal, newEmi, topUpTenure, firstEmiDateStr, paidEmis.length, previousEmi);
           
           fetchLoanAndCustomer();
       } catch (error) {
@@ -508,7 +608,61 @@ const LoanDetails: React.FC = () => {
       }
   };
 
-  const generateTopUpAgreementPDF = async (newPrincipal: number, newEmi: number, newTenure: number, topUpDate: string, firstEmiDateStr: string) => {
+  // Generate SMS/WhatsApp message for top-up
+  const generateTopUpSmsMessage = (newEmi: number, tenure: number, firstEmiDate: string) => {
+      return `Dear ${loan?.customerName},
+
+Your loan (ID: ${loan?.id}) has been topped up successfully!
+
+Top-up Amount: ${formatCurrency(topUpAmount)}
+Processing Fee: ${formatCurrency(calculatedProcessingFee)}
+New Principal: ${formatCurrency(outstandingPrincipal + topUpAmount)}
+New EMI: ${formatCurrency(newEmi)}
+Tenure: ${tenure} months
+First EMI Date: ${safeFormatDate(firstEmiDate)}
+
+Thank you for choosing ${companyDetails.name}!
+Contact: ${companyDetails.phone}`;
+  };
+
+  // Undo last top-up
+  const handleUndoLastTopUp = async () => {
+      if (!loan || !loan.topUpHistory || loan.topUpHistory.length === 0) return;
+      if (!confirm('Are you sure you want to undo the last top-up? This will restore the previous EMI schedule and amounts.')) return;
+      
+      setIsUndoingTopUp(true);
+      try {
+          const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
+          const previousSchedule = lastTopUp.previousScheduleSnapshot;
+          
+          // Calculate previous values
+          const previousAmount = loan.amount - lastTopUp.topUpAmount;
+          const previousEmi = lastTopUp.previousEmi;
+          const previousTenure = previousSchedule.length;
+          
+          // Restore the previous schedule
+          await updateDoc(doc(db, "loans", loan.id), {
+              amount: previousAmount,
+              emi: previousEmi,
+              tenure: previousTenure,
+              repaymentSchedule: previousSchedule,
+              topUpHistory: loan.topUpHistory.slice(0, -1),
+              lastTopUpDate: loan.topUpHistory.length > 1 ? loan.topUpHistory[loan.topUpHistory.length - 2].date : null,
+              totalTopUpAmount: (loan.totalTopUpAmount || 0) - lastTopUp.topUpAmount,
+              topUpCount: Math.max(0, (loan.topUpCount || 1) - 1)
+          });
+
+          alert(`Top-up of ${formatCurrency(lastTopUp.topUpAmount)} has been undone.\n\nEMI restored to: ${formatCurrency(previousEmi)}\nSchedule restored to previous state.`);
+          fetchLoanAndCustomer();
+      } catch (error) {
+          console.error("Failed to undo top-up:", error);
+          alert('Failed to undo top-up.');
+      } finally {
+          setIsUndoingTopUp(false);
+      }
+  };
+
+  const generateTopUpAgreementPDF = async (newPrincipal: number, newEmi: number, newTenure: number, topUpDate: string, firstEmiDateStr: string, processingFee: number = 0, previousOutstanding: number = 0, previousEmi: number = 0) => {
       if (!loan) return;
       setIsGeneratingAgreement(true);
       try {
@@ -518,56 +672,151 @@ const LoanDetails: React.FC = () => {
           pdfDoc.setFont("helvetica", "bold");
           pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
           
+          pdfDoc.setFontSize(10);
+          pdfDoc.setFont("helvetica", "normal");
+          pdfDoc.text(companyDetails.address, pdfDoc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+          pdfDoc.text(`Phone: ${companyDetails.phone}`, pdfDoc.internal.pageSize.getWidth() / 2, 27, { align: 'center' });
+          
           pdfDoc.setFontSize(14);
-          pdfDoc.text("LOAN TOP-UP AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.setFillColor(30, 64, 175);
+          pdfDoc.rect(14, 32, 182, 10, 'F');
+          pdfDoc.setTextColor(255, 255, 255);
+          pdfDoc.text("LOAN TOP-UP AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 39, { align: 'center' });
+          pdfDoc.setTextColor(0, 0, 0);
           
           pdfDoc.setFontSize(10);
           pdfDoc.setFont("helvetica", "normal");
-          let y = 40;
+          let y = 52;
           
           pdfDoc.text(`Agreement Date: ${safeFormatDate(topUpDate, 'PPP')}`, 14, y);
+          pdfDoc.text(`Top-up Reference: TU-${loan.id}-${format(new Date(), 'yyyyMMdd')}`, 120, y);
           y += 8;
           pdfDoc.text(`Loan ID: ${loan.id}`, 14, y);
+          pdfDoc.text(`Customer ID: ${loan.customerId}`, 120, y);
           y += 8;
           pdfDoc.text(`Customer Name: ${loan.customerName}`, 14, y);
           y += 12;
           
+          // Before Top-up Section
           pdfDoc.setFont("helvetica", "bold");
-          pdfDoc.text("LOAN TOP-UP DETAILS:", 14, y);
-          y += 8;
+          pdfDoc.setFillColor(240, 240, 240);
+          pdfDoc.rect(14, y - 4, 182, 8, 'F');
+          pdfDoc.text("BEFORE TOP-UP", 14, y);
+          y += 10;
           pdfDoc.setFont("helvetica", "normal");
           
-          const tableData = [
-              ["Previous Outstanding", formatCurrency(outstandingPrincipal)],
-              ["Top-up Amount", formatCurrency(topUpAmount)],
-              ["New Principal", formatCurrency(newPrincipal)],
+          const beforeData = [
+              ["Outstanding Principal", formatCurrency(previousOutstanding || outstandingPrincipal)],
+              ["Previous EMI", formatCurrency(previousEmi || loan.emi)],
               ["Interest Rate", `${loan.interestRate}% p.a.`],
-              ["New Tenure", `${newTenure} months`],
-              ["New EMI", formatCurrency(newEmi)],
-              ["First EMI Date", safeFormatDate(firstEmiDateStr)],
           ];
           
           autoTable(pdfDoc, {
-              body: tableData,
+              body: beforeData,
               startY: y,
               theme: 'grid',
               styles: { fontSize: 10 },
-              columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 }, 1: { cellWidth: 80 } },
+              columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { cellWidth: 70 } },
+              margin: { left: 14 },
+              tableWidth: 85
           });
           
-          y = (pdfDoc as any).lastAutoTable.finalY + 15;
+          y = (pdfDoc as any).lastAutoTable.finalY + 8;
+          
+          // Top-up Details Section
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.setFillColor(220, 240, 220);
+          pdfDoc.rect(14, y - 4, 182, 8, 'F');
+          pdfDoc.text("TOP-UP DETAILS", 14, y);
+          y += 10;
+          pdfDoc.setFont("helvetica", "normal");
+          
+          const topUpDetails = [
+              ["Top-up Amount", formatCurrency(topUpAmount || (newPrincipal - (previousOutstanding || outstandingPrincipal)))],
+              ["Processing Fee", formatCurrency(processingFee)],
+              ["Net Disbursement", formatCurrency((topUpAmount || (newPrincipal - (previousOutstanding || outstandingPrincipal))) - processingFee)],
+          ];
+          
+          autoTable(pdfDoc, {
+              body: topUpDetails,
+              startY: y,
+              theme: 'grid',
+              styles: { fontSize: 10 },
+              columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { cellWidth: 70 } },
+              margin: { left: 14 },
+              tableWidth: 85
+          });
+          
+          y = (pdfDoc as any).lastAutoTable.finalY + 8;
+          
+          // After Top-up Section
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.setFillColor(220, 220, 240);
+          pdfDoc.rect(14, y - 4, 182, 8, 'F');
+          pdfDoc.text("AFTER TOP-UP", 14, y);
+          y += 10;
+          pdfDoc.setFont("helvetica", "normal");
+          
+          const afterData = [
+              ["New Principal", formatCurrency(newPrincipal)],
+              ["New EMI", formatCurrency(newEmi)],
+              ["New Tenure", `${newTenure} months`],
+              ["First EMI Date", safeFormatDate(firstEmiDateStr)],
+              ["Interest Rate", `${loan.interestRate}% p.a.`],
+          ];
+          
+          autoTable(pdfDoc, {
+              body: afterData,
+              startY: y,
+              theme: 'grid',
+              styles: { fontSize: 10 },
+              columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { cellWidth: 70 } },
+              margin: { left: 14 },
+              tableWidth: 85
+          });
+          
+          y = (pdfDoc as any).lastAutoTable.finalY + 12;
+          
+          // Ledger Entry Section
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text("ACCOUNTING ENTRIES:", 14, y);
+          y += 8;
+          pdfDoc.setFont("helvetica", "normal");
+          pdfDoc.setFontSize(9);
+          
+          const ledgerData = [
+              ["Loan Outstanding A/c", "Dr.", formatCurrency(topUpAmount || (newPrincipal - (previousOutstanding || outstandingPrincipal)))],
+              ["Cash/Bank A/c", "Cr.", formatCurrency((topUpAmount || (newPrincipal - (previousOutstanding || outstandingPrincipal))) - processingFee)],
+              ["Processing Fee Income A/c", "Cr.", formatCurrency(processingFee)],
+          ];
+          
+          autoTable(pdfDoc, {
+              body: ledgerData,
+              startY: y,
+              theme: 'grid',
+              styles: { fontSize: 9 },
+              columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 20 }, 2: { cellWidth: 50 } },
+              margin: { left: 14 },
+              tableWidth: 150
+          });
+          
+          y = (pdfDoc as any).lastAutoTable.finalY + 10;
           
           pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.setFontSize(10);
           pdfDoc.text("TERMS AND CONDITIONS:", 14, y);
           y += 8;
           pdfDoc.setFont("helvetica", "normal");
           pdfDoc.setFontSize(9);
           
           const terms = [
-              "1. This agreement supersedes all previous EMI schedules.",
-              "2. The borrower agrees to pay the new EMI amount as per the revised schedule.",
-              "3. All other terms of the original loan agreement remain unchanged.",
-              "4. Pre-closure charges as per original agreement will apply.",
+              "1. This agreement supersedes all previous EMI schedules for pending EMIs only.",
+              "2. Paid EMIs remain unchanged at the original EMI amount.",
+              "3. The borrower agrees to pay the new EMI amount as per the revised schedule.",
+              "4. All other terms of the original loan agreement remain unchanged.",
+              "5. Pre-closure charges as per original agreement will apply.",
+              "6. Processing fee is non-refundable.",
           ];
           
           terms.forEach(term => {
@@ -575,7 +824,7 @@ const LoanDetails: React.FC = () => {
               y += 6;
           });
           
-          y += 20;
+          y += 15;
           pdfDoc.setFontSize(10);
           pdfDoc.text("_______________________", 14, y);
           pdfDoc.text("_______________________", 120, y);
@@ -592,6 +841,87 @@ const LoanDetails: React.FC = () => {
           console.error("Failed to generate agreement PDF:", error);
       } finally {
           setIsGeneratingAgreement(false);
+      }
+  };
+
+  // Generate Top-up Amortization Schedule PDF
+  const generateTopUpSchedulePDF = async (newPrincipal: number, newEmi: number, newTenure: number, firstEmiDateStr: string, paidCount: number, previousEmi: number) => {
+      if (!loan) return;
+      try {
+          const pdfDoc = new jsPDF();
+          
+          pdfDoc.setFontSize(18);
+          pdfDoc.setFont("helvetica", "bold");
+          pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+          
+          pdfDoc.setFontSize(12);
+          pdfDoc.setFillColor(30, 64, 175);
+          pdfDoc.rect(14, 22, 182, 10, 'F');
+          pdfDoc.setTextColor(255, 255, 255);
+          pdfDoc.text("LOAN AMORTIZATION SCHEDULE (POST TOP-UP)", pdfDoc.internal.pageSize.getWidth() / 2, 29, { align: 'center' });
+          pdfDoc.setTextColor(0, 0, 0);
+          
+          pdfDoc.setFontSize(10);
+          pdfDoc.setFont("helvetica", "normal");
+          let y = 40;
+          
+          pdfDoc.text(`Customer: ${loan.customerName}`, 14, y);
+          pdfDoc.text(`Loan ID: ${loan.id}`, 120, y);
+          y += 7;
+          pdfDoc.text(`New Principal: ${formatCurrency(newPrincipal)}`, 14, y);
+          pdfDoc.text(`Interest Rate: ${loan.interestRate}% p.a.`, 120, y);
+          y += 7;
+          pdfDoc.text(`New EMI: ${formatCurrency(newEmi)}`, 14, y);
+          pdfDoc.text(`New Tenure: ${newTenure} months`, 120, y);
+          y += 10;
+          
+          // Generate amortization schedule
+          let balance = newPrincipal;
+          const monthlyRate = loan.interestRate / 12 / 100;
+          const scheduleData: (string | number)[][] = [];
+          
+          const firstEmiDate = parseISO(firstEmiDateStr);
+          
+          for (let i = 1; i <= newTenure; i++) {
+              const interestPayment = balance * monthlyRate;
+              const principalPayment = newEmi - interestPayment;
+              const openingBalance = balance;
+              balance = Math.max(0, balance - principalPayment);
+              
+              const emiDate = addMonths(firstEmiDate, i - 1);
+              
+              scheduleData.push([
+                  i,
+                  format(emiDate, 'dd-MMM-yyyy'),
+                  formatCurrency(openingBalance),
+                  formatCurrency(newEmi),
+                  formatCurrency(interestPayment),
+                  formatCurrency(principalPayment),
+                  formatCurrency(balance)
+              ]);
+          }
+          
+          autoTable(pdfDoc, {
+              head: [["#", "Due Date", "Opening Bal.", "EMI", "Interest", "Principal", "Closing Bal."]],
+              body: scheduleData,
+              startY: y,
+              theme: 'grid',
+              headStyles: { fillColor: [41, 128, 185] },
+              styles: { fontSize: 8 },
+          });
+          
+          const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+          for(let i = 1; i <= pageCount; i++) {
+              pdfDoc.setPage(i);
+              pdfDoc.setFontSize(8);
+              pdfDoc.setTextColor(150);
+              pdfDoc.text(`© ${new Date().getFullYear()} ${companyDetails.name}`, pdfDoc.internal.pageSize.getWidth() / 2, 287, { align: 'center' });
+              pdfDoc.text(`Page ${i} of ${pageCount}`, pdfDoc.internal.pageSize.getWidth() - 20, 287);
+          }
+          
+          pdfDoc.save(`TopUp_Amortization_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      } catch (error) {
+          console.error("Failed to generate amortization PDF:", error);
       }
   };
 
@@ -633,11 +963,12 @@ const LoanDetails: React.FC = () => {
       }
   };
 
-  const generateUpdatedLoanCardPDF = async (newAmount: number, newEmi: number, newTenure: number) => {
+  const generateUpdatedLoanCardPDF = async (newAmount: number, newEmi: number, newTenure: number, isTopUp: boolean = false) => {
       if (!loan) return;
       try {
           const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
           
+          // Header with TOP-UP indicator
           pdfDoc.setFillColor(30, 64, 175);
           pdfDoc.rect(0, 0, 85.6, 20, 'F');
           
@@ -646,7 +977,16 @@ const LoanDetails: React.FC = () => {
           pdfDoc.setFont("helvetica", "bold");
           pdfDoc.text(companyDetails.name, 42.8, 8, { align: 'center' });
           pdfDoc.setFontSize(6);
-          pdfDoc.text("LOAN CARD (TOP-UP)", 42.8, 14, { align: 'center' });
+          pdfDoc.text(isTopUp ? "LOAN CARD (TOP-UP)" : "LOAN CARD", 42.8, 14, { align: 'center' });
+          
+          // TOP-UP Badge
+          if (isTopUp) {
+              pdfDoc.setFillColor(255, 200, 0);
+              pdfDoc.rect(65, 2, 18, 6, 'F');
+              pdfDoc.setFontSize(5);
+              pdfDoc.setTextColor(0, 0, 0);
+              pdfDoc.text("TOP-UP", 74, 6, { align: 'center' });
+          }
           
           pdfDoc.setTextColor(0, 0, 0);
           pdfDoc.setFontSize(8);
@@ -661,11 +1001,18 @@ const LoanDetails: React.FC = () => {
           pdfDoc.text(`Tenure: ${newTenure} months`, 45, 39);
           pdfDoc.text(`Rate: ${loan.interestRate}% p.a.`, 45, 44);
           
+          // Show top-up count if applicable
+          if (isTopUp && loan.topUpCount) {
+              pdfDoc.setFontSize(5);
+              pdfDoc.setTextColor(100, 100, 200);
+              pdfDoc.text(`Top-up #${(loan.topUpCount || 0) + 1}`, 65, 34);
+          }
+          
           pdfDoc.setFontSize(5);
           pdfDoc.setTextColor(100);
           pdfDoc.text(`Generated: ${format(new Date(), 'dd-MMM-yyyy')}`, 5, 51);
           
-          pdfDoc.save(`LoanCard_TopUp_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+          pdfDoc.save(`LoanCard_${isTopUp ? 'TopUp_' : ''}${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
       } catch (error) {
           console.error("Failed to generate updated loan card:", error);
       }
@@ -893,7 +1240,33 @@ const LoanDetails: React.FC = () => {
                   className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-bold text-sm hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors"
                 >
                     <span className="material-symbols-outlined text-[18px]">trending_up</span> Top-up Loan
+                    {loan.topUpCount && loan.topUpCount > 0 && (
+                        <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[10px] rounded-full">{loan.topUpCount}</span>
+                    )}
                 </button>
+                {loan.topUpHistory && loan.topUpHistory.length > 0 && (
+                    <button 
+                      onClick={handleUndoLastTopUp}
+                      disabled={isUndoingTopUp}
+                      className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-bold text-sm hover:bg-amber-200 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
+                    >
+                        {isUndoingTopUp ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-700 border-t-transparent"></div>
+                        ) : (
+                            <span className="material-symbols-outlined text-[18px]">undo</span>
+                        )}
+                        Undo Last Top-up
+                    </button>
+                )}
+                {loan.topUpHistory && loan.topUpHistory.length > 0 && (
+                    <button 
+                      onClick={() => setShowTopUpHistory(!showTopUpHistory)}
+                      className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 font-bold text-sm hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">history</span> 
+                        Top-up History ({loan.topUpHistory.length})
+                    </button>
+                )}
              </div>
         )}
         
@@ -963,12 +1336,117 @@ const LoanDetails: React.FC = () => {
                      <span className="block font-bold text-slate-900 dark:text-white">{formatCurrency(outstandingPrincipal)}</span>
                  </div>
              </div>
+             {/* Top-up indicator banner */}
+             {loan.topUpCount && loan.topUpCount > 0 && (
+                 <div className="px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-t border-blue-200 dark:border-blue-800">
+                     <div className="flex items-center justify-between flex-wrap gap-2">
+                         <div className="flex items-center gap-2">
+                             <span className="material-symbols-outlined text-blue-600">trending_up</span>
+                             <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                 Top-up Active ({loan.topUpCount} {loan.topUpCount === 1 ? 'time' : 'times'})
+                             </span>
+                         </div>
+                         <div className="flex items-center gap-4 text-xs">
+                             {loan.originalEmi && (
+                                 <span className="text-slate-500">
+                                     Original EMI: <span className="font-bold line-through">{formatCurrency(loan.originalEmi)}</span>
+                                 </span>
+                             )}
+                             <span className="text-blue-600 dark:text-blue-400 font-bold">
+                                 Current EMI: {formatCurrency(loan.emi)}
+                             </span>
+                         </div>
+                     </div>
+                 </div>
+             )}
         </div>
+
+        {/* Top-up History Section */}
+        {showTopUpHistory && loan.topUpHistory && loan.topUpHistory.length > 0 && (
+            <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden print:hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <span className="material-symbols-outlined text-purple-600">history</span>
+                        Top-up History
+                    </h3>
+                    <button onClick={() => setShowTopUpHistory(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {loan.topUpHistory.slice().reverse().map((entry, index) => (
+                        <div key={entry.id || index} className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                                <div>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-bold rounded-full mb-2">
+                                        Top-up #{loan.topUpHistory!.length - index}
+                                    </span>
+                                    <p className="text-sm text-slate-500">{safeFormatDate(entry.date, 'PPP')}</p>
+                                </div>
+                                <span className="text-lg font-bold text-green-600 dark:text-green-400">+{formatCurrency(entry.topUpAmount)}</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                    <span className="block text-xs text-slate-500 mb-0.5">Previous Outstanding</span>
+                                    <span className="font-medium">{formatCurrency(entry.previousOutstanding)}</span>
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-slate-500 mb-0.5">Processing Fee</span>
+                                    <span className="font-medium text-red-600">{formatCurrency(entry.processingFee)} ({entry.processingFeePercentage}%)</span>
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-slate-500 mb-0.5">Previous EMI</span>
+                                    <span className="font-medium line-through text-slate-400">{formatCurrency(entry.previousEmi)}</span>
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-slate-500 mb-0.5">New EMI</span>
+                                    <span className="font-medium text-blue-600">{formatCurrency(entry.newEmi)}</span>
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-slate-500 mb-0.5">New Tenure</span>
+                                    <span className="font-medium">{entry.newTenure} months</span>
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-slate-500 mb-0.5">First EMI Date</span>
+                                    <span className="font-medium">{safeFormatDate(entry.firstEmiDate)}</span>
+                                </div>
+                            </div>
+                            {/* Ledger Entries */}
+                            {entry.ledgerEntries && (
+                                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                                    <span className="block text-xs font-bold text-slate-500 mb-2">Accounting Entries:</span>
+                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-500">Loan A/c (Dr.)</span>
+                                            <span className="font-mono">{formatCurrency(entry.ledgerEntries.loanOutstandingDebit)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-500">Cash A/c (Cr.)</span>
+                                            <span className="font-mono">{formatCurrency(entry.ledgerEntries.cashCredit)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-500">Fee Income (Cr.)</span>
+                                            <span className="font-mono">{formatCurrency(entry.ledgerEntries.processingFeeIncome)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
 
         {/* Schedule Table */}
         <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-             <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                  <h3 className="font-bold text-lg">Repayment Schedule</h3>
+                 {loan.topUpCount && loan.topUpCount > 0 && (
+                     <span className="text-xs text-slate-500">
+                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded mr-2">PAID = Old EMI</span>
+                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded">PENDING = Top-up EMI</span>
+                     </span>
+                 )}
              </div>
              <div className="overflow-x-auto">
                  <table className="w-full text-sm text-left">
@@ -1093,84 +1571,196 @@ const LoanDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Top-up Modal */}
+      {/* Top-up Modal - Enhanced */}
       {isTopUpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl p-6">
-                 <h3 className="text-lg font-bold mb-1">Top-up Loan</h3>
-                 <p className="text-sm text-slate-500 mb-4">Add amount and set new duration. New agreement will be generated.</p>
-                 
-                 <div className="space-y-4 mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in overflow-y-auto">
+             <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-lg shadow-2xl p-6 my-4">
+                 <div className="flex items-center justify-between mb-4">
                      <div>
-                         <label className="block text-xs font-bold text-slate-500 mb-1">Current Outstanding</label>
-                         <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white font-mono">
-                             {formatCurrency(outstandingPrincipal)}
+                         <h3 className="text-lg font-bold">Top-up Loan</h3>
+                         <p className="text-sm text-slate-500">Add amount and set new duration. PDFs will be auto-generated.</p>
+                     </div>
+                     {loan?.topUpCount && loan.topUpCount > 0 && (
+                         <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold rounded-full">
+                             Top-up #{(loan.topUpCount || 0) + 1}
+                         </span>
+                     )}
+                 </div>
+                 
+                 <div className="space-y-4 mb-6 max-h-[60vh] overflow-y-auto">
+                     {/* Current Status */}
+                     <div className="grid grid-cols-2 gap-3">
+                         <div>
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Current Outstanding</label>
+                             <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white font-mono text-sm">
+                                 {formatCurrency(outstandingPrincipal)}
+                             </div>
+                         </div>
+                         <div>
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Current EMI</label>
+                             <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-900 dark:text-white font-mono text-sm">
+                                 {formatCurrency(loan?.emi || 0)}
+                             </div>
                          </div>
                      </div>
+
+                     {/* Top-up Inputs */}
                      <div>
                          <label className="block text-xs font-bold text-slate-500 mb-1">Top-up Amount (Rs.)</label>
                          <input 
                             type="number" 
-                            value={topUpAmount}
+                            value={topUpAmount || ''}
                             onChange={(e) => setTopUpAmount(Number(e.target.value))}
                             placeholder="Enter top-up amount"
                             className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
                          />
                      </div>
-                     <div>
-                         <label className="block text-xs font-bold text-slate-500 mb-1">New Duration (Months)</label>
-                         <input 
-                            type="number" 
-                            value={topUpTenure}
-                            onChange={(e) => setTopUpTenure(Number(e.target.value))}
-                            min={1}
-                            max={120}
-                            placeholder="Enter new tenure"
-                            className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                         />
-                         <p className="text-xs text-slate-400 mt-1">This will be the new loan duration from today</p>
-                     </div>
-                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
-                         <div className="flex justify-between items-center">
-                             <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New Principal</span>
-                             <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(outstandingPrincipal + topUpAmount)}</span>
+                     
+                     <div className="grid grid-cols-2 gap-3">
+                         <div>
+                             <label className="block text-xs font-bold text-slate-500 mb-1">New Duration (Months)</label>
+                             <input 
+                                type="number" 
+                                value={topUpTenure}
+                                onChange={(e) => setTopUpTenure(Number(e.target.value))}
+                                min={1}
+                                max={120}
+                                className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                             />
                          </div>
-                         {topUpAmount > 0 && topUpTenure > 0 && loan && (
-                             <div className="flex justify-between items-center border-t border-blue-200 dark:border-blue-800 pt-2">
-                                 <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New EMI (approx)</span>
-                                 <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">
-                                     {formatCurrency(Math.round(
-                                         ((outstandingPrincipal + topUpAmount) * (loan.interestRate / 12 / 100) * Math.pow(1 + (loan.interestRate / 12 / 100), topUpTenure)) /
-                                         (Math.pow(1 + (loan.interestRate / 12 / 100), topUpTenure) - 1)
-                                     ))}
-                                 </span>
-                             </div>
-                         )}
+                         <div>
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Processing Fee (%)</label>
+                             <input 
+                                type="number" 
+                                value={topUpProcessingFee}
+                                onChange={(e) => setTopUpProcessingFee(Number(e.target.value))}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                             />
+                         </div>
                      </div>
+
+                     {/* Calculation Summary */}
+                     {topUpAmount > 0 && (
+                         <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl space-y-3 border border-blue-200 dark:border-blue-800">
+                             <div className="flex justify-between items-center text-sm">
+                                 <span className="text-slate-600 dark:text-slate-400">Top-up Amount</span>
+                                 <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(topUpAmount)}</span>
+                             </div>
+                             <div className="flex justify-between items-center text-sm">
+                                 <span className="text-slate-600 dark:text-slate-400">Processing Fee ({topUpProcessingFee}%)</span>
+                                 <span className="font-bold text-red-600 dark:text-red-400">- {formatCurrency(calculatedProcessingFee)}</span>
+                             </div>
+                             <div className="flex justify-between items-center text-sm border-t border-blue-200 dark:border-blue-700 pt-2">
+                                 <span className="text-slate-600 dark:text-slate-400">Net Disbursement</span>
+                                 <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(netDisbursement)}</span>
+                             </div>
+                             <div className="flex justify-between items-center text-sm border-t border-blue-200 dark:border-blue-700 pt-2">
+                                 <span className="text-slate-600 dark:text-slate-400">New Principal</span>
+                                 <span className="font-extrabold text-blue-700 dark:text-blue-300">{formatCurrency(outstandingPrincipal + topUpAmount)}</span>
+                             </div>
+                             {topUpTenure > 0 && (
+                                 <>
+                                     <div className="flex justify-between items-center text-sm">
+                                         <span className="text-slate-600 dark:text-slate-400">Old EMI (Paid)</span>
+                                         <span className="font-bold text-slate-500 line-through">{formatCurrency(loan?.emi || 0)}</span>
+                                     </div>
+                                     <div className="flex justify-between items-center border-t-2 border-blue-300 dark:border-blue-600 pt-3">
+                                         <span className="font-bold text-blue-800 dark:text-blue-300">New EMI (Pending)</span>
+                                         <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(previewNewEmi)}</span>
+                                     </div>
+                                 </>
+                             )}
+                         </div>
+                     )}
+
+                     {/* EMI Change Info */}
+                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                         <div className="flex items-start gap-2">
+                             <span className="material-symbols-outlined text-amber-600 text-[18px]">info</span>
+                             <div className="text-xs text-amber-700 dark:text-amber-400">
+                                 <p className="font-bold mb-1">Important:</p>
+                                 <ul className="list-disc list-inside space-y-0.5">
+                                     <li>Paid EMIs remain unchanged at original amount</li>
+                                     <li>New EMI applies only to pending/future EMIs</li>
+                                     <li>EMI due date (day of month) will stay the same</li>
+                                 </ul>
+                             </div>
+                         </div>
+                     </div>
+
+                     {/* Documents Info */}
                      <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                          <p className="text-xs text-green-700 dark:text-green-400">
-                             <span className="font-bold">Note:</span> New Loan Agreement and Loan Card will be automatically generated after top-up.
+                             <span className="font-bold">Auto-generated documents:</span>
+                             <br />• Top-up Agreement PDF (with accounting entries)
+                             <br />• Updated Loan Card PDF
+                             <br />• Amortization Schedule PDF
+                             <br />• SMS/WhatsApp message template
                          </p>
                      </div>
                  </div>
                  
-                 <div className="flex gap-3 justify-end flex-wrap">
+                 <div className="flex gap-3 justify-end flex-wrap border-t border-slate-200 dark:border-slate-700 pt-4">
                      <button onClick={() => setIsTopUpModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">Cancel</button>
-                     <button 
-                        onClick={() => generateLoanCardPDF()}
-                        disabled={!loan}
-                        className="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-bold hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
-                     >
-                         <span className="material-symbols-outlined text-[16px]">credit_card</span>
-                         Download Loan Card
-                     </button>
                      <button 
                         onClick={handleTopUpLoan}
                         disabled={isToppingUp || topUpAmount <= 0 || topUpTenure <= 0}
-                        className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                        className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
                      >
-                         {isToppingUp && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                         {isToppingUp && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                         <span className="material-symbols-outlined text-[18px]">trending_up</span>
                          Confirm Top-up
+                     </button>
+                 </div>
+             </div>
+        </div>
+      )}
+
+      {/* SMS/WhatsApp Message Modal */}
+      {showSmsModal && smsMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl p-6">
+                 <div className="flex items-center justify-between mb-4">
+                     <h3 className="text-lg font-bold flex items-center gap-2">
+                         <span className="material-symbols-outlined text-green-600">sms</span>
+                         Customer Message
+                     </h3>
+                     <button onClick={() => setShowSmsModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
+                         <span className="material-symbols-outlined">close</span>
+                     </button>
+                 </div>
+                 
+                 <div className="mb-4">
+                     <p className="text-sm text-slate-500 mb-3">Copy this message to send via SMS or WhatsApp:</p>
+                     <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg font-mono text-sm whitespace-pre-wrap border border-slate-200 dark:border-slate-700 max-h-[300px] overflow-y-auto">
+                         {smsMessage}
+                     </div>
+                 </div>
+                 
+                 <div className="flex gap-3 justify-end">
+                     <button 
+                        onClick={() => {
+                            navigator.clipboard.writeText(smsMessage);
+                            alert('Message copied to clipboard!');
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
+                     >
+                         <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                         Copy Message
+                     </button>
+                     <button 
+                        onClick={() => {
+                            const whatsappUrl = `https://wa.me/${customer?.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(smsMessage)}`;
+                            window.open(whatsappUrl, '_blank');
+                        }}
+                        disabled={!customer?.phone}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                     >
+                         <span className="material-symbols-outlined text-[16px]">chat</span>
+                         Send WhatsApp
                      </button>
                  </div>
              </div>
