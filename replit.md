@@ -64,6 +64,8 @@ npx cap sync android
 6. **Role-Based Company Access** - Users assigned admin/agent roles in a company now automatically see that company when they login, no need to add company again
 7. **Customer Portal** - Customers can login using phone number (as both user ID and password) to view their loan details and EMI schedule
 8. **UPI Payment for EMI** - Customer portal generates QR code and UPI payment link for EMI payments to 9413821007@superyes
+9. **Enhanced Loan Top-up** - Top-up now asks for new duration (months), auto-generates new Loan Agreement PDF and Loan Card PDF with updated terms. Preserves the original EMI due day.
+10. **Flexible EMI Due Date** - When disbursing a loan, can now select which day of month (1-28) EMI should be due instead of hardcoded 1st
 
 ## Configuration
 - Vite is configured to allow all hosts for Replit proxy compatibility
