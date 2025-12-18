@@ -27,6 +27,7 @@ const Disbursal: React.FC = () => {
     // Modal State
     const [selectedLoan, setSelectedLoan] = useState<ApprovedLoan | null>(null);
     const [disbursalDate, setDisbursalDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [emiDueDay, setEmiDueDay] = useState<number>(1); // Default to 1st of month
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
@@ -66,15 +67,18 @@ const Disbursal: React.FC = () => {
             const loanRef = doc(db, "loans", selectedLoan.id);
             const dateObj = new Date(disbursalDate);
 
-            // Generate EMI schedule
-            // Logic: First EMI is due on the 1st of the month FOLLOWING the disbursal month
+            // Generate EMI schedule with selected due day
             const repaymentSchedule = [];
-            const firstEmiDate = startOfMonth(addMonths(dateObj, 1));
+            const nextMonth = addMonths(dateObj, 1);
+            const year = nextMonth.getFullYear();
+            const month = nextMonth.getMonth();
+            const firstEmiDate = new Date(year, month, emiDueDay);
             
             for (let i = 0; i < selectedLoan.tenure; i++) {
+                const emiDate = addMonths(firstEmiDate, i);
                 repaymentSchedule.push({
                     emiNumber: i + 1,
-                    dueDate: format(addMonths(firstEmiDate, i), 'yyyy-MM-dd'),
+                    dueDate: format(emiDate, 'yyyy-MM-dd'),
                     amount: selectedLoan.emi,
                     status: 'Pending'
                 });
@@ -87,6 +91,7 @@ const Disbursal: React.FC = () => {
                 disbursalDate: disbursalDate,
                 repaymentSchedule: repaymentSchedule,
                 actualDisbursed: actualDisbursed,
+                emiDueDay: emiDueDay,
             });
             
             // Success Handling
@@ -215,8 +220,22 @@ const Disbursal: React.FC = () => {
                                     max={new Date().toISOString().split('T')[0]}
                                     className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">EMI Due Day (Har Mahine Ki Tarikh)</label>
+                                <select
+                                    value={emiDueDay}
+                                    onChange={(e) => setEmiDueDay(Number(e.target.value))}
+                                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                                >
+                                    {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
+                                        <option key={day} value={day}>
+                                            {day === 1 ? '1st' : day === 2 ? '2nd' : day === 3 ? '3rd' : `${day}th`} of every month
+                                        </option>
+                                    ))}
+                                </select>
                                 <p className="text-xs text-slate-400 mt-2">
-                                    * First EMI will be due on the 1st of the following month.
+                                    * First EMI: {emiDueDay === 1 ? '1st' : emiDueDay === 2 ? '2nd' : emiDueDay === 3 ? '3rd' : `${emiDueDay}th`} of next month
                                 </p>
                             </div>
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">
