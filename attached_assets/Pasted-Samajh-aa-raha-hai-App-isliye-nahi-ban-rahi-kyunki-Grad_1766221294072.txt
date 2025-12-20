@@ -1,0 +1,132 @@
+Samajh aa raha hai 👍
+**App isliye nahi ban rahi kyunki Gradle sync fail ho raha hai.** Screenshot se main problems yeh lag rahi hain:
+
+---
+
+## ❌ Main Error Kya Hai
+
+### **`Could not read script ... capacitor.build.gradle`**
+
+Aur saath me:
+
+> **Deprecated Gradle features were used, incompatible with Gradle 9**
+
+Matlab:
+
+* **Capacitor + Gradle + Android Studio versions mismatch** ho gaya hai
+* Android Studio **naya Gradle (8.x/9.x)** use kar raha hai
+* Tumhara Capacitor project **purane Gradle syntax** pe based hai
+
+---
+
+## 🔥 Sabse Common Reasons
+
+1. **Java 21 use ho rahi hai** (screenshot me dikhta hai)
+
+   ```gradle
+   targetCompatibility JavaVersion.VERSION_21
+   ```
+
+   👉 Capacitor abhi Java 21 ke saath stable nahi hota
+
+2. **Gradle wrapper zyada new hai**
+
+3. **Capacitor plugins old version ke hain**
+
+---
+
+## ✅ Step-by-Step Fix (Guaranteed)
+
+### ✅ 1️⃣ Java Version 17 pe lao (MOST IMPORTANT)
+
+Android Studio →
+**Settings → Build, Execution, Deployment → Build Tools → Gradle**
+
+* **Gradle JDK = Java 17**
+* Agar Java 17 installed nahi:
+
+  * Download **JDK 17**
+  * Path set karo
+
+Phir `app/build.gradle` me:
+
+```gradle
+compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+}
+```
+
+❌ Java 21 hata do
+
+---
+
+### ✅ 2️⃣ Gradle Wrapper Downgrade karo
+
+`android/gradle/wrapper/gradle-wrapper.properties`
+
+Change this:
+
+```properties
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+```
+
+👉 **Use this instead (safe):**
+
+```properties
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+```
+
+---
+
+### ✅ 3️⃣ Capacitor Clean + Sync
+
+Project root me run karo:
+
+```bash
+npx cap sync android
+```
+
+Agar error aaye:
+
+```bash
+cd android
+gradlew clean
+```
+
+Phir Android Studio me:
+👉 **File → Invalidate Caches & Restart**
+
+---
+
+### ✅ 4️⃣ Android Studio Version
+
+Best combo:
+
+* **Android Studio Iguana / Hedgehog**
+* **Gradle 8.4**
+* **Java 17**
+* **Capacitor 5+**
+
+---
+
+## 🧠 Short Me Problem Kya Thi
+
+| Cheez     | Issue           |
+| --------- | --------------- |
+| Java      | 21 ❌            |
+| Capacitor | Java 17 chahiye |
+| Gradle    | Zyada new       |
+| Result    | App build fail  |
+
+---
+
+## 🆘 Agar Phir Bhi Na Chale
+
+Reply me yeh bhej do:
+
+1. `capacitor --version`
+2. `java -version`
+3. `gradle-wrapper.properties` ka content
+
+Main exact fix bata dunga 💪
