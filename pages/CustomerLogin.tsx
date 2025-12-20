@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -10,6 +10,13 @@ const CustomerLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const customerId = localStorage.getItem('customerPortalId');
+    if (customerId) {
+      navigate('/customer-portal');
+    }
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -17,7 +24,7 @@ const CustomerLogin: React.FC = () => {
 
     try {
       const trimmedLoginId = loginId.trim().toLowerCase();
-      
+
       if (trimmedLoginId.length < 13) {
         setError('Invalid Login ID. Format: First 3 letters of company + 10 digit phone (e.g., jls8003986362)');
         setLoading(false);
@@ -76,7 +83,7 @@ const CustomerLogin: React.FC = () => {
             if (companySnap.exists()) {
               const companyName = companySnap.data().name || '';
               const companyPrefix = companyName.substring(0, 3).toLowerCase();
-              
+
               if (companyPrefix === companyCode) {
                 matchedCustomer = { id: customerDoc.id, ...customerData };
                 matchedCompanyId = customerData.companyId;
@@ -193,8 +200,8 @@ const CustomerLogin: React.FC = () => {
           </form>
 
           <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
-            <Link 
-              to="/login" 
+            <Link
+              to="/login"
               className="text-sm text-primary hover:underline font-medium"
             >
               Admin/Agent Login

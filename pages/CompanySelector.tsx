@@ -14,18 +14,18 @@ const CompanySelector: React.FC = () => {
   const [newCompanyPhone, setNewCompanyPhone] = useState('');
   const [newCompanyGstin, setNewCompanyGstin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
   const [deletedCompany, setDeletedCompany] = useState<Company | null>(null);
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  const [orphanedData, setOrphanedData] = useState<{customers: number, loans: number, partners: number, expenses: number}>({customers: 0, loans: 0, partners: 0, expenses: 0});
+
+  const [orphanedData, setOrphanedData] = useState<{ customers: number, loans: number, partners: number, expenses: number }>({ customers: 0, loans: 0, partners: 0, expenses: 0 });
   const [showMigrateModal, setShowMigrateModal] = useState(false);
   const [selectedCompanyForMigration, setSelectedCompanyForMigration] = useState<Company | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
-  
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
   const [editCompanyName, setEditCompanyName] = useState('');
@@ -44,22 +44,22 @@ const CompanySelector: React.FC = () => {
           getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", null))),
           getDocs(query(collection(db, "expenses"), where("companyId", "==", null)))
         ]);
-        
+
         const customersWithoutCompany = customersSnap.docs.filter(doc => !doc.data().companyId).length;
         const loansWithoutCompany = loansSnap.docs.filter(doc => !doc.data().companyId).length;
         const partnersWithoutCompany = partnersSnap.docs.filter(doc => !doc.data().companyId).length;
         const expensesWithoutCompany = expensesSnap.docs.filter(doc => !doc.data().companyId).length;
-        
+
         const allCustomers = await getDocs(collection(db, "customers"));
         const allLoans = await getDocs(collection(db, "loans"));
         const allPartners = await getDocs(collection(db, "partner_transactions"));
         const allExpenses = await getDocs(collection(db, "expenses"));
-        
+
         const orphanCustomers = allCustomers.docs.filter(d => !d.data().companyId).length;
         const orphanLoans = allLoans.docs.filter(d => !d.data().companyId).length;
         const orphanPartners = allPartners.docs.filter(d => !d.data().companyId).length;
         const orphanExpenses = allExpenses.docs.filter(d => !d.data().companyId).length;
-        
+
         setOrphanedData({
           customers: orphanCustomers,
           loans: orphanLoans,
@@ -70,55 +70,55 @@ const CompanySelector: React.FC = () => {
         console.error("Error checking orphaned data:", error);
       }
     };
-    
+
     checkOrphanedData();
   }, []);
 
   const handleMigrateData = async () => {
     if (!selectedCompanyForMigration) return;
-    
+
     setIsMigrating(true);
     try {
       const batch = writeBatch(db);
       const companyId = selectedCompanyForMigration.id;
-      
+
       const [customersSnap, loansSnap, partnersSnap, expensesSnap] = await Promise.all([
         getDocs(collection(db, "customers")),
         getDocs(collection(db, "loans")),
         getDocs(collection(db, "partner_transactions")),
         getDocs(collection(db, "expenses"))
       ]);
-      
+
       customersSnap.docs.forEach(docSnap => {
         if (!docSnap.data().companyId) {
           batch.update(doc(db, "customers", docSnap.id), { companyId });
         }
       });
-      
+
       loansSnap.docs.forEach(docSnap => {
         if (!docSnap.data().companyId) {
           batch.update(doc(db, "loans", docSnap.id), { companyId });
         }
       });
-      
+
       partnersSnap.docs.forEach(docSnap => {
         if (!docSnap.data().companyId) {
           batch.update(doc(db, "partner_transactions", docSnap.id), { companyId });
         }
       });
-      
+
       expensesSnap.docs.forEach(docSnap => {
         if (!docSnap.data().companyId) {
           batch.update(doc(db, "expenses", docSnap.id), { companyId });
         }
       });
-      
+
       await batch.commit();
-      
-      setOrphanedData({customers: 0, loans: 0, partners: 0, expenses: 0});
+
+      setOrphanedData({ customers: 0, loans: 0, partners: 0, expenses: 0 });
       setShowMigrateModal(false);
       alert("Data successfully migrated to " + selectedCompanyForMigration.name);
-      
+
       setCurrentCompany(selectedCompanyForMigration);
       navigate('/');
     } catch (error) {
@@ -180,7 +180,7 @@ const CompanySelector: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (!companyToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       const companyData = { ...companyToDelete };
@@ -189,7 +189,7 @@ const CompanySelector: React.FC = () => {
       setShowDeleteConfirm(false);
       setCompanyToDelete(null);
       setShowUndoToast(true);
-      
+
       setTimeout(() => {
         setShowUndoToast(false);
         setDeletedCompany(null);
@@ -204,7 +204,7 @@ const CompanySelector: React.FC = () => {
 
   const handleUndoDelete = async () => {
     if (!deletedCompany) return;
-    
+
     try {
       await addCompany(
         deletedCompany.name,
@@ -273,18 +273,16 @@ const CompanySelector: React.FC = () => {
             <div
               key={company.id}
               onClick={() => handleSelectCompany(company)}
-              className={`bg-surface-light dark:bg-[#1e2736] rounded-2xl p-4 shadow-sm border cursor-pointer transition-all hover:shadow-md ${
-                currentCompany?.id === company.id 
-                  ? 'border-primary ring-2 ring-primary/20' 
+              className={`bg-surface-light dark:bg-[#1e2736] rounded-2xl p-4 shadow-sm border cursor-pointer transition-all hover:shadow-md ${currentCompany?.id === company.id
+                  ? 'border-primary ring-2 ring-primary/20'
                   : 'border-outline-light/10 dark:border-outline-dark/10'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-4">
-                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
-                  currentCompany?.id === company.id 
-                    ? 'bg-primary text-on-primary' 
+                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${currentCompany?.id === company.id
+                    ? 'bg-primary text-on-primary'
                     : 'bg-primary-container text-on-primary-container'
-                }`}>
+                  }`}>
                   <span className="material-symbols-outlined text-2xl">business</span>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -379,17 +377,16 @@ const CompanySelector: React.FC = () => {
             <p className="text-sm text-on-surface-variant-light dark:text-on-surface-variant-dark mb-4">
               Select a company to link your existing data:
             </p>
-            
+
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {companies.map((company) => (
                 <div
                   key={company.id}
                   onClick={() => setSelectedCompanyForMigration(company)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                    selectedCompanyForMigration?.id === company.id
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedCompanyForMigration?.id === company.id
                       ? 'border-primary bg-primary/10'
                       : 'border-outline-light/20 hover:bg-surface-variant-light/30'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-primary">business</span>

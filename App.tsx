@@ -34,6 +34,7 @@ import CustomerPortal from './pages/CustomerPortal';
 import BottomNav from './components/BottomNav';
 import { SidebarProvider } from './context/SidebarContext';
 import Sidebar from './components/Sidebar';
+import Downloads from './pages/Downloads';
 
 const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.ReactNode; requireCompany?: boolean }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -56,7 +57,12 @@ const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    // Check if customer is logged in locally
+    const customerId = localStorage.getItem('customerPortalId');
+    if (customerId) {
+      return <Navigate to="/customer-portal" replace />;
+    }
+    return <Navigate to="/customer-login" replace />; // Changed default to customer login as this seems to be the customer app context
   }
 
   return <>{children}</>;
@@ -84,14 +90,28 @@ const CompanyRequiredRoute = ({ children }: { children?: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+import { Capacitor } from '@capacitor/core';
+import AnimatedSplash from './components/AnimatedSplash';
+
+import BackButtonHandler from './components/BackButtonHandler';
+import PermissionRequestor from './components/PermissionRequestor';
+
 const App: React.FC = () => {
+  const [showSplash, setShowSplash] = useState(Capacitor.isNativePlatform());
+
+  if (showSplash) {
+    return <AnimatedSplash onFinish={() => setShowSplash(false)} />;
+  }
+
   return (
     <Router>
+      <BackButtonHandler />
+      <PermissionRequestor />
       <CompanyProvider>
         <SidebarProvider>
           <div className="flex h-screen bg-background-light dark:bg-background-dark">
             <Sidebar />
-            <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+            <div className="flex-1 flex flex-col h-full overflow-y-auto relative">
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
@@ -282,6 +302,14 @@ const App: React.FC = () => {
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <UserManagement />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/downloads" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Downloads />
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />

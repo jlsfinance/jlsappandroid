@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
+import { DownloadService } from '../services/DownloadService';
 
 // --- Types ---
 interface Loan {
@@ -549,15 +550,15 @@ const Loans: React.FC = () => {
         }
     };
 
-    const handleDownloadPdf = () => {
+    const handleDownloadPdf = async () => {
         if (currentPdfBlob && currentPdfName) {
-            const url = window.URL.createObjectURL(currentPdfBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = currentPdfName;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            const reader = new FileReader();
+            reader.readAsDataURL(currentPdfBlob);
+            reader.onloadend = async () => {
+                const base64data = (reader.result as string).split(',')[1];
+                await DownloadService.downloadPDF(currentPdfName, base64data);
+                setShowPdfModal(false);
+            };
         }
     };
 
@@ -575,7 +576,7 @@ const Loans: React.FC = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 bg-slate-50 dark:bg-slate-950 font-sans">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 pb-safe bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none -z-10">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-blue-50/50 via-indigo-50/30 to-transparent dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-transparent"></div>
@@ -584,7 +585,7 @@ const Loans: React.FC = () => {
             </div>
 
             {/* Header */}
-            <header className="sticky top-0 z-20 px-4 py-4 glass border-b border-white/20 dark:border-slate-800/50">
+            <header className="sticky top-0 z-20 px-4 pb-4 glass border-b border-white/20 dark:border-slate-800/50" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link to="/" className="group flex h-10 w-10 items-center justify-center rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm">
@@ -632,8 +633,8 @@ const Loans: React.FC = () => {
                                             const customer = customers.find(c => c.id === loan.customerId);
                                             return (
                                                 <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
-                                                    {customer?.photo_url ? (
-                                                        <img src={customer.photo_url} alt={loan.customerName} className="h-full w-full object-cover" />
+                                                    {customer?.photo_url || customer?.avatar ? (
+                                                        <img src={customer.photo_url || customer.avatar} alt={loan.customerName} className="h-full w-full object-cover" />
                                                     ) : (
                                                         <div className={`h-full w-full flex items-center justify-center ${loan.status === 'Disbursed' || loan.status === 'Active'
                                                             ? 'bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-600 dark:from-indigo-900/50 dark:to-blue-900/50 dark:text-indigo-400'

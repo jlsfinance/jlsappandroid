@@ -6,6 +6,14 @@
   --primary-color: #4f46e5;
   --safe-top: env(safe-area-inset-top, 24px);
   --safe-bottom: env(safe-area-inset-bottom, 20px);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -14,10 +22,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f8fafc;
-  /* Removed body safe-area padding to allow per-component control (Sticky Headers) */
-  /* Re-enabling safe area padding as per user request to fix overlapping issues */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+
+  /* Safe Area Handling */
+  padding-top: env(safe-area-inset-top, 35px) !important;
+  padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+
   box-sizing: border-box;
 }
 
