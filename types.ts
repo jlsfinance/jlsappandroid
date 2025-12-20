@@ -40,6 +40,13 @@ export interface Loan {
   progress?: number;
   paid?: number;
   total?: number;
+  customerName?: string;
+  repaymentSchedule?: {
+    date: string;
+    amount: number;
+    status: 'Pending' | 'Paid';
+    paymentDate?: string;
+  }[];
 }
 
 export interface Transaction {
