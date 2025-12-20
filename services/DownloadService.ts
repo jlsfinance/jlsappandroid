@@ -1,42 +1,14 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Platform } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Share } from '@capacitor/share';
 
 export class DownloadService {
-  static async ensureDownloadsFolder(): Promise<string> {
-    try {
-      const platform = Platform.getPlatform();
-      
-      if (platform === 'web') {
-        // For web, we don't need a folder
-        return '';
-      }
-
-      // For Android/native platforms
-      const documentsPath = `${Directory.Documents}`;
-      
-      try {
-        await Filesystem.mkdir({
-          path: `${documentsPath}/JLS_Downloads`,
-          directory: Directory.Documents,
-          recursive: true,
-        });
-      } catch (e) {
-        // Folder might already exist
-      }
-
-      return `${documentsPath}/JLS_Downloads`;
-    } catch (error) {
-      console.error('Error ensuring downloads folder:', error);
-      return '';
-    }
-  }
-
   static async downloadPDF(filename: string, base64Data: string): Promise<void> {
     try {
-      const platform = Platform.getPlatform();
+      const platform = Capacitor.getPlatform();
 
       if (platform === 'web') {
-        // For web, use traditional download
         const link = document.createElement('a');
         link.href = `data:application/pdf;base64,${base64Data}`;
         link.download = filename;
@@ -46,26 +18,69 @@ export class DownloadService {
         return;
       }
 
-      // For native platforms (Android)
-      await this.ensureDownloadsFolder();
-      
-      const path = `JLS_Downloads/${filename}`;
-      
-      const result = await Filesystem.writeFile({
-        path: path,
-        data: base64Data,
-        directory: Directory.Documents,
-      });
+      // Native Logic
+      try {
+        // Strategy A: App Specific External Storage
+        // Path: /Android/data/com.jls.financesuite/files/JLS_Downloads/<filename>
+        try {
+          await Filesystem.mkdir({
+            path: 'JLS_Downloads',
+            directory: Directory.External,
+            recursive: true
+          });
 
-      console.log('File saved to:', result.uri);
-      
-      // Show a notification or toast
-      alert(`File downloaded: ${filename}`);
+          const result = await Filesystem.writeFile({
+            path: `JLS_Downloads/${filename}`,
+            data: base64Data,
+            directory: Directory.External,
+          });
 
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert('Failed to download file. Please try again.');
+          console.log('File saved to External:', result.uri);
+
+          // Notification
+          try {
+            await LocalNotifications.schedule({
+              notifications: [{
+                title: 'Download Complete',
+                body: `${filename} saved to JLS Downloads.`,
+                id: new Date().getTime(),
+                schedule: { at: new Date(Date.now() + 100) },
+                sound: undefined,
+                attachments: undefined,
+                actionTypeId: "",
+                extra: null
+              }]
+            });
+          } catch (nErr) { console.warn('Notification failed:', nErr); }
+
+          alert(`✅ Saved Successfully!\n\nView it in the "Downloads" tab in this app.`);
+
+        } catch (externalError: any) {
+          console.error('App Storage failed:', externalError);
+          // Alert the specific error to understand why it failed
+          alert(`⚠️ Direct Save Failed: ${externalError.message || externalError}\n\nOpening Share options...`);
+
+          // Strategy B: Share Sheet (Final Fallback)
+          const cacheResult = await Filesystem.writeFile({
+            path: filename,
+            data: base64Data,
+            directory: Directory.Cache
+          });
+
+          await Share.share({
+            title: 'Save PDF',
+            text: `Here is your document: ${filename}`,
+            url: cacheResult.uri,
+            dialogTitle: 'Save PDF'
+          });
+        }
+
+      } catch (error: any) {
+        console.error('Error downloading PDF:', error);
+        alert('❌ Download Failed: ' + (error.message || error));
+      }
+    } catch (appError) {
+      console.error('Unexpected error in download service:', appError);
     }
   }
-
 }

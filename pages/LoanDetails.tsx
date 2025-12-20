@@ -6,8 +6,19 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO, isValid, addMonths, startOfMonth } from 'date-fns';
 import { useCompany } from '../context/CompanyContext';
-import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { DownloadService } from '../services/DownloadService';
+
+// Helper function to save/download PDF using the centralized service
+const savePdf = async (pdfDoc: jsPDF, fileName: string) => {
+    try {
+        const base64Data = pdfDoc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(fileName, base64Data);
+    } catch (e: any) {
+        console.error('File save error', e);
+        alert('Error saving file: ' + e.message);
+    }
+};
 
 // --- Interfaces ---
 interface Emi {
@@ -241,24 +252,7 @@ const LOAN_TERMS = [
     "6. This agreement is subject to the jurisdiction of the local courts.",
 ];
 
-const savePdf = async (pdfDoc: jsPDF, fileName: string) => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const base64Data = pdfDoc.output('datauristring').split(',')[1];
-            await Filesystem.writeFile({
-                path: fileName,
-                data: base64Data,
-                directory: Directory.Documents,
-            });
-            alert('File saved to Documents folder: ' + fileName);
-        } catch (e: any) {
-            console.error('File save error', e);
-            alert('Error saving file: ' + e.message);
-        }
-    } else {
-        pdfDoc.save(fileName);
-    }
-};
+
 
 const getEmiAmountForDisplay = (emi: any, loan: Loan) => {
     if (emi.status === "Paid") {

@@ -50,6 +50,7 @@ const Sidebar: React.FC = () => {
         { title: 'Customers', path: '/customers', icon: 'group' },
         { title: 'Partners', path: '/partners', icon: 'handshake' },
         { title: 'Tools', path: '/tools', icon: 'construction' },
+        { title: 'Downloads', path: '/downloads', icon: 'folder_open' },
         { title: 'Settings', path: '/settings', icon: 'settings' },
     ];
 
@@ -72,7 +73,7 @@ const Sidebar: React.FC = () => {
 
             {/* Sidebar Container */}
             <aside
-                className={`fixed inset-y-0 left-0 z-[55] w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed inset-y-0 left-0 z-[55] w-72 h-screen bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'
                     }`}
                 style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
