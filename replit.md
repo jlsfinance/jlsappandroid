@@ -43,6 +43,15 @@ A React + TypeScript finance management application built with Vite with Capacit
 - **Java Version**: 17 (required for Capacitor stability)
 - **Gradle Version**: 8.4 (compatible with Java 17 and Capacitor 7)
 
+### ✅ Capacitor Safe Area Implementation (Status Bar & Navigation Bar)
+All of the following fixes are **already implemented** in the project:
+1. **CSS Safe Area Padding** - `index.css` uses `env(safe-area-inset-top/bottom)` for automatic padding
+2. **Material Design Theme** - `android/app/src/main/res/values/styles.xml` uses `Theme.MaterialComponents.DayNight.NoActionBar`
+3. **System Window Handling** - `MainActivity.java` has `WindowCompat.setDecorFitsSystemWindows(true)` for proper window insets
+4. **Sidebar Safe Area** - `Sidebar.tsx` component has explicit safe area padding with `env(safe-area-inset-*)`
+5. **Scrollable Components** - Menu items have `overflow-y-auto` to prevent content cutoff
+6. **Status Bar Configuration** - `capacitor.config.ts` has proper StatusBar plugin config with color matching
+
 ### Android Studio Setup Requirements:
 1. **Java 17** - Set in Android Studio: Settings → Build, Execution, Deployment → Gradle → Gradle JDK = Java 17
 2. **Android Studio Version**: Iguana or Hedgehog (current stable versions)
