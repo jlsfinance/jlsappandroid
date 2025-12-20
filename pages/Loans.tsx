@@ -620,57 +620,58 @@ const Loans: React.FC = () => {
                     </div>
                 ) : filteredLoans.length > 0 ? (
                     filteredLoans.map((loan) => (
-                        <div
-                            key={loan.id}
-                            onClick={() => navigate(`/loans/${loan.id}`)}
-                            className="glass-card relative rounded-2xl p-5 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer transition-all duration-300 group border border-white/40 dark:border-slate-700/40"
-                        >
-                            <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-4 pl-2">
-                                    {(() => {
-                                        const customer = customers.find(c => c.id === loan.customerId);
-                                        return (
-                                            <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
-                                                {customer?.photo_url ? (
-                                                    <img src={customer.photo_url} alt={loan.customerName} className="h-full w-full object-cover" />
-                                                ) : (
-                                                    <div className={`h-full w-full flex items-center justify-center ${loan.status === 'Disbursed' || loan.status === 'Active'
-                                                        ? 'bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-600 dark:from-indigo-900/50 dark:to-blue-900/50 dark:text-indigo-400'
-                                                        : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
-                                                        }`}>
-                                                        <span className="material-symbols-outlined text-[24px]">{loan.status === 'Disbursed' || loan.status === 'Active' ? 'person' : 'person_off'}</span>
-                                                    </div>
-                                                )}
+                        <div key={loan.id}>
+                            <div
+                                onClick={() => navigate(`/loans/${loan.id}`)}
+                                className="glass-card relative rounded-2xl p-5 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer transition-all duration-300 group border border-white/40 dark:border-slate-700/40"
+                            >
+                                <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-4 pl-2 flex-1 min-w-0">
+                                        {(() => {
+                                            const customer = customers.find(c => c.id === loan.customerId);
+                                            return (
+                                                <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
+                                                    {customer?.photo_url ? (
+                                                        <img src={customer.photo_url} alt={loan.customerName} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <div className={`h-full w-full flex items-center justify-center ${loan.status === 'Disbursed' || loan.status === 'Active'
+                                                            ? 'bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-600 dark:from-indigo-900/50 dark:to-blue-900/50 dark:text-indigo-400'
+                                                            : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                                                            }`}>
+                                                            <span className="material-symbols-outlined text-[24px]">{loan.status === 'Disbursed' || loan.status === 'Active' ? 'person' : 'person_off'}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                        <div className="space-y-1 min-w-0 flex-1">
+                                            <h3 className="font-bold text-lg truncate text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors capitalize">{loan.customerName.toLowerCase()}</h3>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-[11px] font-mono bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md text-slate-500 border border-slate-200 dark:border-slate-700">#{loan.id?.slice(0, 8)}</span>
+                                                <StatusBadge status={loan.status} />
                                             </div>
-                                        );
-                                    })()}
-                                    <div className="space-y-1">
-                                        <h3 className="font-bold text-lg truncate pr-2 text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors capitalize">{loan.customerName.toLowerCase()}</h3>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] font-mono bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md text-slate-500 border border-slate-200 dark:border-slate-700">#{loan.id?.slice(0, 8)}</span>
-                                            <StatusBadge status={loan.status} />
+                                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{formatCurrency(loan.amount)}</p>
                                         </div>
-                                        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{formatCurrency(loan.amount)}</p>
                                     </div>
-                                </div>
-                                <div className="text-right flex flex-col items-end gap-1">
-                                    <span className="text-xs font-medium text-slate-400 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-lg">
-                                        {loan.date ? format(parseISO(loan.date), 'dd MMM, yy') : 'N/A'}
-                                    </span>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveMenuId(activeMenuId === loan.id ? null : loan.id);
-                                        }}
-                                        className="p-2 -mr-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-400 hover:text-indigo-600 transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined">more_vert</span>
-                                    </button>
+                                    <div className="text-right flex flex-col items-end gap-1 flex-shrink-0">
+                                        <span className="text-xs font-medium text-slate-400 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-lg whitespace-nowrap">
+                                            {loan.date ? format(parseISO(loan.date), 'dd MMM, yy') : 'N/A'}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveMenuId(activeMenuId === loan.id ? null : loan.id);
+                                            }}
+                                            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-400 hover:text-indigo-600 transition-colors flex-shrink-0"
+                                        >
+                                            <span className="material-symbols-outlined">more_vert</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Dropdown Menu */}
+                            {/* Dropdown Menu - Fixed positioning to avoid overlap */}
                             {activeMenuId === loan.id && (
                                 <>
                                     <div
@@ -681,7 +682,13 @@ const Loans: React.FC = () => {
                                         }}
                                     ></div>
                                     <div
-                                        className="absolute right-4 top-12 z-40 w-48 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100"
+                                        className="fixed z-40 w-48 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100"
+                                        style={{
+                                            top: 'auto',
+                                            left: 'auto',
+                                            right: '16px',
+                                            bottom: 'auto'
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <Link to={`/loans/${loan.id}`} className="px-4 py-3 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-700 dark:text-slate-300 flex items-center gap-3">
