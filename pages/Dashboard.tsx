@@ -310,7 +310,7 @@ const Dashboard: React.FC = () => {
         return { data: modalData, columns, renderRow };
     };
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!activeCard) return;
         const { data, columns } = getModalContent();
         if (!data || data.length === 0) { alert("No data available."); return; }
@@ -376,7 +376,16 @@ const Dashboard: React.FC = () => {
 
         autoTable(doc, { head: [columns], body: tableRows, startY: 25 });
         const today = format(new Date(), 'dd-MMM-yyyy');
-        doc.save(`report_${today}.pdf`);
+        const filename = `report_${today}.pdf`;
+        const pdfData = doc.output('dataurlstring').split(',')[1];
+        
+        try {
+            const { DownloadService } = await import('../services/DownloadService');
+            await DownloadService.downloadPDF(filename, pdfData);
+        } catch (error) {
+            // Fallback for web
+            doc.save(filename);
+        }
     };
 
     const { data, columns, renderRow } = getModalContent();
@@ -384,7 +393,7 @@ const Dashboard: React.FC = () => {
 
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 max-w-md mx-auto bg-slate-50 dark:bg-slate-950 font-sans">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-indigo-50/50 via-purple-50/30 to-transparent dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-transparent"></div>
@@ -418,7 +427,7 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className="relative px-6 space-y-8 mt-6">
+            <div className="relative px-4 sm:px-6 space-y-6 sm:space-y-8 mt-4 sm:mt-6 max-w-7xl mx-auto w-full">
 
                 {/* Hero Balance Card - Premium 3D Effect */}
                 <div className="group relative overflow-hidden rounded-[2rem] bg-slate-900 text-white shadow-2xl shadow-indigo-500/25 transition-all hover:scale-[1.01]">
