@@ -23,6 +23,7 @@ import DueList from './pages/DueList';
 import Partners from './pages/Partners';
 import UserManagement from './pages/UserManagement';
 import LegalNotice from './pages/LegalNotice';
+import NotificationCenter from './pages/NotificationCenter';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -31,6 +32,8 @@ import CompanySelector from './pages/CompanySelector';
 import CustomerLogin from './pages/CustomerLogin';
 import CustomerPortal from './pages/CustomerPortal';
 import BottomNav from './components/BottomNav';
+import { SidebarProvider } from './context/SidebarContext';
+import Sidebar from './components/Sidebar';
 
 const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.ReactNode; requireCompany?: boolean }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -85,192 +88,207 @@ const App: React.FC = () => {
   return (
     <Router>
       <CompanyProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/customer-login" element={<CustomerLogin />} />
-          <Route path="/customer-portal" element={<CustomerPortal />} />
-          
-          <Route path="/company-selector" element={
-            <ProtectedRoute>
-              <CompanySelector />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/" element={
-            <ProtectedRoute>
-              <CompanyRequiredRoute>
-                <Dashboard />
-                <BottomNav />
-              </CompanyRequiredRoute>
-            </ProtectedRoute>
-          } />
-        
-        <Route path="/customers" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Customers />
-              <BottomNav />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/customers/new" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <NewCustomer />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+        <SidebarProvider>
+          <div className="flex h-screen bg-background-light dark:bg-background-dark">
+            <Sidebar />
+            <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/customer-login" element={<CustomerLogin />} />
+                <Route path="/customer-portal" element={<CustomerPortal />} />
 
-        <Route path="/customers/edit/:id" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <EditCustomer />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/customers/:id" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <CustomerProfile />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/loans" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Loans />
-              <BottomNav />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/company-selector" element={
+                  <ProtectedRoute>
+                    <CompanySelector />
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/loans/new" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <NewLoan />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Dashboard />
+                      <BottomNav />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/loans/:id" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <LoanDetails />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/customers" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Customers />
+                      <BottomNav />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/loans/edit/:id" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <EditLoan />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/finance" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <FinanceOverview />
-              <BottomNav />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/partners" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Partners />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/tools" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Tools />
-              <BottomNav />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/customers/new" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <NewCustomer />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/tools/legal-notice" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <LegalNotice />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/customers/edit/:id" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <EditCustomer />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/reports" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Reports />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/customers/:id" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <CustomerProfile />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/receipts" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Receipts />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/approvals" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Approvals />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/loans" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Loans />
+                      <BottomNav />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/disbursal" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Disbursal />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/due-list" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <DueList />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/tools/emi" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <EMICalculator />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <Settings />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
+                <Route path="/loans/new" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <NewLoan />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
 
-        <Route path="/user-management" element={
-          <ProtectedRoute>
-            <CompanyRequiredRoute>
-              <UserManagement />
-            </CompanyRequiredRoute>
-          </ProtectedRoute>
-        } />
-        </Routes>
+                <Route path="/loans/:id" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <LoanDetails />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/loans/edit/:id" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <EditLoan />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/finance" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <FinanceOverview />
+                      <BottomNav />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/partners" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Partners />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/tools" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Tools />
+                      <BottomNav />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/tools/legal-notice" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <LegalNotice />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/notifications" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <NotificationCenter />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/reports" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Reports />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/receipts" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Receipts />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/approvals" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Approvals />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/disbursal" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Disbursal />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/due-list" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <DueList />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/tools/emi" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <EMICalculator />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/settings" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Settings />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/user-management" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <UserManagement />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </div>
+          </div>
+        </SidebarProvider>
       </CompanyProvider>
     </Router>
   );
