@@ -40,14 +40,25 @@ A React + TypeScript finance management application built with Vite with Capacit
 - **App ID**: com.jls.financesuite
 - **Target SDK**: 35 (Android 15)
 - **Min SDK**: 23 (Android 6.0)
+- **Java Version**: 17 (required for Capacitor stability)
+- **Gradle Version**: 8.4 (compatible with Java 17 and Capacitor 7)
+
+### Android Studio Setup Requirements:
+1. **Java 17** - Set in Android Studio: Settings → Build, Execution, Deployment → Gradle → Gradle JDK = Java 17
+2. **Android Studio Version**: Iguana or Hedgehog (current stable versions)
+3. **Gradle**: 8.4 (already configured in gradle-wrapper.properties)
+4. **SDK**: Android SDK Platform 35 with Build Tools 35.x
 
 ### Quick Build Steps:
 1. Download entire project from Replit
 2. Open `android` folder in Android Studio
-3. Add `google-services.json` from Firebase Console
-4. Generate signing key: `keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-finance`
-5. Build: Build > Generate Signed Bundle / APK > Android App Bundle
-6. Upload AAB to Play Console
+3. If build fails:
+   - File → Invalidate Caches & Restart
+   - File → Sync with Gradle Files
+4. Add `google-services.json` from Firebase Console to `android/app/`
+5. Generate signing key: `keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-finance`
+6. Build: Build > Generate Signed Bundle / APK > Android App Bundle
+7. Upload AAB to Play Console
 
 ### Update App After Web Changes:
 ```bash
