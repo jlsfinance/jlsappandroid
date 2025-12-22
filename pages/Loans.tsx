@@ -672,53 +672,7 @@ const Loans: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Dropdown Menu - Fixed positioning to avoid overlap */}
-                            {activeMenuId === loan.id && (
-                                <>
-                                    <div
-                                        className="fixed inset-0 z-30"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveMenuId(null);
-                                        }}
-                                    ></div>
-                                    <div
-                                        className="fixed z-40 w-48 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100"
-                                        style={{
-                                            top: 'auto',
-                                            left: 'auto',
-                                            right: '16px',
-                                            bottom: 'auto'
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <Link to={`/loans/${loan.id}`} className="px-4 py-3 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-700 dark:text-slate-300 flex items-center gap-3">
-                                            <span className="material-symbols-outlined text-indigo-500 text-[20px]">visibility</span> Details
-                                        </Link>
-                                        <button
-                                            disabled={!isActionable(loan.status)}
-                                            onClick={() => { generateLoanCard(loan); setActiveMenuId(null); }}
-                                            className="px-4 py-3 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-700 dark:text-slate-300 flex items-center gap-3 text-left disabled:opacity-50"
-                                        >
-                                            <span className="material-symbols-outlined text-indigo-500 text-[20px]">credit_card</span> Loan Card
-                                        </button>
-                                        <button
-                                            disabled={!isActionable(loan.status)}
-                                            onClick={() => { generateLoanAgreement(loan); setActiveMenuId(null); }}
-                                            className="px-4 py-3 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-700 dark:text-slate-300 flex items-center gap-3 text-left disabled:opacity-50"
-                                        >
-                                            <span className="material-symbols-outlined text-indigo-500 text-[20px]">description</span> Agreement
-                                        </button>
-                                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
-                                        <button
-                                            onClick={() => confirmDelete(loan)}
-                                            className="px-4 py-3 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-3 text-left w-full font-medium"
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">delete</span> Delete
-                                        </button>
-                                    </div>
-                                </>
-                            )}
+
                         </div>
                     ))
                 ) : (
@@ -731,6 +685,109 @@ const Loans: React.FC = () => {
                     </div>
                 )}
             </main>
+
+            {/* Bottom Sheet / Modal Action Menu */}
+            {activeMenuId && (() => {
+                const selectedLoan = loans.find(l => l.id === activeMenuId);
+                if (!selectedLoan) return null;
+
+                return (
+                    <>
+                        <div
+                            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-opacity"
+                            onClick={() => setActiveMenuId(null)}
+                        ></div>
+                        <div className="fixed inset-0 z-[70] flex items-end justify-center md:items-center pointer-events-none">
+                            <div className="bg-white dark:bg-slate-900 shadow-2xl overflow-hidden pointer-events-auto
+                                w-full rounded-t-3xl border-t border-white/10
+                                md:max-w-sm md:rounded-2xl md:border-t-0 md:ring-1 md:ring-slate-900/5
+                                transform transition-all duration-300 ease-out animate-in slide-in-from-bottom
+                                md:duration-200 md:zoom-in-95 md:slide-in-from-bottom-8
+                            ">
+                                <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-2 md:hidden"></div>
+
+                                <div className="p-4 pt-2 md:p-6">
+                                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
+                                            <span className="material-symbols-outlined text-2xl">description</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{selectedLoan.customerName}</h3>
+                                            <p className="text-sm text-slate-500 truncate">Loan ID: #{selectedLoan.id.slice(0, 8)}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setActiveMenuId(null)}
+                                            className="ml-auto p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hidden md:block"
+                                        >
+                                            <span className="material-symbols-outlined">close</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Link
+                                            to={`/loans/${selectedLoan.id}`}
+                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                        >
+                                            <div className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center shrink-0">
+                                                <span className="material-symbols-outlined">visibility</span>
+                                            </div>
+                                            <div className="flex-1 text-left min-w-0">
+                                                <p className="font-semibold text-slate-900 dark:text-white truncate">View Details</p>
+                                                <p className="text-xs text-slate-500 truncate">Repayment schedule & history</p>
+                                            </div>
+                                            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+                                        </Link>
+
+                                        <button
+                                            disabled={!isActionable(selectedLoan.status)}
+                                            onClick={() => { generateLoanCard(selectedLoan); setActiveMenuId(null); }}
+                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                        >
+                                            <div className="h-10 w-10 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center shrink-0">
+                                                <span className="material-symbols-outlined">credit_card</span>
+                                            </div>
+                                            <div className="flex-1 text-left min-w-0">
+                                                <p className="font-semibold text-slate-900 dark:text-white truncate">Loan Card</p>
+                                                <p className="text-xs text-slate-500 truncate">Download customer ID card</p>
+                                            </div>
+                                            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+                                        </button>
+
+                                        <button
+                                            disabled={!isActionable(selectedLoan.status)}
+                                            onClick={() => { generateLoanAgreement(selectedLoan); setActiveMenuId(null); }}
+                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                        >
+                                            <div className="h-10 w-10 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 flex items-center justify-center shrink-0">
+                                                <span className="material-symbols-outlined">description</span>
+                                            </div>
+                                            <div className="flex-1 text-left min-w-0">
+                                                <p className="font-semibold text-slate-900 dark:text-white truncate">Agreement</p>
+                                                <p className="text-xs text-slate-500 truncate">Download loan agreement</p>
+                                            </div>
+                                            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => confirmDelete(selectedLoan)}
+                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors group"
+                                        >
+                                            <div className="h-10 w-10 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 group-hover:bg-red-100 dark:group-hover:bg-red-900/30 flex items-center justify-center transition-colors shrink-0">
+                                                <span className="material-symbols-outlined">delete</span>
+                                            </div>
+                                            <div className="flex-1 text-left min-w-0">
+                                                <p className="font-semibold text-red-600 dark:text-red-400 truncate">Delete Loan</p>
+                                                <p className="text-xs text-red-400/70 truncate">Permanently remove record</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                    <div className="mt-4 pb-safe md:pb-0"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+            })()}
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (

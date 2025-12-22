@@ -7,7 +7,7 @@ import { useCompany } from '../context/CompanyContext';
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
-  
+
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileName, setProfileName] = useState(auth.currentUser?.displayName || '');
   const [profileEmail, setProfileEmail] = useState(auth.currentUser?.email || '');
@@ -29,32 +29,32 @@ const Settings: React.FC = () => {
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
-    
+
     setIsUpdating(true);
     setUpdateMessage('');
-    
+
     try {
       if (profileName !== auth.currentUser.displayName) {
         await updateProfile(auth.currentUser, { displayName: profileName });
       }
-      
+
       if (newPassword && newPassword !== confirmPassword) {
         throw new Error("Passwords do not match");
       }
-      
+
       if ((profileEmail !== auth.currentUser.email || newPassword) && currentPassword) {
         const credential = EmailAuthProvider.credential(auth.currentUser.email!, currentPassword);
         await reauthenticateWithCredential(auth.currentUser, credential);
-        
+
         if (profileEmail !== auth.currentUser.email) {
           await updateEmail(auth.currentUser, profileEmail);
         }
-        
+
         if (newPassword) {
           await updatePassword(auth.currentUser, newPassword);
         }
       }
-      
+
       setUpdateMessage('Profile updated successfully!');
       setTimeout(() => {
         setShowProfileModal(false);
@@ -81,7 +81,7 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="px-4 mt-6 mb-2">
-        <div 
+        <div
           onClick={() => setShowProfileModal(true)}
           className="bg-white dark:bg-[#1a2235] rounded-xl p-4 shadow-sm flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
         >
@@ -119,11 +119,11 @@ const Settings: React.FC = () => {
       <div className="mt-4">
         <h3 className="text-slate-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider px-6 pb-2 pt-2">Account</h3>
         <div className="mx-4 bg-white dark:bg-[#1a2235] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
-          <div 
+          <div
             onClick={() => setShowProfileModal(true)}
             className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
           >
-            <div className="flex items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 size-9">
+            <div className="flex items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shrink-0 size-9">
               <span className="material-symbols-outlined text-[20px]">person</span>
             </div>
             <div className="flex-1">
@@ -132,29 +132,83 @@ const Settings: React.FC = () => {
             </div>
             <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
           </div>
-          
+
           <Link to="/user-management" className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
             <div className="flex items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 shrink-0 size-9">
               <span className="material-symbols-outlined text-[20px]">manage_accounts</span>
             </div>
             <div className="flex-1">
-                <p className="text-base font-medium leading-normal">User Management</p>
-                <p className="text-xs text-slate-400">Roles & Permissions</p>
+              <p className="text-base font-medium leading-normal">User Management</p>
+              <p className="text-xs text-slate-400">Roles & Permissions</p>
             </div>
             <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
           </Link>
         </div>
       </div>
 
+      <div className="mt-4">
+        <h3 className="text-slate-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider px-6 pb-2 pt-2">About & Legal</h3>
+        <div className="mx-4 bg-white dark:bg-[#1a2235] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
+
+          <div className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+            <div className="flex items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shrink-0 size-9">
+              <span className="material-symbols-outlined text-[20px]">info</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-base font-medium leading-normal">App Info</p>
+              <p className="text-xs text-slate-400">Version & Build Details</p>
+            </div>
+            <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
+          </div>
+
+          <Link to="/terms" className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+            <div className="flex items-center justify-center rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 shrink-0 size-9">
+              <span className="material-symbols-outlined text-[20px]">description</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-base font-medium leading-normal">Terms & Conditions</p>
+              <p className="text-xs text-slate-400">Loan Terms & Disclosure</p>
+            </div>
+            <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
+          </Link>
+
+          <Link to="/privacy" className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+            <div className="flex items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0 size-9">
+              <span className="material-symbols-outlined text-[20px]">security</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-base font-medium leading-normal">Privacy Policy</p>
+              <p className="text-xs text-slate-400">Terms & Conditions</p>
+            </div>
+            <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
+          </Link>
+
+          <div
+            onClick={() => alert("Please contact support or admin to request permanent account deletion.")}
+            className="flex items-center gap-4 px-4 py-3.5 hover:bg-red-50 dark:hover:bg-red-900/10 cursor-pointer transition-colors group"
+          >
+            <div className="flex items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 shrink-0 size-9 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
+              <span className="material-symbols-outlined text-[20px]">delete</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-base font-medium leading-normal text-red-600 dark:text-red-400">Delete Account</p>
+              <p className="text-xs text-red-400/80 dark:text-red-400/70">Request permanent data removal</p>
+            </div>
+            <span className="material-symbols-outlined text-red-400 dark:text-red-600 text-[20px]">chevron_right</span>
+          </div>
+
+        </div>
+      </div>
+
       <div className="mt-8 mx-4 mb-4">
-        <button onClick={handleLogout} className="w-full bg-white dark:bg-[#1a2235] hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2">
+        <button onClick={handleLogout} className="w-full bg-white dark:bg-[#1a2235] hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 border border-red-100 dark:border-red-900/30">
           <span className="material-symbols-outlined text-lg">logout</span>
           Log Out
         </button>
       </div>
 
       <div className="mt-4 mb-4 text-center">
-        <p className="text-xs text-slate-400 uppercase tracking-widest">{currentCompany?.name || 'FINANCE SUITE'} v1.0</p>
+        <p className="text-xs text-slate-400 uppercase tracking-widest">JLS FINANCE LTD V1.0</p>
         <p className="text-[10px] text-slate-300 mt-1 font-bold">App Created by LUVI</p>
       </div>
 
@@ -170,7 +224,7 @@ const Settings: React.FC = () => {
                 <p className="text-sm text-slate-500">Update your account details</p>
               </div>
             </div>
-            
+
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div>
                 <label className="text-sm text-slate-600 dark:text-slate-400 block mb-1">Display Name</label>
@@ -182,7 +236,7 @@ const Settings: React.FC = () => {
                   placeholder="Enter your name"
                 />
               </div>
-              
+
               <div>
                 <label className="text-sm text-slate-600 dark:text-slate-400 block mb-1">Email Address</label>
                 <input
@@ -196,7 +250,7 @@ const Settings: React.FC = () => {
 
               <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-4">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Change Password (Optional)</p>
-                
+
                 <div className="space-y-3">
                   <input
                     type="password"

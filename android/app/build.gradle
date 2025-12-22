@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.jls.financesuite"
+    namespace "com.jls.suite"
     compileSdk rootProject.ext.compileSdkVersion
     
     compileOptions {
@@ -10,7 +10,7 @@ android {
     }
     
     defaultConfig {
-        applicationId "com.jls.financesuite"
+        applicationId "com.jls.suite"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

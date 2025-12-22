@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_number": "550122742532",
+    "project_id": "jls-finance-company",
+    "storage_bucket": "jls-finance-company.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550122742532:android:ba3cfc0ec18c692b2ce651",
+        "android_client_info": {
+          "package_name": "com.jls.financesuite"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9osscWhA01zJU1VgSKdqH3zoZx_SuOnw"
+        },
+        {
+          "current_key": "AIzaSyA5Q9C6md9Zo4etlr7or1UcmpqSf9EODRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550122742532:android:ddbc23f276418c682ce651",
+        "android_client_info": {
+          "package_name": "com.jls.suite"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9osscWhA01zJU1VgSKdqH3zoZx_SuOnw"
+        },
+        {
+          "current_key": "AIzaSyA5Q9C6md9Zo4etlr7or1UcmpqSf9EODRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550122742532:android:8b2bee9d0b8b86cf2ce651",
+        "android_client_info": {
+          "package_name": "com.jlsfinance.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9osscWhA01zJU1VgSKdqH3zoZx_SuOnw"
+        },
+        {
+          "current_key": "AIzaSyA5Q9C6md9Zo4etlr7or1UcmpqSf9EODRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
