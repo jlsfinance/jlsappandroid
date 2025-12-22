@@ -1,4 +1,4 @@
-package com.jls.financesuite;
+package com.jls.suite;
 
 import android.os.Bundle;
 import android.view.View;
@@ -12,7 +12,7 @@ public class MainActivity extends BridgeActivity {
         
         // 1. Full Screen / Cutoff Fix
         // Isse content status bar ke niche se start hoga, jisse cutoff nahi hoga
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         
         // 2. Scroll Fix for Due List & Details
         if (bridge != null && bridge.getWebView() != null) {

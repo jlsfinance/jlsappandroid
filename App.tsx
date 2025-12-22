@@ -35,6 +35,8 @@ import BottomNav from './components/BottomNav';
 import { SidebarProvider } from './context/SidebarContext';
 import Sidebar from './components/Sidebar';
 import Downloads from './pages/Downloads';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.ReactNode; requireCompany?: boolean }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -311,6 +313,18 @@ const App: React.FC = () => {
                     <CompanyRequiredRoute>
                       <Downloads />
                     </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/terms" element={
+                  <ProtectedRoute>
+                    <Terms />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/privacy" element={
+                  <ProtectedRoute>
+                    <Privacy />
                   </ProtectedRoute>
                 } />
               </Routes>

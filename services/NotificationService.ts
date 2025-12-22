@@ -3,22 +3,49 @@ import { Loan } from '../types';
 import { parseISO, isFuture, isToday, setHours, setMinutes, setSeconds, isPast } from 'date-fns';
 
 export const NotificationService = {
-    async checkAndRequestPermissions() {
+    async requestPermissions() {
         try {
-            const perm = await LocalNotifications.checkPermissions();
-            if (perm.display !== 'granted') {
-                const request = await LocalNotifications.requestPermissions();
-                return request.display === 'granted';
+            const local = await LocalNotifications.requestPermissions();
+            try {
+                // Dynamic import to avoid errors if plugin isn't installed/mocked in web
+                const { PushNotifications } = await import('@capacitor/push-notifications');
+                const push = await PushNotifications.requestPermissions();
+                return local.display === 'granted' && push.receive === 'granted';
+            } catch (e) {
+                // Fallback for web or if push plugin fails
+                return local.display === 'granted';
             }
-            return true;
         } catch (e) {
             console.error("Error asking for permissions", e);
             return false;
         }
     },
 
+    async checkPermissions() {
+        try {
+            const { PushNotifications } = await import('@capacitor/push-notifications');
+            const status = await PushNotifications.checkPermissions();
+            return status;
+        } catch {
+            const status = await LocalNotifications.checkPermissions();
+            return { receive: status.display };
+        }
+    },
+
+    async registerNotifications() {
+        try {
+            const { PushNotifications } = await import('@capacitor/push-notifications');
+            const perm = await PushNotifications.checkPermissions();
+            if (perm.receive === 'granted') {
+                await PushNotifications.register();
+            }
+        } catch (e) {
+            console.error("Failed to register push", e);
+        }
+    },
+
     async scheduleLoanNotifications(loans: Loan[]) {
-        const hasPermission = await this.checkAndRequestPermissions();
+        const hasPermission = await this.requestPermissions();
         if (!hasPermission) return;
 
         // Clear existing to avoid duplicates/stale ones

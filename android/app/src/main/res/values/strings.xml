@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">JLS Finance Suite</string>
-    <string name="title_activity_main">JLS Finance Suite</string>
-    <string name="package_name">com.jls.financesuite</string>
-    <string name="custom_url_scheme">com.jls.financesuite</string>
+    <string name="app_name">JLS Suite</string>
+    <string name="title_activity_main">JLS Suite</string>
+    <string name="package_name">com.jls.suite</string>
+    <string name="custom_url_scheme">com.jls.suite</string>
 </resources>

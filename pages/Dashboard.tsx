@@ -31,6 +31,7 @@ const Dashboard: React.FC = () => {
     const [expenses, setExpenses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('Admin');
+    const [isNotifEnabled, setIsNotifEnabled] = useState(false);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -76,7 +77,23 @@ const Dashboard: React.FC = () => {
             }
         };
 
+
+
         fetchDashboardData();
+
+        // Check Notification Permissions for Green Status
+        const checkNotifs = async () => {
+            try {
+                const perm = await NotificationService.checkPermissions();
+                if (perm?.receive === 'granted') {
+                    setIsNotifEnabled(true);
+                }
+            } catch (e) {
+                console.error("Notif check failed", e);
+            }
+        };
+        checkNotifs();
+
     }, [currentCompany]);
 
     const metrics = useMemo(() => {
@@ -423,6 +440,17 @@ const Dashboard: React.FC = () => {
                             <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">Welcome back,</span>
                             <h1 className="text-lg font-bold text-slate-900 dark:text-white capitalize leading-tight">{userName}</h1>
                         </div>
+                    </div> {/* Closes gap-4 div */}
+
+                    {/* Notification Bell */}
+                    <div className="relative">
+                        <Link to="/notifications" className="relative p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <span className="material-symbols-outlined">notifications</span>
+                            {/* Green dot for active notifications/token */}
+                            {isNotifEnabled && (
+                                <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-slate-800 animate-pulse"></span>
+                            )}
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -644,45 +672,47 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Modal */}
-            {activeCard && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-                    <div className="w-full max-w-4xl h-[90vh] sm:h-[600px] bg-surface-light dark:bg-surface-dark rounded-t-2xl sm:rounded-2xl flex flex-col shadow-m3-3 overflow-hidden">
+            {
+                activeCard && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+                        <div className="w-full max-w-4xl h-[90vh] sm:h-[600px] bg-surface-light dark:bg-surface-dark rounded-t-2xl sm:rounded-2xl flex flex-col shadow-m3-3 overflow-hidden">
 
-                        <div className="p-4 border-b border-outline-light/10 flex justify-between items-center">
-                            <h2 className="text-lg font-normal">{activeCard}</h2>
-                            <div className="flex gap-2">
-                                <button onClick={handleExportPDF} className="p-2 hover:bg-surface-variant-light/30 rounded-full text-primary"><span className="material-symbols-outlined">download</span></button>
-                                <button onClick={() => setActiveCard(null)} className="p-2 hover:bg-surface-variant-light/30 rounded-full"><span className="material-symbols-outlined">close</span></button>
+                            <div className="p-4 border-b border-outline-light/10 flex justify-between items-center">
+                                <h2 className="text-lg font-normal">{activeCard}</h2>
+                                <div className="flex gap-2">
+                                    <button onClick={handleExportPDF} className="p-2 hover:bg-surface-variant-light/30 rounded-full text-primary"><span className="material-symbols-outlined">download</span></button>
+                                    <button onClick={() => setActiveCard(null)} className="p-2 hover:bg-surface-variant-light/30 rounded-full"><span className="material-symbols-outlined">close</span></button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="p-4 flex-1 overflow-auto bg-surface-light dark:bg-background-dark">
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full mb-4 rounded-lg border border-outline-light/30 bg-transparent px-4 py-2 text-sm focus:border-primary focus:ring-0"
-                            />
-                            <div className="rounded-lg border border-outline-light/10 overflow-hidden">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-surface-variant-light/50 dark:bg-surface-variant-dark/20 text-on-surface-variant-light">
-                                        <tr>
-                                            {columns.map((col, idx) => <th key={idx} className="px-4 py-3 font-medium">{col}</th>)}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-outline-light/10">
-                                        {data.filter((row: any) => JSON.stringify(Object.values(row)).toLowerCase().includes(searchQuery.toLowerCase()))
-                                            .map((row: any, index: number) => renderRow(row, index))}
-                                    </tbody>
-                                </table>
+                            <div className="p-4 flex-1 overflow-auto bg-surface-light dark:bg-background-dark">
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full mb-4 rounded-lg border border-outline-light/30 bg-transparent px-4 py-2 text-sm focus:border-primary focus:ring-0"
+                                />
+                                <div className="rounded-lg border border-outline-light/10 overflow-hidden">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-surface-variant-light/50 dark:bg-surface-variant-dark/20 text-on-surface-variant-light">
+                                            <tr>
+                                                {columns.map((col, idx) => <th key={idx} className="px-4 py-3 font-medium">{col}</th>)}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-outline-light/10">
+                                            {data.filter((row: any) => JSON.stringify(Object.values(row)).toLowerCase().includes(searchQuery.toLowerCase()))
+                                                .map((row: any, index: number) => renderRow(row, index))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-        </div>
+        </div >
     );
 };
 
