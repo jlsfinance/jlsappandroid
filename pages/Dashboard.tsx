@@ -5,6 +5,7 @@ import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { useSidebar } from '../context/SidebarContext';
 import { NotificationService } from '../services/NotificationService';
+import LazyImage from '../components/LazyImage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO } from 'date-fns';
@@ -81,12 +82,25 @@ const Dashboard: React.FC = () => {
 
         fetchDashboardData();
 
-        // Check Notification Permissions for Green Status
+        // Check Notification Status (Permission + Token)
         const checkNotifs = async () => {
             try {
+                // Register to ensure we try to get a token if we haven't
+                await NotificationService.registerNotifications();
+
                 const perm = await NotificationService.checkPermissions();
-                if (perm?.receive === 'granted') {
+                const token = NotificationService.getToken();
+
+                if (perm?.receive === 'granted' && token) {
                     setIsNotifEnabled(true);
+                } else if (perm?.receive === 'granted') {
+                    // Permission granted but no token yet, maybe it's coming. 
+                    // Let's poll for it briefly or just wait for next reload.
+                    // For now, let's trust the permission but strictly 'green' means everything is ready.
+                    // Let's retry checking token after 3 seconds
+                    setTimeout(() => {
+                        if (NotificationService.getToken()) setIsNotifEnabled(true);
+                    }, 3000);
                 }
             } catch (e) {
                 console.error("Notif check failed", e);
@@ -420,7 +434,7 @@ const Dashboard: React.FC = () => {
 
             {/* Modern Header */}
             <div className="sticky top-0 z-30 px-6 pb-4 backdrop-blur-md bg-white/70 dark:bg-slate-950/70 border-b border-white/20 dark:border-white/5 transition-all duration-300"
-                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}>
+                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button onClick={openSidebar} className="lg:hidden p-2 -ml-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -635,21 +649,12 @@ const Dashboard: React.FC = () => {
                             return (
                                 <Link key={loan.id} to={`/loans/${loan.id}`} className="group relative flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all border-l-4 border-l-transparent hover:border-l-indigo-500">
                                     <div className="flex items-center gap-4">
-                                        <div className="relative h-12 w-12 rounded-2xl shadow-lg transition-transform group-hover:scale-105 overflow-hidden">
-                                            {customer?.photo_url ? (
-                                                <img src={customer.photo_url} alt={loan.customerName} className="h-full w-full object-cover" />
-                                            ) : (
-                                                <div className={`h-full w-full flex items-center justify-center ${loan.status === 'Disbursed' || loan.status === 'Active'
-                                                    ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-green-500/20'
-                                                    : loan.status === 'Completed'
-                                                        ? 'bg-gradient-to-br from-purple-500 to-violet-600 shadow-purple-500/20'
-                                                        : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
-                                                    }`}>
-                                                    <span className="material-symbols-outlined text-white text-xl">
-                                                        {loan.status === 'Completed' ? 'check_circle' : loan.status === 'Disbursed' || loan.status === 'Active' ? 'trending_up' : 'schedule'}
-                                                    </span>
-                                                </div>
-                                            )}
+                                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden">
+                                            <LazyImage
+                                                src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
+                                                alt={loan.customerName}
+                                                className="h-full w-full"
+                                            />
                                         </div>
                                         <div>
                                             <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors capitalize">{loan.customerName.toLowerCase()}</h4>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../firebaseConfig';
@@ -5,6 +6,7 @@ import { collection, getDocs, query, orderBy, doc, getDoc, deleteDoc, where } fr
 import { format, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import LazyImage from '../components/LazyImage';
 import { useCompany } from '../context/CompanyContext';
 import { DownloadService } from '../services/DownloadService';
 
@@ -27,7 +29,7 @@ interface Loan {
 }
 
 // --- Helpers ---
-const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat("en-IN").format(value)}`;
+const formatCurrency = (value: number) => `Rs.${new Intl.NumberFormat("en-IN").format(value)} `;
 const safeFormatDate = (dateString: string | undefined | null, formatStr: string = 'dd-MMM-yyyy') => {
     if (!dateString) return '---';
     try {
@@ -258,11 +260,11 @@ const Loans: React.FC = () => {
             const agreementDate = loan.disbursalDate ? format(new Date(loan.disbursalDate), 'do MMMM yyyy') : format(new Date(), 'do MMMM yyyy');
             pdfDoc.setFontSize(10);
             pdfDoc.setFont("helvetica", "normal");
-            pdfDoc.text(`Date: ${agreementDate}`, pdfDoc.internal.pageSize.getWidth() - 15, 20, { align: 'right' });
-            pdfDoc.text(`Loan ID: ${loan.id}`, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
+            pdfDoc.text(`Date: ${agreementDate} `, pdfDoc.internal.pageSize.getWidth() - 15, 20, { align: 'right' });
+            pdfDoc.text(`Loan ID: ${loan.id} `, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
 
             let startY = 40;
-            const partiesBody = [[`This agreement is made between:\n\nTHE LENDER:\n${companyDetails.name}\n${companyDetails.address || '[Company Address]'}\n\nAND\n\nTHE BORROWER:\n${customer.name}\n${customer.address || 'Address not provided'}\nMobile: ${customer.phone}`]];
+            const partiesBody = [[`This agreement is made between: \n\nTHE LENDER: \n${companyDetails.name} \n${companyDetails.address || '[Company Address]'} \n\nAND\n\nTHE BORROWER: \n${customer.name} \n${customer.address || 'Address not provided'} \nMobile: ${customer.phone} `]];
 
             // Using autoTable for parties layout
             autoTable(pdfDoc, {
@@ -357,7 +359,7 @@ const Loans: React.FC = () => {
             ];
 
             clauses.forEach((clause, index) => {
-                const splitText = pdfDoc.splitTextToSize(`${index + 1}. ${clause}`, 180);
+                const splitText = pdfDoc.splitTextToSize(`${index + 1}. ${clause} `, 180);
                 pdfDoc.text(splitText, 14, startY);
                 startY += (splitText.length * 6) + 4;
             });
@@ -383,7 +385,7 @@ const Loans: React.FC = () => {
             startY += 5;
             pdfDoc.setFontSize(10);
             pdfDoc.setFont("helvetica", "bold");
-            pdfDoc.text(`For ${companyDetails.name}`, 50, startY, { align: 'center' });
+            pdfDoc.text(`For ${companyDetails.name} `, 50, startY, { align: 'center' });
             pdfDoc.text("Borrower's Signature", 160, startY, { align: 'center' });
 
             const pdfBlob = pdfDoc.output('blob');
@@ -452,10 +454,10 @@ const Loans: React.FC = () => {
             ];
 
             details.forEach(row => {
-                pdfDoc.setFont(undefined, "bold"); pdfDoc.text(`${row[0].label}:`, 15, y);
+                pdfDoc.setFont(undefined, "bold"); pdfDoc.text(`${row[0].label}: `, 15, y);
                 pdfDoc.setFont(undefined, "normal"); pdfDoc.text(String(row[0].value), 50, y);
                 if (row[1]) {
-                    pdfDoc.setFont(undefined, "bold"); pdfDoc.text(`${row[1].label}:`, 110, y);
+                    pdfDoc.setFont(undefined, "bold"); pdfDoc.text(`${row[1].label}: `, 110, y);
                     pdfDoc.setFont(undefined, "normal"); pdfDoc.text(String(row[1].value), 145, y);
                 }
                 y += 7;
@@ -585,7 +587,8 @@ const Loans: React.FC = () => {
             </div>
 
             {/* Header */}
-            <header className="sticky top-0 z-20 px-4 pb-4 glass border-b border-white/20 dark:border-slate-800/50" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}>
+            {/* Header */}
+            <header className="sticky top-0 z-20 px-4 pb-4 glass border-b border-white/20 dark:border-slate-800/50" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link to="/" className="group flex h-10 w-10 items-center justify-center rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm">
@@ -623,7 +626,7 @@ const Loans: React.FC = () => {
                     filteredLoans.map((loan) => (
                         <div key={loan.id}>
                             <div
-                                onClick={() => navigate(`/loans/${loan.id}`)}
+                                onClick={() => navigate(`/ loans / ${loan.id} `)}
                                 className="glass-card relative rounded-2xl p-5 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer transition-all duration-300 group border border-white/40 dark:border-slate-700/40"
                             >
                                 <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -633,17 +636,12 @@ const Loans: React.FC = () => {
                                             const customer = customers.find(c => c.id === loan.customerId);
                                             return (
                                                 <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
-                                                    {customer?.photo_url || customer?.avatar ? (
-                                                        <img src={customer.photo_url || customer.avatar} alt={loan.customerName} className="h-full w-full object-cover" />
-                                                    ) : (
-                                                        <div className={`h-full w-full flex items-center justify-center ${loan.status === 'Disbursed' || loan.status === 'Active'
-                                                            ? 'bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-600 dark:from-indigo-900/50 dark:to-blue-900/50 dark:text-indigo-400'
-                                                            : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
-                                                            }`}>
-                                                            <span className="material-symbols-outlined text-[24px]">{loan.status === 'Disbursed' || loan.status === 'Active' ? 'person' : 'person_off'}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                    <LazyImage
+                                                        src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
+                                                        alt={loan.customerName}
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                </div >
                                             );
                                         })()}
                                         <div className="space-y-1 min-w-0 flex-1">
@@ -654,7 +652,7 @@ const Loans: React.FC = () => {
                                             </div>
                                             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{formatCurrency(loan.amount)}</p>
                                         </div>
-                                    </div>
+                                    </div >
                                     <div className="text-right flex flex-col items-end gap-1 flex-shrink-0">
                                         <span className="text-xs font-medium text-slate-400 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-lg whitespace-nowrap">
                                             {loan.date ? format(parseISO(loan.date), 'dd MMM, yy') : 'N/A'}
@@ -669,11 +667,11 @@ const Loans: React.FC = () => {
                                             <span className="material-symbols-outlined">more_vert</span>
                                         </button>
                                     </div>
-                                </div>
-                            </div>
+                                </div >
+                            </div >
 
 
-                        </div>
+                        </div >
                     ))
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -684,187 +682,193 @@ const Loans: React.FC = () => {
                         <p className="text-sm opacity-60">Try adjusting your search</p>
                     </div>
                 )}
-            </main>
+            </main >
 
             {/* Bottom Sheet / Modal Action Menu */}
-            {activeMenuId && (() => {
-                const selectedLoan = loans.find(l => l.id === activeMenuId);
-                if (!selectedLoan) return null;
+            {
+                activeMenuId && (() => {
+                    const selectedLoan = loans.find(l => l.id === activeMenuId);
+                    if (!selectedLoan) return null;
 
-                return (
-                    <>
-                        <div
-                            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-opacity"
-                            onClick={() => setActiveMenuId(null)}
-                        ></div>
-                        <div className="fixed inset-0 z-[70] flex items-end justify-center md:items-center pointer-events-none">
-                            <div className="bg-white dark:bg-slate-900 shadow-2xl overflow-hidden pointer-events-auto
+                    return (
+                        <>
+                            <div
+                                className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-opacity"
+                                onClick={() => setActiveMenuId(null)}
+                            ></div>
+                            <div className="fixed inset-0 z-[70] flex items-end justify-center md:items-center pointer-events-none">
+                                <div className="bg-white dark:bg-slate-900 shadow-2xl overflow-hidden pointer-events-auto
                                 w-full rounded-t-3xl border-t border-white/10
                                 md:max-w-sm md:rounded-2xl md:border-t-0 md:ring-1 md:ring-slate-900/5
                                 transform transition-all duration-300 ease-out animate-in slide-in-from-bottom
                                 md:duration-200 md:zoom-in-95 md:slide-in-from-bottom-8
                             ">
-                                <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-2 md:hidden"></div>
+                                    <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-2 md:hidden"></div>
 
-                                <div className="p-4 pt-2 md:p-6">
-                                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-                                        <div className="h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
-                                            <span className="material-symbols-outlined text-2xl">description</span>
+                                    <div className="p-4 pt-2 md:p-6">
+                                        <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                                            <div className="h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
+                                                <span className="material-symbols-outlined text-2xl">description</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{selectedLoan.customerName}</h3>
+                                                <p className="text-sm text-slate-500 truncate">Loan ID: #{selectedLoan.id.slice(0, 8)}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => setActiveMenuId(null)}
+                                                className="ml-auto p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hidden md:block"
+                                            >
+                                                <span className="material-symbols-outlined">close</span>
+                                            </button>
                                         </div>
-                                        <div className="min-w-0">
-                                            <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{selectedLoan.customerName}</h3>
-                                            <p className="text-sm text-slate-500 truncate">Loan ID: #{selectedLoan.id.slice(0, 8)}</p>
+
+                                        <div className="space-y-2">
+                                            <Link
+                                                to={`/loans/${selectedLoan.id}`}
+                                                className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            >
+                                                <div className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center shrink-0">
+                                                    <span className="material-symbols-outlined">visibility</span>
+                                                </div>
+                                                <div className="flex-1 text-left min-w-0">
+                                                    <p className="font-semibold text-slate-900 dark:text-white truncate">View Details</p>
+                                                    <p className="text-xs text-slate-500 truncate">Repayment schedule & history</p>
+                                                </div>
+                                                <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+                                            </Link>
+
+                                            <button
+                                                disabled={!isActionable(selectedLoan.status)}
+                                                onClick={() => { generateLoanCard(selectedLoan); setActiveMenuId(null); }}
+                                                className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                            >
+                                                <div className="h-10 w-10 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center shrink-0">
+                                                    <span className="material-symbols-outlined">credit_card</span>
+                                                </div>
+                                                <div className="flex-1 text-left min-w-0">
+                                                    <p className="font-semibold text-slate-900 dark:text-white truncate">Loan Card</p>
+                                                    <p className="text-xs text-slate-500 truncate">Download customer ID card</p>
+                                                </div>
+                                                <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+                                            </button>
+
+                                            <button
+                                                disabled={!isActionable(selectedLoan.status)}
+                                                onClick={() => { generateLoanAgreement(selectedLoan); setActiveMenuId(null); }}
+                                                className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                            >
+                                                <div className="h-10 w-10 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 flex items-center justify-center shrink-0">
+                                                    <span className="material-symbols-outlined">description</span>
+                                                </div>
+                                                <div className="flex-1 text-left min-w-0">
+                                                    <p className="font-semibold text-slate-900 dark:text-white truncate">Agreement</p>
+                                                    <p className="text-xs text-slate-500 truncate">Download loan agreement</p>
+                                                </div>
+                                                <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => confirmDelete(selectedLoan)}
+                                                className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors group"
+                                            >
+                                                <div className="h-10 w-10 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 group-hover:bg-red-100 dark:group-hover:bg-red-900/30 flex items-center justify-center transition-colors shrink-0">
+                                                    <span className="material-symbols-outlined">delete</span>
+                                                </div>
+                                                <div className="flex-1 text-left min-w-0">
+                                                    <p className="font-semibold text-red-600 dark:text-red-400 truncate">Delete Loan</p>
+                                                    <p className="text-xs text-red-400/70 truncate">Permanently remove record</p>
+                                                </div>
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => setActiveMenuId(null)}
-                                            className="ml-auto p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hidden md:block"
-                                        >
-                                            <span className="material-symbols-outlined">close</span>
-                                        </button>
+                                        <div className="mt-4 pb-safe md:pb-0"></div>
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <Link
-                                            to={`/loans/${selectedLoan.id}`}
-                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                        >
-                                            <div className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center shrink-0">
-                                                <span className="material-symbols-outlined">visibility</span>
-                                            </div>
-                                            <div className="flex-1 text-left min-w-0">
-                                                <p className="font-semibold text-slate-900 dark:text-white truncate">View Details</p>
-                                                <p className="text-xs text-slate-500 truncate">Repayment schedule & history</p>
-                                            </div>
-                                            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
-                                        </Link>
-
-                                        <button
-                                            disabled={!isActionable(selectedLoan.status)}
-                                            onClick={() => { generateLoanCard(selectedLoan); setActiveMenuId(null); }}
-                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
-                                        >
-                                            <div className="h-10 w-10 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center shrink-0">
-                                                <span className="material-symbols-outlined">credit_card</span>
-                                            </div>
-                                            <div className="flex-1 text-left min-w-0">
-                                                <p className="font-semibold text-slate-900 dark:text-white truncate">Loan Card</p>
-                                                <p className="text-xs text-slate-500 truncate">Download customer ID card</p>
-                                            </div>
-                                            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
-                                        </button>
-
-                                        <button
-                                            disabled={!isActionable(selectedLoan.status)}
-                                            onClick={() => { generateLoanAgreement(selectedLoan); setActiveMenuId(null); }}
-                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
-                                        >
-                                            <div className="h-10 w-10 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 flex items-center justify-center shrink-0">
-                                                <span className="material-symbols-outlined">description</span>
-                                            </div>
-                                            <div className="flex-1 text-left min-w-0">
-                                                <p className="font-semibold text-slate-900 dark:text-white truncate">Agreement</p>
-                                                <p className="text-xs text-slate-500 truncate">Download loan agreement</p>
-                                            </div>
-                                            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
-                                        </button>
-
-                                        <button
-                                            onClick={() => confirmDelete(selectedLoan)}
-                                            className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors group"
-                                        >
-                                            <div className="h-10 w-10 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 group-hover:bg-red-100 dark:group-hover:bg-red-900/30 flex items-center justify-center transition-colors shrink-0">
-                                                <span className="material-symbols-outlined">delete</span>
-                                            </div>
-                                            <div className="flex-1 text-left min-w-0">
-                                                <p className="font-semibold text-red-600 dark:text-red-400 truncate">Delete Loan</p>
-                                                <p className="text-xs text-red-400/70 truncate">Permanently remove record</p>
-                                            </div>
-                                        </button>
-                                    </div>
-                                    <div className="mt-4 pb-safe md:pb-0"></div>
                                 </div>
                             </div>
-                        </div>
-                    </>
-                );
-            })()}
+                        </>
+                    );
+                })()
+            }
 
             {/* Delete Confirmation Modal */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
-                        <h3 className="text-lg font-bold mb-2">Delete Loan?</h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
-                            Are you sure you want to delete the loan for <strong>{loanToDelete?.customerName}</strong>? This action cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setShowDeleteConfirm(false)}
-                                className="px-4 py-2 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteLoan}
-                                disabled={!!deletingId}
-                                className="px-4 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
-                            >
-                                {deletingId ? 'Deleting...' : 'Delete'}
-                            </button>
+            {
+                showDeleteConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
+                            <h3 className="text-lg font-bold mb-2">Delete Loan?</h3>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+                                Are you sure you want to delete the loan for <strong>{loanToDelete?.customerName}</strong>? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="px-4 py-2 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteLoan}
+                                    disabled={!!deletingId}
+                                    className="px-4 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
+                                >
+                                    {deletingId ? 'Deleting...' : 'Delete'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* PDF Generation Modal */}
-            {showPdfModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
-                        <div className="p-6 text-center">
-                            {pdfStatus === 'generating' && (
-                                <div className="flex flex-col items-center py-4">
-                                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>
-                                    <h3 className="font-bold text-lg">Generating Document...</h3>
-                                    <p className="text-sm text-slate-500">Please wait while we prepare the PDF.</p>
-                                </div>
-                            )}
-                            {pdfStatus === 'ready' && (
-                                <div className="flex flex-col items-center py-4">
-                                    <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center mb-4">
-                                        <span className="material-symbols-outlined text-2xl">check</span>
+            {
+                showPdfModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
+                            <div className="p-6 text-center">
+                                {pdfStatus === 'generating' && (
+                                    <div className="flex flex-col items-center py-4">
+                                        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>
+                                        <h3 className="font-bold text-lg">Generating Document...</h3>
+                                        <p className="text-sm text-slate-500">Please wait while we prepare the PDF.</p>
                                     </div>
-                                    <h3 className="font-bold text-lg">Document Ready</h3>
-                                    <p className="text-sm text-slate-500 mb-6">{currentPdfName}</p>
-                                    <button
-                                        onClick={handleDownloadPdf}
-                                        className="w-full py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined">download</span> Download PDF
-                                    </button>
-                                </div>
-                            )}
-                            {pdfStatus === 'error' && (
-                                <div className="flex flex-col items-center py-4">
-                                    <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center mb-4">
-                                        <span className="material-symbols-outlined text-2xl">error</span>
+                                )}
+                                {pdfStatus === 'ready' && (
+                                    <div className="flex flex-col items-center py-4">
+                                        <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center mb-4">
+                                            <span className="material-symbols-outlined text-2xl">check</span>
+                                        </div>
+                                        <h3 className="font-bold text-lg">Document Ready</h3>
+                                        <p className="text-sm text-slate-500 mb-6">{currentPdfName}</p>
+                                        <button
+                                            onClick={handleDownloadPdf}
+                                            className="w-full py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined">download</span> Download PDF
+                                        </button>
                                     </div>
-                                    <h3 className="font-bold text-lg">Generation Failed</h3>
-                                    <p className="text-sm text-slate-500">Could not generate the PDF.</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 flex justify-center border-t border-slate-100 dark:border-slate-800">
-                            <button
-                                onClick={() => setShowPdfModal(false)}
-                                className="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white"
-                            >
-                                Close
-                            </button>
+                                )}
+                                {pdfStatus === 'error' && (
+                                    <div className="flex flex-col items-center py-4">
+                                        <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center mb-4">
+                                            <span className="material-symbols-outlined text-2xl">error</span>
+                                        </div>
+                                        <h3 className="font-bold text-lg">Generation Failed</h3>
+                                        <p className="text-sm text-slate-500">Could not generate the PDF.</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 flex justify-center border-t border-slate-100 dark:border-slate-800">
+                                <button
+                                    onClick={() => setShowPdfModal(false)}
+                                    className="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

@@ -7,6 +7,8 @@ import autoTable from 'jspdf-autotable';
 import { format, parseISO, isValid, addMonths, startOfMonth } from 'date-fns';
 import { useCompany } from '../context/CompanyContext';
 import { Capacitor } from '@capacitor/core';
+import { Loan, RepaymentSchedule } from '../types';
+import LazyImage from '../components/LazyImage';
 import { DownloadService } from '../services/DownloadService';
 
 // Helper function to save/download PDF using the centralized service
@@ -1752,14 +1754,11 @@ const LoanDetails: React.FC = () => {
                         <div className="flex items-center gap-5">
                             <div className="relative group">
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                                {customer?.photo_url || customer?.avatar ? (
-                                    <img src={customer.photo_url || customer.avatar} alt={loan.customerName} className="relative h-16 w-16 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-md group-hover:scale-105 transition-transform duration-300" />
-                                ) : (
-
-                                    <div className="relative h-16 w-16 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl border-4 border-white dark:border-slate-800 shadow-md group-hover:scale-105 transition-transform duration-300">
-                                        {loan.customerName.charAt(0)}
-                                    </div>
-                                )}
+                                <LazyImage
+                                    src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
+                                    alt={loan.customerName}
+                                    className="relative h-16 w-16 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-md group-hover:scale-105 transition-transform duration-300"
+                                />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight mb-1">{loan.customerName}</h2>

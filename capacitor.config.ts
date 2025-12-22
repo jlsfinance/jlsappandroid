@@ -9,9 +9,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 0,
       launchAutoHide: true,
-      backgroundColor: '#1e40af',
+      backgroundColor: '#1e1b4b',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false
@@ -21,9 +21,9 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true
     },
     StatusBar: {
-      overlaysWebView: false,
-      style: 'LIGHT',
-      backgroundColor: '#5B21B6'
+      overlaysWebView: true,
+      style: 'Dark',
+      backgroundColor: '#ffffff'
     }
   },
   android: {

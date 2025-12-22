@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { signOut, updateProfile, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
+import { NotificationService } from '../services/NotificationService';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
@@ -200,7 +201,11 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-8 mx-4 mb-4">
+      <div className="mt-8 mx-4 mb-4 space-y-3">
+        <button onClick={() => NotificationService.testNotification()} className="w-full bg-white dark:bg-[#1a2235] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 border border-slate-100 dark:border-slate-800">
+          <span className="material-symbols-outlined text-lg">notifications_active</span>
+          Test Notification
+        </button>
         <button onClick={handleLogout} className="w-full bg-white dark:bg-[#1a2235] hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 border border-red-100 dark:border-red-900/30">
           <span className="material-symbols-outlined text-lg">logout</span>
           Log Out

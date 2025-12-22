@@ -8,16 +8,15 @@ const BackButtonHandler: React.FC = () => {
 
     useEffect(() => {
         const handleBackButton = async () => {
-            // Logic:
-            // 1. If we are on the "Home" page (Dashboard) or "Login" or "Company Selector", exit app.
-            // 2. Otherwise, go back one step in history.
-            const exitRoutes = ['/', '/login', '/customer-login', '/company-selector'];
+            const exitRoutes = ['/login', '/customer-login', '/company-selector'];
+            const isRoot = location.pathname === '/' || location.pathname === '/customer-portal';
 
             if (exitRoutes.includes(location.pathname)) {
-                // Exit App
+                await CapacitorApp.exitApp();
+            } else if (isRoot) {
+                // For root pages, maybe double tap to exit or just exit
                 await CapacitorApp.exitApp();
             } else {
-                // Go Back
                 navigate(-1);
             }
         };
