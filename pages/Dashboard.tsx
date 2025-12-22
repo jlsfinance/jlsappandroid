@@ -33,6 +33,17 @@ const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('Admin');
     const [isNotifEnabled, setIsNotifEnabled] = useState(false);
+    const [randomAvatar, setRandomAvatar] = useState('');
+
+    useEffect(() => {
+        const avatars = [
+            'https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Felix&backgroundColor=b6e3f4,c0aede,d1d4f9',
+            'https://api.dicebear.com/7.x/bottts/svg?seed=Midnight&backgroundColor=b6e3f4,c0aede,d1d4f9',
+            'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=b6e3f4,c0aede,d1d4f9',
+            'https://api.dicebear.com/7.x/notionists/svg?seed=Jordan&backgroundColor=b6e3f4,c0aede,d1d4f9'
+        ];
+        setRandomAvatar(avatars[Math.floor(Math.random() * avatars.length)]);
+    }, []);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -432,37 +443,47 @@ const Dashboard: React.FC = () => {
                 <div className="absolute top-[20%] left-[-10%] w-[300px] h-[300px] rounded-full bg-purple-500/5 blur-[100px]"></div>
             </div>
 
-            {/* Modern Header */}
-            <div className="sticky top-0 z-30 px-6 pb-4 backdrop-blur-md bg-white/70 dark:bg-slate-950/70 border-b border-white/20 dark:border-white/5 transition-all duration-300"
-                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button onClick={openSidebar} className="lg:hidden p-2 -ml-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                            <span className="material-symbols-outlined">menu</span>
+            {/* Premium Compact Header */}
+            <div className="sticky top-0 z-40 px-4 py-2 bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl border-b border-white/20 dark:border-white/5 shadow-sm transition-all duration-500"
+                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4px)' }}>
+                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button onClick={openSidebar} className="lg:hidden p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800 transition-colors">
+                            <span className="material-symbols-outlined text-[22px]">menu</span>
                         </button>
-                        <div className="group relative">
-                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-[2px] shadow-lg shadow-purple-500/20">
-                                <div className="h-full w-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center">
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-pink-500 text-lg font-bold">
-                                        {userName.charAt(0).toUpperCase()}
-                                    </span>
+
+                        <div className="relative group cursor-pointer">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary via-purple-500 to-pink-500 p-[2px] shadow-lg shadow-primary/20 animate-float">
+                                <div className="h-full w-full rounded-full bg-white dark:bg-slate-900 overflow-hidden border border-white/50 dark:border-white/10">
+                                    {randomAvatar ? (
+                                        <img src={randomAvatar} alt="Profile" className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-500" />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full shadow-sm">
+                                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-40"></span>
+                            </div>
                         </div>
-                        <div>
-                            <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">Welcome back,</span>
-                            <h1 className="text-lg font-bold text-slate-900 dark:text-white capitalize leading-tight">{userName}</h1>
-                        </div>
-                    </div> {/* Closes gap-4 div */}
 
-                    {/* Notification Bell */}
-                    <div className="relative">
-                        <Link to="/notifications" className="relative p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
-                            <span className="material-symbols-outlined">notifications</span>
-                            {/* Green dot for active notifications/token */}
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#7c3aed] opacity-80 leading-none mb-1">Authenticated Admin</span>
+                            <div className="flex items-center gap-1.5">
+                                <h1 className="text-sm font-black text-slate-900 dark:text-white capitalize leading-tight">Hi, {userName}</h1>
+                                <span className="text-[14px]">✨</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Link to="/notifications" className={`relative p-2 rounded-full transition-all border shadow-sm active:scale-90 ${isNotifEnabled
+                            ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
+                            : 'bg-white/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 border-white/30 dark:border-white/5 hover:bg-white dark:hover:bg-slate-700'
+                            }`}>
+                            <span className="material-symbols-outlined text-[20px] font-variation-FILL">notifications</span>
                             {isNotifEnabled && (
-                                <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-slate-800 animate-pulse"></span>
+                                <span className="absolute top-2 right-2.5 h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                             )}
                         </Link>
                     </div>
@@ -513,16 +534,25 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {[
-                            { link: "/loans/new", icon: "add_circle", color: "text-blue-600", bg: "bg-blue-50", label: "New Loan" },
-                            { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50", label: "Collect EMI" },
-                            { link: "/customers/new", icon: "person_add", color: "text-amber-600", bg: "bg-amber-50", label: "Add Client" },
-                            { link: "/finance", icon: "bar_chart", color: "text-purple-600", bg: "bg-purple-50", label: "Reports" }
+                            { link: "/loans/new", icon: "add", isKadak: true, label: "New Loan" },
+                            { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Collect EMI" },
+                            { link: "/customers/new", icon: "person_add", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", label: "Add Client" },
+                            { link: "/finance", icon: "bar_chart", color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", label: "Reports" }
                         ].map((action, i) => (
-                            <Link key={i} to={action.link} className="group flex flex-col items-center justify-center p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 duration-200">
-                                <div className={`w-12 h-12 rounded-xl ${action.bg} dark:bg-slate-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                                    <span className={`material-symbols-outlined text-[26px] ${action.color} dark:text-white`}>{action.icon}</span>
+                            <Link key={i} to={action.link}
+                                className={`group flex flex-col items-center justify-center p-5 transition-all duration-300 ${action.isKadak
+                                    ? 'btn-kadak !flex-row !gap-3 !p-4 !rounded-full'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1'
+                                    }`}
+                            >
+                                <div className={`flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${action.isKadak
+                                    ? 'w-8 h-8 rounded-full bg-white/20 text-white'
+                                    : `w-12 h-12 rounded-xl ${action.bg} ${action.color}`
+                                    }`}>
+                                    <span className={`material-symbols-outlined ${action.isKadak ? 'text-[20px]' : 'text-[26px]'} font-variation-FILL`}>{action.icon}</span>
                                 </div>
-                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{action.label}</span>
+                                <span className={`font-black uppercase tracking-tight ${action.isKadak ? 'text-sm text-white' : 'text-xs text-slate-700 dark:text-slate-300 mt-2'
+                                    }`}>{action.label}</span>
                             </Link>
                         ))}
                     </div>
@@ -564,7 +594,7 @@ const Dashboard: React.FC = () => {
                                 onClick={() => setActiveCard('Active Loans')}
                                 className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
-                                <div className="p-2.5 w-fit rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 mb-3 group-hover:scale-110 transition-transform">
+                                <div className="p-2.5 w-fit rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-3 group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-lg">trending_up</span>
                                 </div>
                                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.activeLoansCount}</h2>
@@ -646,27 +676,31 @@ const Dashboard: React.FC = () => {
                         )}
                         {loans.slice(0, 5).map((loan: any, i) => {
                             const customer = customers.find(c => c.id === loan.customerId);
+                            const loanDate = loan.date?.toDate?.() || (loan.date ? new Date(loan.date) : new Date());
                             return (
-                                <Link key={loan.id} to={`/loans/${loan.id}`} className="group relative flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all border-l-4 border-l-transparent hover:border-l-indigo-500">
+                                <Link key={loan.id} to={`/loans/${loan.id}`} className="group relative flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden">
+                                        <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 p-0.5 overflow-hidden ring-1 ring-slate-100 dark:ring-slate-700">
                                             <LazyImage
                                                 src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
                                                 alt={loan.customerName}
-                                                className="h-full w-full"
+                                                className="h-full w-full object-cover rounded-[14px]"
                                             />
                                         </div>
                                         <div>
-                                            <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors capitalize">{loan.customerName.toLowerCase()}</h4>
-                                            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 font-mono mt-0.5">#{loan.id?.slice(0, 8)}</p>
+                                            <h4 className="text-[15px] font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors capitalize">{loan.customerName.toLowerCase()}</h4>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${loan.status === 'Active' || loan.status === 'Disbursed' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
+                                                    : loan.status === 'Completed' ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/30'
+                                                        : 'bg-amber-50 text-amber-600 dark:bg-amber-950/30'
+                                                    }`}>{loan.status}</span>
+                                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">#{loan.id?.slice(0, 6).toUpperCase()}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-sm font-bold text-slate-900 dark:text-white block">{formatCurrency(loan.amount)}</span>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider mt-1 ${loan.status === 'Active' || loan.status === 'Disbursed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                            : loan.status === 'Completed' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                            }`}>{loan.status}</span>
+                                        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">{format(loanDate, 'dd MMM, yy')}</p>
+                                        <span className="text-lg font-black text-slate-900 dark:text-white block tabular-nums leading-none tracking-tight">{formatCurrency(loan.amount)}</span>
                                     </div>
                                 </Link>
                             );

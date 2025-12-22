@@ -9,85 +9,82 @@ interface AnimatedSplashProps {
 const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
 
     useEffect(() => {
-        const timer = setTimeout(onFinish, 4500); // Total duration 4.5s
+        const timer = setTimeout(onFinish, 5000); // Increased duration to 5s for sequence
         return () => clearTimeout(timer);
     }, [onFinish]);
 
+    const containerVariants = {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+    };
+
+    const logoVariants = {
+        initial: { scale: 0.8, opacity: 0, y: 0 },
+        appear: { scale: 1, opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
+        moveUp: { y: -120, transition: { duration: 0.8, delay: 1, ease: "easeInOut" } }
+    };
+
+    const wordVariants = {
+        initial: { opacity: 0, y: 20 },
+        animate: (i: number) => ({
+            opacity: 1,
+            y: 0,
+            transition: { delay: 1.8 + (i * 0.5), duration: 0.6, ease: "easeOut" }
+        })
+    };
+
     return (
-        <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4338ca] flex flex-col items-center justify-center overflow-hidden">
+        <div className="fixed inset-0 z-[9999] bg-[#2D0A54] flex flex-col items-center justify-center overflow-hidden font-sans">
 
-            {/* Background Effects */}
-            <div className="absolute top-[-20%] right-[-20%] w-96 h-96 bg-purple-500/20 rounded-full blur-[100px]" />
-            <div className="absolute bottom-[-20%] left-[-20%] w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px]" />
+            {/* Background Glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col items-center">
-                {/* Logo Animation */}
+            <div className="relative flex flex-col items-center w-full">
+
+                {/* Logo Container - Recreating the premium squircle look */}
                 <motion.div
-                    initial={{ scale: 0.5, opacity: 0, y: 0 }}
-                    animate={{
-                        scale: [0.5, 1.2, 1],
-                        opacity: 1,
-                        y: -80 // Move up
-                    }}
-                    transition={{
-                        duration: 1.2,
-                        times: [0, 0.6, 1],
-                        ease: "easeOut"
-                    }}
-                    className="w-32 h-32 bg-white/10 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 shadow-2xl"
+                    variants={logoVariants}
+                    initial="initial"
+                    animate={["appear", "moveUp"]}
+                    className="relative w-48 h-48 bg-white rounded-[40px] shadow-2xl flex items-center justify-center p-6"
                 >
-                    <img src={logo} alt="JLS Logo" className="w-20 h-20 object-contain" />
+                    <div className="w-full h-full bg-gradient-to-br from-[#6366F1] to-[#4F46E5] rounded-[30px] flex items-center justify-center overflow-hidden shadow-inner">
+                        <img src={logo} alt="Logo" className="w-24 h-24 object-contain brightness-110 drop-shadow-lg" />
+                    </div>
                 </motion.div>
 
-                {/* Motivational Words - J L S */}
-                <div className="absolute top-24 mt-16 flex flex-col items-center gap-4">
-                    {/* J */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 1.2, duration: 0.6 }}
-                        className="flex items-center gap-3"
-                    >
-                        <span className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xl shadow-lg border border-white/20">J</span>
-                        <span className="text-2xl font-light text-white tracking-widest uppercase">Journey</span>
-                    </motion.div>
-
-                    {/* L */}
-                    <motion.div
-                        initial={{ opacity: 0, x: 50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 1.8, duration: 0.6 }}
-                        className="flex items-center gap-3"
-                    >
-                        <span className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-xl shadow-lg border border-white/20">L</span>
-                        <span className="text-2xl font-light text-white tracking-widest uppercase">Legacy</span>
-                    </motion.div>
-
-                    {/* S */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 2.4, duration: 0.6 }}
-                        className="flex items-center gap-3"
-                    >
-                        <span className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xl shadow-lg border border-white/20">S</span>
-                        <span className="text-2xl font-light text-white tracking-widest uppercase">Success</span>
-                    </motion.div>
+                {/* Animated Words */}
+                <div className="absolute top-48 flex flex-col items-center gap-6 mt-12 w-full">
+                    {['TRUST', 'GROWTH', 'STABILITY'].map((word, i) => (
+                        <motion.h2
+                            key={word}
+                            custom={i}
+                            variants={wordVariants}
+                            initial="initial"
+                            animate="animate"
+                            className="text-white text-4xl md:text-5xl font-black italic tracking-[0.2em] leading-none text-center drop-shadow-lg"
+                            style={{
+                                textShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                filter: 'brightness(1.1)'
+                            }}
+                        >
+                            {word}
+                        </motion.h2>
+                    ))}
                 </div>
             </div>
 
-            {/* Footer */}
+            {/* Footer - Premium Spaced Style */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 3.2, duration: 0.8 }}
-                className="absolute bottom-10 flex flex-col items-center gap-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 3.8, duration: 1 }}
+                className="absolute bottom-16 w-full flex flex-col items-center"
             >
-                <p className="text-white/60 text-xs tracking-widest uppercase font-medium">Made with</p>
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                    <span className="text-red-500 animate-pulse text-lg">❤️</span>
-                    <span className="text-white/90 text-sm font-bold tracking-wider">by LAVNEET RATHI</span>
-                </div>
+                <div className="h-[1px] w-12 bg-white/20 mb-4" />
+                <p className="text-white/40 text-[10px] md:text-xs font-bold tracking-[0.5em] uppercase text-center pl-[0.5em]">
+                    MADE BY LAVNEET RATHI
+                </p>
             </motion.div>
 
         </div>

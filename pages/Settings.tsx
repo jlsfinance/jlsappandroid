@@ -206,9 +206,9 @@ const Settings: React.FC = () => {
           <span className="material-symbols-outlined text-lg">notifications_active</span>
           Test Notification
         </button>
-        <button onClick={handleLogout} className="w-full bg-white dark:bg-[#1a2235] hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 border border-red-100 dark:border-red-900/30">
-          <span className="material-symbols-outlined text-lg">logout</span>
-          Log Out
+        <button onClick={handleLogout} className="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 border border-red-700">
+          <span className="material-symbols-outlined text-lg material-symbols-fill">logout</span>
+          Log Out Session
         </button>
       </div>
 
@@ -304,9 +304,9 @@ const Settings: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isUpdating}
-                  className="flex-1 px-4 py-3 bg-primary text-white font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-primary text-white font-black rounded-xl hover:brightness-110 shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {isUpdating ? 'Updating...' : 'Save Changes'}
+                  {isUpdating ? 'Updating...' : 'Save Profile'}
                 </button>
               </div>
             </form>

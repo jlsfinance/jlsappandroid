@@ -17,7 +17,7 @@ const Approvals: React.FC = () => {
     const { currentCompany } = useCompany();
     const [applications, setApplications] = useState<LoanApplication[]>([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Modal State
     const [modalType, setModalType] = useState<'approve' | 'reject' | null>(null);
     const [selectedApp, setSelectedApp] = useState<LoanApplication | null>(null);
@@ -30,11 +30,11 @@ const Approvals: React.FC = () => {
                 setLoading(false);
                 return;
             }
-            
+
             setLoading(true);
             try {
                 const q = query(
-                    collection(db, "loans"), 
+                    collection(db, "loans"),
                     where("status", "==", "Pending"),
                     where("companyId", "==", currentCompany.id)
                 );
@@ -70,7 +70,7 @@ const Approvals: React.FC = () => {
 
         try {
             const loanRef = doc(db, "loans", selectedApp.id);
-            
+
             const updateData: any = {
                 status: newStatus,
                 adminComment: comment,
@@ -81,7 +81,7 @@ const Approvals: React.FC = () => {
             }
 
             await updateDoc(loanRef, updateData);
-            
+
             setApplications(prev => prev.filter(app => app.id !== selectedApp.id));
             alert(`Application ${newStatus} Successfully`);
             closeModal();
@@ -139,17 +139,17 @@ const Approvals: React.FC = () => {
                                             <td className="px-4 py-3">Rs. {app.amount.toLocaleString('en-IN')}</td>
                                             <td className="px-4 py-3 text-slate-500">{new Date(app.date).toLocaleDateString()}</td>
                                             <td className="px-4 py-3 flex justify-center gap-2">
-                                                <button 
+                                                <button
                                                     onClick={() => openModal('approve', app)}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 text-xs font-bold transition-colors"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-sm border border-green-700 active:scale-95 transition-all text-xs font-black uppercase tracking-wider"
                                                 >
-                                                    <span className="material-symbols-outlined text-[16px]">check</span> Approve
+                                                    <span className="material-symbols-outlined text-[16px] material-symbols-fill">check_circle</span> Approve
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => openModal('reject', app)}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-xs font-bold transition-colors"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 shadow-sm border border-red-700 active:scale-95 transition-all text-xs font-black uppercase tracking-wider"
                                                 >
-                                                    <span className="material-symbols-outlined text-[16px]">close</span> Reject
+                                                    <span className="material-symbols-outlined text-[16px] material-symbols-fill">cancel</span> Reject
                                                 </button>
                                             </td>
                                         </tr>
@@ -176,17 +176,17 @@ const Approvals: React.FC = () => {
                             {modalType === 'approve' ? 'Approve Loan?' : 'Reject Loan?'}
                         </h3>
                         <p className="text-sm text-slate-500 mb-4">
-                            {modalType === 'approve' 
-                                ? `You are approving a loan of Rs. ${selectedApp.amount.toLocaleString('en-IN')} for ${selectedApp.customerName}.` 
+                            {modalType === 'approve'
+                                ? `You are approving a loan of Rs. ${selectedApp.amount.toLocaleString('en-IN')} for ${selectedApp.customerName}.`
                                 : `You are rejecting the application for ${selectedApp.customerName}.`}
                         </p>
-                        
+
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">
                                     {modalType === 'approve' ? 'Comments (Optional)' : 'Reason for Rejection'}
                                 </label>
-                                <textarea 
+                                <textarea
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
                                     placeholder={modalType === 'approve' ? "E.g. Verified documents..." : "E.g. Low credit score..."}
@@ -194,20 +194,19 @@ const Approvals: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        
+
                         <div className="flex gap-3 justify-end">
-                            <button 
-                                onClick={closeModal} 
+                            <button
+                                onClick={closeModal}
                                 className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={handleStatusUpdate}
                                 disabled={processing}
-                                className={`px-4 py-2 text-white rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2 ${
-                                    modalType === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
-                                }`}
+                                className={`px-4 py-2 text-white rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2 ${modalType === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                                    }`}
                             >
                                 {processing && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
                                 Confirm {modalType === 'approve' ? 'Approval' : 'Rejection'}

@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '../firebaseConfig';
 import { format } from 'date-fns';
 import NotificationListener from '../components/NotificationListener';
 import { ContactService } from '../services/ContactService';
 import { PdfGenerator } from '../services/PdfGenerator';
+import { NotificationService } from '../services/NotificationService';
 
 interface Emi {
   emiNumber: number;
@@ -54,9 +56,25 @@ const CustomerPortal: React.FC = () => {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [selectedEmi, setSelectedEmi] = useState<Emi | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   const formatCurrency = (val: number) => `₹${new Intl.NumberFormat("en-IN").format(val)}`;
   const formatDate = (d: string) => { try { return format(new Date(d), 'dd MMM yyyy'); } catch { return d; } };
+
+  useEffect(() => {
+    // Ensure we have an anonymous auth session for Firestore Rules
+    const ensureAuth = async () => {
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          console.error("Anonymous Auth Failed", e);
+        }
+      }
+      setIsAuthReady(true);
+    };
+    ensureAuth();
+  }, []);
 
   const fetchData = useCallback(async () => {
     const cid = localStorage.getItem('customerPortalId');
@@ -76,10 +94,11 @@ const CustomerPortal: React.FC = () => {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [navigate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (isAuthReady) fetchData();
+  }, [fetchData, isAuthReady]);
 
   const activeLoans = useMemo(() => loans.filter(l => l.status === 'Active' || l.status === 'Disbursed'), [loans]);
-
   const getNextEmi = (loan: Loan) => loan.repaymentSchedule?.find(e => e.status === 'Pending' || e.status === 'Overdue');
 
   const primaryLoan = activeLoans[0];
@@ -87,96 +106,122 @@ const CustomerPortal: React.FC = () => {
   const isOverdue = nextEmi ? new Date() > new Date(nextEmi.dueDate) : false;
 
   const handleLogout = () => {
-    if (confirm("Logout?")) {
+    if (confirm("Are you sure you want to logout?")) {
       localStorage.removeItem('customerPortalId');
       localStorage.removeItem('customerPortalPhone');
       navigate('/customer-login');
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent animate-spin rounded-full"></div></div>;
+  if (loading || !isAuthReady) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent animate-spin rounded-full"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 pb-24 font-sans selection:bg-blue-100">
       <NotificationListener />
 
       {/* Header */}
-      <header className="bg-blue-600 pt-12 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4 blur-2xl"></div>
+      <header className="bg-[#6366f1] pt-12 pb-16 px-6 rounded-b-[2.5rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
         <div className="flex justify-between items-center relative z-10 text-white">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full border-2 border-white/30 overflow-hidden bg-blue-500 shadow-sm">
-              {customer?.photo_url ? <img src={customer.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-xl">{customer?.name?.charAt(0)}</div>}
+            <div className="w-14 h-14 rounded-full border-2 border-white/40 overflow-hidden bg-indigo-500 shadow-lg">
+              {customer?.photo_url ? <img src={customer.photo_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-2xl">{customer?.name?.charAt(0)}</div>}
             </div>
             <div>
-              <p className="text-blue-100 text-[10px] uppercase font-bold tracking-widest">Customer Portal</p>
-              <h1 className="font-bold text-lg leading-none">{customer?.name}</h1>
+              <p className="text-blue-100 text-[10px] uppercase font-black tracking-[0.2em] opacity-80">Dashboard</p>
+              <h1 className="font-extrabold text-xl leading-none">{customer?.name}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2.5 bg-white/15 rounded-full backdrop-blur-md active:scale-90 transition"><span className="material-symbols-outlined text-xl">notifications</span></button>
-            <button onClick={handleLogout} className="p-2.5 bg-red-500/80 rounded-full backdrop-blur-md shadow-lg active:scale-90 transition"><span className="material-symbols-outlined text-xl">logout</span></button>
+          <div className="flex items-center gap-3">
+            <button className="p-2.5 bg-white/20 rounded-full backdrop-blur-lg active:scale-90 transition-all border border-white/10 shadow-sm"><span className="material-symbols-outlined text-2xl">notifications</span></button>
+            <button onClick={handleLogout} className="p-2.5 bg-red-500 rounded-full border border-red-400 active:scale-95 transition-all shadow-md"><span className="material-symbols-outlined text-2xl">logout</span></button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Container */}
       <main className="relative z-20">
 
-        {/* Quick Actions */}
-        <div className="mx-6 -mt-8 bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-2">
+        {/* Quick Actions Panel */}
+        <div className="mx-6 -mt-10 bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-3 relative z-30">
           {[
-            { label: 'Pay EMI', icon: 'payments', bg: 'bg-blue-50', color: 'text-blue-600', action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI"); } },
-            { label: 'History', icon: 'history', bg: 'bg-purple-50', color: 'text-purple-600', action: () => setCurrentTab('history') },
-            { label: 'Support', icon: 'support_agent', bg: 'bg-green-50', color: 'text-green-600', action: () => setShowSupportModal(true) },
-            { label: 'More', icon: 'apps', bg: 'bg-orange-50', color: 'text-orange-600', action: () => setCurrentTab('profile') },
+            { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI found!"); } },
+            { label: 'History', icon: 'history', bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => setCurrentTab('history') },
+            // Replaced Support with Test Notif for debugging
+            {
+              label: 'Test Notif', icon: 'notifications_active', bg: 'bg-blue-50 dark:bg-blue-900/20', color: 'text-blue-600 dark:text-blue-400', action: async () => {
+                try {
+                  await NotificationService.registerNotifications();
+                  await NotificationService.testNotification();
+                  alert("Test Notification Scheduled! Wait 2 seconds. Also registered!");
+                } catch (e: any) { alert("Error: " + e.message); }
+              }
+            },
+            { label: 'More', icon: 'dashboard_customize', bg: 'bg-orange-50 dark:bg-orange-900/20', color: 'text-orange-600 dark:text-orange-400', action: () => setCurrentTab('profile') },
           ].map((item, i) => (
-            <div key={i} onClick={item.action} className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition group">
-              <div className={`w-12 h-12 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
-                <span className={`material-symbols-outlined ${item.color} text-2xl`}>{item.icon}</span>
+            <div key={i} onClick={item.action} className="flex flex-col items-center gap-2 cursor-pointer transition-all">
+              <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm border border-black/5 active:scale-90 transition-transform ${item.isSpecial ? 'shadow-indigo-500/40' : ''}`}>
+                <div className={`${item.isSpecial ? 'w-8 h-8 rounded-full bg-white/20 flex items-center justify-center' : ''}`}>
+                  <span className={`material-symbols-outlined ${item.color} ${item.isSpecial ? 'text-xl' : 'text-2xl'}`}>{item.icon}</span>
+                </div>
               </div>
-              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tighter">{item.label}</span>
+              <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-tighter">{item.label}</span>
             </div>
           ))}
         </div>
 
         {/* Home Tab */}
         {currentTab === 'home' && (
-          <div className="px-6 py-6 animate-in fade-in duration-500">
-            {/* Hindi Warning Card */}
+          <div className="px-6 py-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
+            {/* Dynamic Message Card (Hindi) */}
             {nextEmi && (
-              <div className={`mb-6 p-5 rounded-2xl shadow-lg border-l-4 ${isOverdue ? 'bg-red-50 border-red-500 text-red-900' : 'bg-blue-50 border-blue-500 text-blue-900'} flex items-start gap-4`}>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                  <span className="material-symbols-outlined text-2xl">{isOverdue ? 'warning' : 'info'}</span>
+              <div className={`mb-8 p-6 rounded-[2rem] shadow-xl border-l-8 ${isOverdue ? 'bg-red-50 border-red-600 text-red-900 shadow-red-100' : 'bg-blue-50 border-blue-600 text-blue-900 shadow-blue-100'} flex items-start gap-5 transition-all`}>
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-lg ${isOverdue ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white'}`}>
+                  <span className="material-symbols-outlined text-3xl">{isOverdue ? 'warning' : 'notifications_active'}</span>
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">{isOverdue ? '⚠️ भुगतान लंबित है!' : `नमस्ते ${customer?.name?.split(' ')[0]} 👋`}</h3>
-                  <p className="text-sm font-medium leading-relaxed">
+                <div className="flex-1">
+                  <h3 className="font-extrabold text-xl mb-1.5">{isOverdue ? '⚠️ तत्काल भुगतान करें!' : `नमस्ते ${customer?.name?.split(' ')[0]} 🙏`}</h3>
+                  <p className="text-sm font-semibold leading-snug">
                     {isOverdue
-                      ? `सावधान! आपकी लोन की क़िस्त ₹${nextEmi.amount} दिनांक ${formatDate(nextEmi.dueDate)} को निकल चुकी है। कृपया तुरंत भुगतान करें अन्यथा चार्ज लग सकता है और क़ानूनी कार्यवाही की जा सकती है।`
-                      : `प्रिय ग्राहक, आपकी अगली क़िस्त ₹${nextEmi.amount} दिनांक ${formatDate(nextEmi.dueDate)} को देय है। कृपया भविष्य में पेनल्टी से बचने के लिए समय से भुगतान करना सुनिश्चित करें।`
+                      ? `सावधान! आपकी ₹${nextEmi.amount} की क़िस्त दिनांक ${formatDate(nextEmi.dueDate)} को देय थी। देरी के कारण अतिरिक्त चार्ज लग सकता है। कृपया तुरंत भुगतान करके क़ानूनी कार्यवाही से बचें।`
+                      : `प्रिय ग्राहक, आपकी अगली क़िस्त ₹${nextEmi.amount} दिनांक ${formatDate(nextEmi.dueDate)} को देय है। कृपया अच्छा क्रेडिट स्कोर बनाए रखने के लिए समय पर भुगतान करें।`
                     }
                   </p>
                 </div>
               </div>
             )}
 
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 tracking-tight"><span className="w-1.5 h-6 bg-blue-600 rounded-full"></span> Active Loans</h2>
-              <button onClick={() => setCurrentTab('loans')} className="text-blue-600 font-bold text-xs uppercase tracking-widest hover:underline">View All</button>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="font-black text-xl text-gray-800 dark:text-white flex items-center gap-3"><span className="w-2 h-7 bg-[#6366f1] rounded-full"></span> Active Loans</h2>
+              <button onClick={() => setCurrentTab('loans')} className="text-[#6366f1] font-bold text-xs uppercase tracking-widest bg-[#6366f1]/10 px-3 py-1.5 rounded-full hover:bg-[#6366f1]/20 transition">View All</button>
             </div>
 
-            <div className="space-y-4">
-              {activeLoans.length === 0 ? <div className="p-8 text-center text-gray-400 italic bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-700">No active loans found.</div> : activeLoans.map(loan => (
-                <div key={loan.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-3"><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100 uppercase">{loan.status}</span></div>
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-2">Loan ID: #{loan.id}</h3>
-                  <div className="flex items-center gap-6 mt-4">
-                    <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Loan Amount</p><p className="font-bold text-lg text-blue-600 leading-none">{formatCurrency(loan.amount)}</p></div>
-                    <div className="w-px h-8 bg-gray-100 dark:bg-gray-700"></div>
-                    <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Due Date</p><p className="font-bold text-sm text-gray-700 dark:text-gray-300 leading-none">{formatDate(getNextEmi(loan)?.dueDate || '-')}</p></div>
+            <div className="space-y-5">
+              {activeLoans.length === 0 ? (
+                <div className="p-12 text-center text-gray-400 font-bold bg-white dark:bg-gray-800 rounded-3xl border-4 border-dashed border-gray-100 dark:border-gray-700">
+                  <span className="material-symbols-outlined text-6xl mb-3 opacity-20">contract_edit</span>
+                  <p>No active loans found at the moment.</p>
+                </div>
+              ) : activeLoans.map(loan => (
+                <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.03)] border border-gray-100 dark:border-gray-700 relative overflow-hidden group active:scale-[0.98] transition-all">
+                  <div className="absolute top-0 right-0 p-4"><span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">{loan.status}</span></div>
+                  <h3 className="font-bold text-gray-500 uppercase text-[10px] tracking-widest mb-1">Loan Identity</h3>
+                  <p className="font-black text-lg text-gray-900 dark:text-white mb-5 flex items-center gap-2">#{loan.id}</p>
+
+                  <div className="flex items-center justify-between mt-4 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-2xl border border-black/5">
+                    <div><p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Sanctioned Amt</p><p className="font-black text-2xl text-indigo-600 leading-none">{formatCurrency(loan.amount)}</p></div>
+                    <div className="text-right"><p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Next Due</p><p className="font-black text-sm text-gray-700 dark:text-gray-200 leading-none">{formatDate(getNextEmi(loan)?.dueDate || '-')}</p></div>
                   </div>
-                  <button onClick={() => { setSelectedLoan(loan); setShowDetailsModal(true); }} className="w-full mt-5 py-3 bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 font-bold text-xs rounded-xl hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100 uppercase tracking-widest">Details & Schedule</button>
+                  <button onClick={() => { setSelectedLoan(loan); setShowDetailsModal(true); }} className="w-full mt-6 py-4 btn-kadak text-sm rounded-2xl hover:brightness-110 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-xl material-symbols-fill">list_alt</span>
+                    View Schedule & Pay
+                  </button>
                 </div>
               ))}
             </div>
@@ -185,20 +230,19 @@ const CustomerPortal: React.FC = () => {
 
         {/* Loans Tab */}
         {currentTab === 'loans' && (
-          <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-500">
-            <h2 className="font-bold text-xl mb-6 text-gray-800 dark:text-white">All Loans</h2>
-            <div className="space-y-4">
+          <div className="px-6 py-6 animate-in slide-in-from-bottom-5 duration-500">
+            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Your Loan Ledger</h2>
+            <div className="space-y-5">
               {loans.map(loan => (
-                <div key={loan.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
-                  <div className="flex justify-between items-start mb-3">
-                    <div><p className="text-[10px] text-gray-400 font-bold uppercase">Loan ID</p><p className="font-bold text-gray-900 dark:text-white">#{loan.id}</p></div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${loan.status === 'Active' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'} border uppercase`}>{loan.status}</span>
+                <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.97] transition-all">
+                  <div className="flex justify-between items-start mb-4">
+                    <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">ID: #{loan.id}</p><p className="font-black text-2xl text-gray-900 dark:text-white">{formatCurrency(loan.amount)}</p></div>
+                    <span className={`text-[10px] font-black px-3 py-1 rounded-full ${loan.status === 'Active' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-100 text-gray-500 border-gray-200'} border uppercase`}>{loan.status}</span>
                   </div>
-                  <div className="flex justify-between items-end">
-                    <div><p className="text-[10px] text-gray-400 font-bold uppercase">Disbursed On</p><p className="font-bold text-sm">{formatDate(loan.date)}</p></div>
-                    <p className="font-bold text-xl text-blue-600">{formatCurrency(loan.amount)}</p>
+                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
+                    <div><p className="text-[9px] text-gray-400 font-black tracking-widest uppercase">Disbursement Date</p><p className="font-bold text-sm">{formatDate(loan.date)}</p></div>
+                    <button onClick={() => { setSelectedLoan(loan); setShowDetailsModal(true); }} className="px-5 py-2.5 bg-white dark:bg-gray-700 text-blue-600 font-black text-[10px] rounded-lg border border-blue-100 shadow-sm uppercase">Manage</button>
                   </div>
-                  <button onClick={() => { setSelectedLoan(loan); setShowDetailsModal(true); }} className="w-full mt-4 py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg uppercase tracking-wider">View Details</button>
                 </div>
               ))}
             </div>
@@ -207,58 +251,111 @@ const CustomerPortal: React.FC = () => {
 
         {/* History Tab */}
         {currentTab === 'history' && (
-          <div className="px-6 py-6 animate-in slide-in-from-right-4 duration-500">
-            <h2 className="font-bold text-xl mb-6 text-gray-800 dark:text-white">Payment History</h2>
+          <div className="px-6 py-6 animate-in slide-in-from-right-5 duration-500">
+            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Transaction Logs</h2>
             <div className="space-y-4">
-              {loans.flatMap(l => (l.repaymentSchedule || []).filter(e => e.status === 'Paid').map(e => ({ ...e, loanId: l.id }))).sort((a, b) => new Date(b.paidDate!).getTime() - new Date(a.paidDate!).getTime()).map((emi, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-600 border border-green-100 group-hover:scale-110 transition"><span className="material-symbols-outlined">check_circle</span></div>
+              {/* Combine Disbursals and Payments into a single timeline */}
+              {useMemo(() => {
+                const logs: any[] = [];
+                loans.forEach(l => {
+                  logs.push({ type: 'loan', date: new Date(l.date), amount: l.amount, id: l.id });
+                  l.repaymentSchedule?.filter(e => e.status === 'Paid').forEach(e => {
+                    if (e.paidDate) {
+                      logs.push({ type: 'emi', date: new Date(e.paidDate), amount: e.amount, emiNo: e.emiNumber, loanId: l.id });
+                    }
+                  });
+                });
+                return logs.sort((a, b) => b.date.getTime() - a.date.getTime());
+              }, [loans]).map((log, i) => (
+                <div key={i}
+                  onClick={() => {
+                    if (log.type === 'loan') {
+                      const loan = loans.find(l => l.id === log.id);
+                      if (loan) PdfGenerator.generateLoanAgreement(loan as any, customer as any, company as any);
+                    } else {
+                      const loan = loans.find(l => l.id === log.loanId);
+                      const emi = loan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
+                      if (loan && emi) PdfGenerator.generateReceipt(loan as any, emi, customer as any, company as any);
+                    }
+                  }}
+                  className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group active:bg-gray-50 dark:active:bg-gray-700 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-5">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center border shadow-sm group-hover:scale-105 transition-all ${log.type === 'loan' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                      <span className="material-symbols-outlined text-3xl font-variation-FILL">{log.type === 'loan' ? 'account_balance' : 'verified_user'}</span>
+                    </div>
                     <div>
-                      <p className="font-bold text-sm text-gray-900 dark:text-white">EMI #{emi.emiNumber} Paid</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Loan ID: #{emi.loanId}</p>
-                      <p className="text-[10px] text-gray-500">{formatDate(emi.paidDate!)}</p>
+                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'loan' ? 'Loan Disbursed' : `EMI #${log.emiNo} Payment`}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Ref: #{log.id || log.loanId}</p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{formatDate(log.date.toISOString())}</span></div>
+                        <div className="flex items-center gap-1 text-blue-500"><span className="material-symbols-outlined text-[14px] font-variation-FILL">download</span><span className="text-[8px] font-black uppercase tracking-widest">Receipt</span></div>
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-green-600 text-lg leading-none">{formatCurrency(emi.amount)}</p>
-                    <span className="text-[8px] font-bold text-gray-300 uppercase">Success</span>
+                    <p className={`font-black text-xl leading-none ${log.type === 'loan' ? 'text-indigo-600' : 'text-emerald-600'}`}>{log.type === 'loan' ? '+' : '-'}{formatCurrency(log.amount)}</p>
+                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Success</span>
                   </div>
                 </div>
               ))}
-              {loans.every(l => !l.repaymentSchedule?.some(e => e.status === 'Paid')) && <div className="py-20 text-center"><span className="material-symbols-outlined text-gray-200 text-6xl mb-2">history</span><p className="text-gray-400">No payment records found.</p></div>}
+              {loans.length === 0 && <div className="py-24 text-center opacity-30"><span className="material-symbols-outlined text-8xl mb-4">history_edu</span><p className="font-black text-lg">No records yet.</p></div>}
             </div>
           </div>
         )}
 
         {/* Profile/More Tab */}
         {currentTab === 'profile' && (
-          <div className="px-6 py-6 animate-in slide-in-from-left-4 duration-500">
-            <h2 className="font-bold text-xl mb-6 text-gray-800 dark:text-white">Account & More</h2>
-            <div className="space-y-4">
-              <div className="p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 text-center relative overflow-hidden">
-                <div className="absolute top-0 inset-x-0 h-24 bg-blue-600/5"></div>
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-4 border-white dark:border-gray-700 mx-auto mb-4 relative z-10 overflow-hidden shadow-md">
-                  {customer?.photo_url ? <img src={customer.photo_url} className="w-full h-full object-cover" /> : <span className="w-full h-full flex items-center justify-center text-4xl font-bold text-blue-600">{customer?.name?.charAt(0)}</span>}
+          <div className="px-6 py-6 animate-in slide-in-from-left-5 duration-500">
+            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Account Portfolio</h2>
+            <div className="space-y-6">
+              <div className="p-8 bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 text-center relative overflow-hidden">
+                <div className="absolute top-0 inset-x-0 h-32 bg-blue-600/10 blur-3xl"></div>
+                <div className="w-28 h-28 rounded-full bg-blue-600 border-4 border-white dark:border-gray-700 mx-auto mb-6 relative z-10 overflow-hidden shadow-2xl flex items-center justify-center text-white">
+                  {customer?.photo_url ? <img src={customer.photo_url} className="w-full h-full object-cover" /> : <span className="text-5xl font-black">{customer?.name?.charAt(0)}</span>}
                 </div>
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white">{customer?.name}</h3>
-                <p className="text-gray-500 text-sm font-medium">{customer?.phone}</p>
+                <h3 className="font-black text-2xl text-gray-900 dark:text-white mb-1">{customer?.name}</h3>
+                <p className="text-gray-500 text-sm font-bold tracking-tight">{customer?.phone}</p>
+                <div className="mt-4 inline-block px-4 py-1.5 bg-[#6366f1]/10 text-[#6366f1] rounded-full font-black text-[10px] uppercase tracking-widest border border-[#6366f1]/20">Gold Customer</div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {[
-                  { label: 'Download Statements', icon: 'description', action: () => alert('Feature coming soon!') },
-                  { label: 'Refer & Earn Cashback', icon: 'redeem', action: () => alert('Share your code: ' + customer?.id.slice(0, 6).toUpperCase()) },
-                  { label: 'Privacy Policy', icon: 'security', action: () => navigate('/privacy') },
-                  { label: 'Terms & Conditions', icon: 'gavel', action: () => navigate('/terms') },
-                  { label: 'Logout', icon: 'logout', color: 'text-red-500', action: handleLogout },
+                  { label: 'Download Account Statement', icon: 'description', action: () => PdfGenerator.generateAccountStatement(loans as any, customer as any, company as any) },
+                  {
+                    label: 'Loan Clearance Certificate',
+                    icon: 'workspace_premium',
+                    action: () => {
+                      const closedLoan = loans.find(l => l.status === 'Closed' || l.status === 'Paid');
+                      if (closedLoan) {
+                        PdfGenerator.generateNoDuesCertificate(closedLoan as any, customer as any, company as any);
+                      } else {
+                        alert("No closed loans found to generate a certificate.");
+                      }
+                    }
+                  },
+                  { label: 'Payment Receipts', icon: 'receipt_long', action: () => setCurrentTab('history') },
+                  { label: 'Update Personal Details', icon: 'manage_accounts', action: () => alert('Contact admin to update profile.') },
+                  {
+                    label: 'Refer a Friend & Earn',
+                    icon: 'card_giftcard',
+                    action: () => {
+                      const referralCode = 'JLS' + customer?.id.slice(-4).toUpperCase();
+                      const message = `Hello! I use JLS Finance Suite to manage my small business loans. It's very easy and transparent. Use my referral code: ${referralCode} to get started!`;
+                      window.open(`whatsapp://send?text=${encodeURIComponent(message)}`, '_system');
+                    }
+                  },
+                  { label: 'Live Support Chat', icon: 'smart_toy', action: () => setShowSupportModal(true) },
+                  { label: 'Privacy & Security', icon: 'verified_user', action: () => navigate('/privacy') },
+                  { label: 'Terms Overview', icon: 'gavel', action: () => navigate('/terms') },
+                  { label: 'Log Out Session', icon: 'logout', color: 'text-red-500', action: handleLogout },
                 ].map((m, i, arr) => (
-                  <div key={i} onClick={m.action} className={`p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all ${i !== arr.length - 1 ? 'border-b border-gray-50 dark:border-gray-700' : ''}`}>
-                    <div className="flex items-center gap-3">
-                      <span className={`material-symbols-outlined ${m.color || 'text-gray-400'}`}>{m.icon}</span>
-                      <span className={`font-bold text-sm ${m.color || 'text-gray-700 dark:text-gray-200'}`}>{m.label}</span>
+                  <div key={i} onClick={m.action} className={`p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all ${i !== arr.length - 1 ? 'border-b border-gray-50 dark:border-gray-700' : ''}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${m.color ? 'bg-red-50' : 'bg-gray-50 dark:bg-gray-900'}`}><span className={`material-symbols-outlined text-2xl ${m.color || 'text-gray-400 opacity-70'}`}>{m.icon}</span></div>
+                      <span className={`font-black text-sm uppercase tracking-tight ${m.color || 'text-gray-700 dark:text-gray-200'}`}>{m.label}</span>
                     </div>
-                    <span className="material-symbols-outlined text-gray-300 text-sm">arrow_forward_ios</span>
+                    <span className="material-symbols-outlined text-gray-300 text-lg">chevron_right</span>
                   </div>
                 ))}
               </div>
@@ -268,92 +365,110 @@ const CustomerPortal: React.FC = () => {
 
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800 py-3 px-6 flex justify-between items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
+      {/* Modern Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 py-4 px-8 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[3rem]">
         {[
           { id: 'home', icon: 'home', label: 'Home' },
           { id: 'loans', icon: 'account_balance_wallet', label: 'Loans' },
-          { id: 'qr', icon: 'qr_code_scanner', label: 'Pay' },
+          { id: 'qr', icon: 'qr_code_scanner', label: 'Pay Now' },
           { id: 'history', icon: 'history', label: 'History' },
-          { id: 'profile', icon: 'person', label: 'Profile' },
+          { id: 'profile', icon: 'person', label: 'Account' },
         ].map(tab => (
-          <div key={tab.id} onClick={() => { if (tab.id === 'qr') { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI"); } else setCurrentTab(tab.id as any); }}
-            className={`flex flex-col items-center gap-1 cursor-pointer transition-all duration-300 ${tab.id === 'qr' ? '-mt-12 bg-blue-600 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-300 active:scale-90' : currentTab === tab.id ? 'text-blue-600 scale-110' : 'text-gray-400'}`}>
-            <span className={`material-symbols-outlined ${tab.id === 'qr' ? 'text-2xl' : 'text-2xl'} ${currentTab === tab.id ? 'font-variation-FILL' : ''}`}>{tab.icon}</span>
-            {tab.id !== 'qr' && <span className="text-[10px] font-bold uppercase tracking-tighter">{tab.label}</span>}
+          <div key={tab.id} onClick={() => { if (tab.id === 'qr') { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No due EMI at this moment!"); } else setCurrentTab(tab.id as any); }}
+            className={`flex flex-col items-center gap-1.5 cursor-pointer transition-all duration-300 ${tab.id === 'qr' ? '-mt-16 bg-[#6366f1] w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl shadow-[#6366f1]/40 active:scale-90 border-[6px] border-white dark:border-gray-900' : currentTab === tab.id ? 'text-[#6366f1] scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
+            <span className={`material-symbols-outlined text-[28px] ${currentTab === tab.id ? 'font-variation-FILL' : ''}`}>{tab.icon}</span>
+            {tab.id !== 'qr' && <span className="text-[9px] font-black uppercase tracking-widest">{tab.label}</span>}
           </div>
         ))}
       </nav>
 
-      {/* Support Modal */}
+      {/* Improved Support Modal */}
       {showSupportModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-700">
-            <div className="p-8 text-center">
-              <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600"><span className="material-symbols-outlined text-5xl">support_agent</span></div>
-              <h3 className="font-bold text-xl mb-2 text-gray-900 dark:text-white">Contact Support</h3>
-              <p className="text-gray-500 text-sm mb-8">Need help with your loan? Reach out to us directly.</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/70 backdrop-blur-lg animate-in fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20">
+            <div className="p-10 text-center">
+              <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600 border-4 border-emerald-50 shadow-inner"><span className="material-symbols-outlined text-5xl font-variation-FILL">support_agent</span></div>
+              <h3 className="font-black text-2xl mb-2 text-gray-900 dark:text-white">Customer Support</h3>
+              <p className="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Our finance assistants are available to help you with any queries related to your loans.</p>
 
-              <div className="bg-gray-50 dark:bg-gray-900/40 rounded-3xl p-6 mb-8 text-left border border-gray-100 dark:border-gray-700">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Finance Partner</p>
-                <p className="font-bold text-lg text-gray-900 dark:text-white mb-4 leading-tight">{company?.name || 'JLS Finance'}</p>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Helpline Number</p>
-                <a href={`tel:${company?.phone || '9413821007'}`} className="font-bold text-2xl text-blue-600 decoration-wavy underline">{company?.phone || '9413821007'}</a>
+              <div className="bg-gray-50 dark:bg-gray-900/40 rounded-[2.5rem] p-8 mb-10 text-left border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5"><span className="material-symbols-outlined text-6xl">verified</span></div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Finance Business</p>
+                <p className="font-black text-xl text-gray-900 dark:text-white mb-6 leading-none">{company?.name || 'JLS Finance Group'}</p>
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Primary Helpline</p>
+                <a href={`tel:${company?.phone || '9413821007'}`} className="font-black text-3xl text-blue-600 decoration-none flex items-center gap-3">
+                  <span className="material-symbols-outlined text-3xl">phone_in_talk</span>
+                  {company?.phone || '9413821007'}
+                </a>
               </div>
 
-              <button onClick={() => setShowSupportModal(false)} className="w-full py-4 bg-gray-900 dark:bg-white dark:text-gray-900 text-white font-bold rounded-2xl active:scale-95 transition-all">Close</button>
+              <button onClick={() => setShowSupportModal(false)} className="w-full py-5 bg-gray-900 dark:bg-white dark:text-gray-900 text-white font-black text-sm rounded-2xl active:scale-95 transition-all uppercase tracking-widest shadow-xl">Back to App</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Payment Modal */}
+      {/* Enhanced Payment Modal */}
       {showPaymentModal && selectedEmi && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in zoom-in">
-          <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className="bg-blue-600 p-8 text-center text-white relative">
-              <button onClick={() => setShowPaymentModal(false)} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full"><span className="material-symbols-outlined text-sm">close</span></button>
-              <h3 className="font-bold text-xl">Confirm Payment</h3>
-              <p className="text-blue-100 text-xs mt-1">Scan QR or open UPI app</p>
-              <div className="mt-6 bg-white p-3 rounded-2xl inline-block shadow-lg"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=EMI%20Payment&am=${selectedEmi.amount}&cu=INR&tn=EMI%20Pay`)}`} className="w-40 h-40" /></div>
-            </div>
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
-                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Amount Due</p><p className="font-bold text-2xl text-gray-900 dark:text-white">{formatCurrency(selectedEmi.amount)}</p></div>
-                <div className="text-right"><p className="text-[10px] font-bold text-gray-400 uppercase">EMI NO</p><p className="font-bold text-lg text-blue-600">#{selectedEmi.emiNumber}</p></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in zoom-in duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-10 text-center text-white relative">
+              <button onClick={() => setShowPaymentModal(false)} className="absolute top-6 right-6 p-2.5 bg-white/20 rounded-full hover:bg-white/30 active:scale-90 transition-all"><span className="material-symbols-outlined text-sm">close</span></button>
+              <h3 className="font-black text-2xl mb-1">Make Payment</h3>
+              <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-70">Scan or click to pay via UPI</p>
+              <div className="mt-8 bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-white">
+                <img
+                  src={`https://quickchart.io/qr?text=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=EMI%20Payment&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`)}&size=250`}
+                  className="w-48 h-48 rounded-xl"
+                  alt="Payment QR"
+                />
               </div>
-              <a href={`upi://pay?pa=${company?.upiId || UPI_ID}&pn=EMI%20Payment&am=${selectedEmi.amount}&cu=INR&tn=EMI%20Pay`} className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-blue-200 active:scale-95 transition-all mb-4"><span className="material-symbols-outlined">payments</span> Pay via UPI</a>
-              <button onClick={() => setShowPaymentModal(false)} className="w-full py-3 text-gray-400 font-bold text-xs uppercase tracking-widest">Cancel</button>
+            </div>
+            <div className="p-10">
+              <div className="flex justify-between items-center mb-10">
+                <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Net Payable</p><p className="font-black text-3xl text-gray-900 dark:text-white">{formatCurrency(selectedEmi.amount)}</p></div>
+                <div className="text-right"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">EMI REF</p><p className="font-black text-lg text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">#{selectedEmi.emiNumber}</p></div>
+              </div>
+              <a href={`upi://pay?pa=${company?.upiId || UPI_ID}&pn=EMI%20Payment&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`} className="w-full py-5 btn-kadak text-sm rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mb-6 uppercase tracking-widest"><span className="material-symbols-outlined text-2xl material-symbols-fill">rocket_launch</span> Pay via UPI App</a>
+              <button onClick={() => setShowPaymentModal(false)} className="w-full py-2 text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] opacity-50">Cancel Transaction</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Details/Schedule Modal */}
+      {/* Detailed Loan Schedule Modal */}
       {showDetailsModal && selectedLoan && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in slide-in-from-bottom-full duration-500">
-          <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-[3rem] p-8 max-h-[85vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-xl">Loan Breakdown</h3>
-              <button onClick={() => setShowDetailsModal(false)} className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full"><span className="material-symbols-outlined text-sm">close</span></button>
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in slide-in-from-bottom-full duration-500">
+          <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-[3.5rem] p-10 max-h-[88vh] overflow-y-auto shadow-[0_-20px_50px_rgba(0,0,0,0.2)]">
+            <div className="flex justify-between items-center mb-8">
+              <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Schedule for</p><h3 className="font-black text-2xl text-gray-900 dark:text-white">Loan #{selectedLoan.id}</h3></div>
+              <button onClick={() => setShowDetailsModal(false)} className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-full active:scale-90 transition-all border border-black/5"><span className="material-symbols-outlined text-xl">close</span></button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <button onClick={() => PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any)} className="p-4 bg-blue-50 rounded-2xl flex flex-col items-center gap-2 text-blue-600 font-bold text-[10px] uppercase shadow-sm border border-blue-100"><span className="material-symbols-outlined">description</span> Agreement</button>
-              <button onClick={() => PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any)} className="p-4 bg-orange-50 rounded-2xl flex flex-col items-center gap-2 text-orange-600 font-bold text-[10px] uppercase shadow-sm border border-orange-100"><span className="material-symbols-outlined">badge</span> Loan Card</button>
+            <div className="grid grid-cols-2 gap-5 mb-10">
+              <button onClick={() => PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any)} className="p-5 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-3 text-indigo-700 dark:text-indigo-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-indigo-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
+              <button onClick={() => PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any)} className="p-5 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-3 text-amber-700 dark:text-amber-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-amber-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">contact_emergency</span> Loan Card</button>
             </div>
 
-            <h4 className="font-bold text-sm mb-4 uppercase tracking-widest text-gray-400">Repayment Schedule</h4>
-            <div className="space-y-3">
-              {selectedLoan.repaymentSchedule?.map((e, i) => (
-                <div key={i} className={`p-4 rounded-2xl flex justify-between items-center ${e.status === 'Paid' ? 'bg-green-50/50 border border-green-50' : e.status === 'Overdue' ? 'bg-red-50/50 border border-red-50' : 'bg-gray-50 border border-gray-50'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${e.status === 'Paid' ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>{e.emiNumber}</div>
-                    <div><p className="font-bold text-xs">EMI Details</p><p className="text-[10px] text-gray-500">{formatDate(e.dueDate)} • {e.status}</p></div>
+            <h4 className="font-black text-xs mb-6 uppercase tracking-[0.4em] text-gray-400 border-b border-gray-100 dark:border-gray-700 pb-3">Repayment Timeline</h4>
+            <div className="space-y-4">
+              {selectedLoan.repaymentSchedule?.map((e, i) => {
+                const isNext = e.status === 'Pending' || e.status === 'Overdue';
+                return (
+                  <div key={i} className={`p-5 rounded-[1.5rem] flex justify-between items-center transition-all ${e.status === 'Paid' ? 'bg-emerald-50/40 border border-emerald-100 grayscale-[0.5]' : e.status === 'Overdue' ? 'bg-red-50 border-red-100 animate-pulse' : 'bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${e.status === 'Paid' ? 'bg-emerald-600 text-white' : e.status === 'Overdue' ? 'bg-red-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-400'}`}>{e.emiNumber}</div>
+                      <div><p className="font-black text-sm text-gray-800 dark:text-white">EMI #{e.emiNumber}</p><p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">{formatDate(e.dueDate)} • {e.status}</p></div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-base mb-1">{formatCurrency(e.amount)}</p>
+                      {isNext && (
+                        <button onClick={() => { setShowDetailsModal(false); setSelectedEmi(e); setShowPaymentModal(true); }} className="px-4 py-1.5 bg-blue-600 text-white font-black text-[9px] rounded-lg uppercase tracking-widest shadow-lg shadow-blue-200 active:scale-95 transition-all">Pay Now</button>
+                      )}
+                    </div>
                   </div>
-                  <p className="font-bold text-sm">{formatCurrency(e.amount)}</p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>

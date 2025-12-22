@@ -94,14 +94,34 @@ const CompanyRequiredRoute = ({ children }: { children?: React.ReactNode }) => {
 
 import { Capacitor } from '@capacitor/core';
 import AnimatedSplash from './components/AnimatedSplash';
+import IntroNotice from './components/IntroNotice';
 import BackButtonHandler from './components/BackButtonHandler';
 import PermissionRequestor from './components/PermissionRequestor';
 
 const App: React.FC = () => {
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(Capacitor.getPlatform() !== 'web');
+  const [showNotice, setShowNotice] = useState(false);
 
-  if (showSplash) {
-    return <AnimatedSplash onFinish={() => setShowSplash(false)} />;
+  // Handle Splash Finish
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+    const hasSeenNotice = localStorage.getItem('hasSeenIntroNotice');
+    if (!hasSeenNotice && Capacitor.getPlatform() !== 'web') {
+      setShowNotice(true);
+    }
+  };
+
+  const handleAcceptNotice = () => {
+    localStorage.setItem('hasSeenIntroNotice', 'true');
+    setShowNotice(false);
+  };
+
+  if (showSplash && Capacitor.getPlatform() !== 'web') {
+    return <AnimatedSplash onFinish={handleSplashFinish} />;
+  }
+
+  if (showNotice) {
+    return <IntroNotice onAccept={handleAcceptNotice} />;
   }
 
   return (

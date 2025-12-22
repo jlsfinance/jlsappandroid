@@ -13,9 +13,9 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
 
                 {/* Header with Image or Gradient */}
-                <div className="h-32 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 relative flex items-center justify-center">
+                <div className="h-32 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 relative flex items-center justify-center">
                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight relative z-10">JLS Finance</h1>
+                    <h1 className="text-3xl font-bold text-white tracking-tight relative z-10">JLS Suite</h1>
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white transition-colors"
@@ -27,9 +27,9 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
 
                     <div className="mb-6 text-center">
-                        <p className="text-sm font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">Premium Financial Suite</p>
+                        <p className="text-sm font-medium text-violet-500 dark:text-violet-400 uppercase tracking-wider mb-2">Premium Financial Suite</p>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                            Experience the future of financial management with JLS Finance Suite. Designed for speed, security, and simplicity.
+                            Experience the future of financial management with JLS Suite. Designed for speed, security, and simplicity.
                         </p>
                     </div>
 

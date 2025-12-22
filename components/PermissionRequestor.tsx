@@ -4,6 +4,7 @@ import { Camera } from '@capacitor/camera';
 import { Filesystem } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Contacts } from '@capacitor-community/contacts';
+import { NotificationService } from '../services/NotificationService';
 
 const PermissionRequestor: React.FC = () => {
 
@@ -46,6 +47,13 @@ const PermissionRequestor: React.FC = () => {
 
             } catch (error) {
                 console.error('Error in permission sequence:', error);
+            }
+
+            // 5. Register for Remote Push Notifications (FCM)
+            try {
+                await NotificationService.registerNotifications();
+            } catch (e) {
+                console.warn('Push Registration Error:', e);
             }
         };
 
