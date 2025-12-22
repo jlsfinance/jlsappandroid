@@ -1432,7 +1432,7 @@ const LoanDetails: React.FC = () => {
     const StatusBadge = ({ status }: { status: string }) => {
         let classes = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset ";
         if (status === 'Approved') classes += "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-400";
-        else if (status === 'Disbursed' || status === 'Active') classes += "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/30 dark:text-blue-400";
+        else if (status === 'Disbursed' || status === 'Active') classes += "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-900/30 dark:text-indigo-400";
         else if (status === 'Completed') classes += "bg-purple-50 text-purple-700 ring-purple-600/20 dark:bg-purple-900/30 dark:text-purple-400";
         else if (status === 'Rejected' || status === 'Overdue') classes += "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-400";
         else classes += "bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400";
@@ -1709,7 +1709,7 @@ const LoanDetails: React.FC = () => {
                         </button>
                         <button
                             onClick={() => setIsTopUpModalOpen(true)}
-                            className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-bold text-sm hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors"
+                            className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-bold text-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors"
                         >
                             <span className="material-symbols-outlined text-[18px]">trending_up</span> Top-up Loan
                         </button>

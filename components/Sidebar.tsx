@@ -73,19 +73,19 @@ const Sidebar: React.FC = () => {
 
             {/* Sidebar Container */}
             <aside
-                className={`fixed inset-y-0 left-0 z-[55] w-72 h-screen bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed inset-y-0 left-0 z-[55] w-72 h-screen bg-gradient-to-b from-white via-white to-violet-50/50 dark:from-slate-950 dark:via-slate-950 dark:to-violet-950/10 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'
                     }`}
                 style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
                 <div className="flex flex-col h-full">
                     {/* Header */}
-                    <div className="h-20 flex items-center px-6 border-b border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                    <div className="h-20 flex items-center px-6 border-b border-slate-200/50 dark:border-slate-800/50 bg-transparent">
                         <div className="flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-500/20">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-violet-500/20">
                                 J
                             </div>
                             <div className="flex flex-col">
-                                <span className="font-bold text-slate-900 dark:text-white leading-none text-lg">JLS Finance</span>
+                                <span className="font-bold text-slate-900 dark:text-white leading-none text-lg">JLS Suite</span>
                                 {currentCompany && <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">{currentCompany.name}</span>}
                             </div>
                         </div>
@@ -103,12 +103,12 @@ const Sidebar: React.FC = () => {
                                         <button
                                             onClick={() => toggleSubmenu(item.title)}
                                             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all duration-200 group border border-transparent ${expandedMenus.includes(item.title)
-                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-100 dark:border-indigo-500/10 shadow-sm'
-                                                : 'text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                                ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-100 dark:border-violet-500/10 shadow-sm'
+                                                : 'text-slate-700 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3.5">
-                                                <span className={`material-symbols-outlined text-[22px] transition-colors ${expandedMenus.includes(item.title) ? 'fill-current' : 'text-slate-500 group-hover:text-indigo-600 dark:text-slate-500 dark:group-hover:text-indigo-400'}`}>{item.icon}</span>
+                                                <span className={`material-symbols-outlined text-[22px] transition-colors ${expandedMenus.includes(item.title) ? 'fill-current' : 'text-slate-500 group-hover:text-violet-600 dark:text-slate-500 dark:group-hover:text-violet-400'}`}>{item.icon}</span>
                                                 <span className="font-semibold text-sm">{item.title}</span>
                                             </div>
                                             <span className={`material-symbols-outlined text-lg transition-transform duration-300 ${expandedMenus.includes(item.title) ? 'rotate-180' : 'text-slate-400'}`}>expand_more</span>
@@ -123,8 +123,8 @@ const Sidebar: React.FC = () => {
                                                         to={sub.path}
                                                         onClick={handleLinkClick}
                                                         className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 group ${isActive
-                                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 font-medium active'
-                                                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                                                            ? 'bg-violet-600 text-white shadow-md shadow-violet-500/25 font-medium active'
+                                                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-violet-50 dark:hover:bg-violet-950/20'
                                                             }`}
                                                     >
                                                         {sub.icon && <span className="material-symbols-outlined text-[18px] opacity-70 group-[.active]:opacity-100">{sub.icon}</span>}
@@ -140,11 +140,11 @@ const Sidebar: React.FC = () => {
                                         end={item.path === '/'}
                                         onClick={handleLinkClick}
                                         className={({ isActive }) => `flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-all duration-200 mb-1.5 group border block ${isActive
-                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/30'
-                                            : 'border-transparent text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                            ? 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/30'
+                                            : 'border-transparent text-slate-700 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
                                             }`}
                                     >
-                                        <span className={`material-symbols-outlined text-[22px] transition-colors ${!location.pathname.includes(item.path!) && 'text-slate-500 group-hover:text-indigo-600 dark:text-slate-500 dark:group-hover:text-indigo-400'}`}>{item.icon}</span>
+                                        <span className={`material-symbols-outlined text-[22px] transition-colors ${!location.pathname.includes(item.path!) && 'text-slate-500 group-hover:text-violet-600 dark:text-slate-500 dark:group-hover:text-violet-400'}`}>{item.icon}</span>
                                         <span className="font-semibold text-sm">{item.title}</span>
                                     </NavLink>
                                 )}
@@ -156,11 +156,11 @@ const Sidebar: React.FC = () => {
                                 to="/notifications"
                                 onClick={handleLinkClick}
                                 className={({ isActive }) => `flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-all duration-200 group border block ${isActive
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/30'
-                                    : 'border-transparent text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                    ? 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/30'
+                                    : 'border-transparent text-slate-700 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                                     }`}
                             >
-                                <span className={`material-symbols-outlined text-[22px] transition-colors ${!location.pathname.includes('/notifications') && 'text-slate-500 group-hover:text-indigo-600 dark:text-slate-500 dark:group-hover:text-indigo-400'}`}>campaign</span>
+                                <span className={`material-symbols-outlined text-[22px] transition-colors ${!location.pathname.includes('/notifications') && 'text-slate-500 group-hover:text-violet-600 dark:text-slate-500 dark:group-hover:text-violet-400'}`}>campaign</span>
                                 <span className="font-semibold text-sm">Notification Center</span>
                             </NavLink>
                         </div>
@@ -169,10 +169,10 @@ const Sidebar: React.FC = () => {
                         <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-800">
                             <button
                                 onClick={() => { setShowAbout(true); closeSidebar(); }}
-                                className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group"
+                                className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group"
                             >
-                                <span className="material-symbols-outlined text-[22px] group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">info</span>
-                                <span className="font-semibold text-sm">About JLS</span>
+                                <span className="material-symbols-outlined text-[22px] group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">info</span>
+                                <span className="font-semibold text-sm">About JLS Suite</span>
                             </button>
                         </div>
                     </div>
@@ -181,8 +181,8 @@ const Sidebar: React.FC = () => {
                     <div className="p-5 border-t border-slate-200/50 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 backdrop-blur-sm">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Created by <span className="text-indigo-600 dark:text-indigo-400 font-bold">Luvi</span></span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">© 2025 JLS Finance</span>
+                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Created by <span className="text-violet-600 dark:text-violet-400 font-bold">Luvi</span></span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">© 2025 JLS Suite</span>
                             </div>
                             <div className="h-8 w-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">
                                 <span className="material-symbols-outlined text-sm">code</span>

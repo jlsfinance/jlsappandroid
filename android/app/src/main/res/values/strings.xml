@@ -3,5 +3,6 @@
     <string name="app_name">JLS Suite</string>
     <string name="title_activity_main">JLS Suite</string>
     <string name="package_name">com.jls.suite</string>
-    <string name="custom_url_scheme">com.jls.suite</string>
+    <string name="custom_url_scheme">com.getcapacitor.capacitorgoogleauth</string>
+    <string name="server_client_id">550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com</string>
 </resources>

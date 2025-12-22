@@ -41,12 +41,12 @@ interface FormState {
 const EditLoan: React.FC = () => {
   const navigate = useNavigate();
   const { id: loanId } = useParams<{ id: string }>();
-  
+
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loan, setLoan] = useState<LoanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [form, setForm] = useState<FormState>({
     amount: 0,
     interestRate: 0,
@@ -71,7 +71,7 @@ const EditLoan: React.FC = () => {
 
       const loanData = loanSnap.data() as LoanData;
       setLoan(loanData);
-      
+
       setForm({
         amount: loanData.amount,
         interestRate: loanData.interestRate,
@@ -117,9 +117,9 @@ const EditLoan: React.FC = () => {
     const monthlyRate = form.interestRate / 12 / 100;
     const emi = monthlyRate > 0 && form.tenure > 0
       ? Math.round(
-          (form.amount * monthlyRate * Math.pow(1 + monthlyRate, form.tenure)) /
-          (Math.pow(1 + monthlyRate, form.tenure) - 1)
-        )
+        (form.amount * monthlyRate * Math.pow(1 + monthlyRate, form.tenure)) /
+        (Math.pow(1 + monthlyRate, form.tenure) - 1)
+      )
       : 0;
     return { processingFee, emi };
   };
@@ -128,7 +128,7 @@ const EditLoan: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!loanId || !loan) {
       alert("Loan information is missing");
       return;
@@ -185,7 +185,7 @@ const EditLoan: React.FC = () => {
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          
+
           {customer && (
             <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
@@ -197,9 +197,9 @@ const EditLoan: React.FC = () => {
               <div className="p-6 flex items-start gap-6">
                 <div className="h-24 w-24 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0">
                   {(customer.photo_url || customer.avatar) ? (
-                    <img 
-                      src={customer.photo_url || customer.avatar} 
-                      alt={customer.name} 
+                    <img
+                      src={customer.photo_url || customer.avatar}
+                      alt={customer.name}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -249,80 +249,80 @@ const EditLoan: React.FC = () => {
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Loan Amount (₹) *</label>
-                <input 
-                  type="number" 
-                  name="amount" 
+                <input
+                  type="number"
+                  name="amount"
                   required
                   min="1000"
-                  value={form.amount} 
+                  value={form.amount}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Tenure (Months) *</label>
-                <input 
-                  type="number" 
-                  name="tenure" 
+                <input
+                  type="number"
+                  name="tenure"
                   required
                   min="1"
-                  value={form.tenure} 
+                  value={form.tenure}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Interest Rate (% p.a.) *</label>
-                <input 
-                  type="number" 
-                  name="interestRate" 
+                <input
+                  type="number"
+                  name="interestRate"
                   required
                   min="0"
                   max="50"
                   step="0.1"
-                  value={form.interestRate} 
+                  value={form.interestRate}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Processing Fee (%)</label>
-                <input 
-                  type="number" 
-                  name="processingFeePercentage" 
+                <input
+                  type="number"
+                  name="processingFeePercentage"
                   min="0"
                   max="10"
                   step="0.1"
-                  value={form.processingFeePercentage} 
+                  value={form.processingFeePercentage}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Application Date</label>
-                <input 
-                  type="date" 
-                  name="date" 
-                  value={form.date} 
+                <input
+                  type="date"
+                  name="date"
+                  value={form.date}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Disbursal Date</label>
-                <input 
-                  type="date" 
-                  name="disbursalDate" 
-                  value={form.disbursalDate} 
+                <input
+                  type="date"
+                  name="disbursalDate"
+                  value={form.disbursalDate}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
               <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Internal Notes / Remarks</label>
-                <textarea 
+                <textarea
                   name="notes"
-                  value={form.notes} 
+                  value={form.notes}
                   onChange={handleInputChange}
                   placeholder="Add any internal notes about this loan..."
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none resize-none h-24"
@@ -352,15 +352,15 @@ const EditLoan: React.FC = () => {
             </div>
           </div>
 
-          <button 
+          <button
             type="submit"
             disabled={isSubmitting || loading}
-            className="w-full py-4 rounded-xl bg-primary text-white font-bold text-lg shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full py-4 rounded-xl btn-kadak text-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div> Updating...</>
             ) : (
-              <>Update Loan <span className="material-symbols-outlined">check_circle</span></>
+              <>Update Loan <span className="material-symbols-outlined material-symbols-fill">check_circle</span></>
             )}
           </button>
         </form>

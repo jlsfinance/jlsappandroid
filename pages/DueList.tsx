@@ -154,8 +154,8 @@ const DueList: React.FC = () => {
             message = `नमस्ते ${emi.customerName},\n\nJLS Finance Company की ओर से यह आपकी आने वाली EMI के लिए एक विनम्र अनुस्मारक है।\n\nराशि: ${amountFormatted}\nदेय तिथि: ${dueDateFormatted}\nEMI संख्या: ${emi.emiNumber}\n\nअतिरिक्त शुल्क से बचने के लिए कृपया समय पर भुगतान सुनिश्चित करें। धन्यवाद।`;
         }
 
-        const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_blank');
+        const whatsappUrl = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_system');
     };
 
     const handleBulkSendReminders = () => {
@@ -478,9 +478,13 @@ const DueList: React.FC = () => {
         const formattedPhone = `91${lastCollectedEmi.phoneNumber.replace(/\D/g, '').slice(-10)}`;
         const message = `Payment Received!\n\nDear ${lastCollectedEmi.customerName},\nWe have received your payment of ${formatCurrency(lastCollectedEmi.amount)} for EMI #${lastCollectedEmi.emiNumber}.\n\nThank you,\nJLS Finance Company`;
 
-        window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
+        window.open(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`, '_system');
         setIsNotificationModalOpen(false);
         setLastCollectedEmi(null);
+    };
+
+    const handleBack = () => {
+        window.history.back();
     };
 
     return (
@@ -488,16 +492,16 @@ const DueList: React.FC = () => {
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 pb-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}>
                 <div className="flex items-center gap-3">
-                    <Link to="/tools" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
+                    <button onClick={handleBack} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
                         <span className="material-symbols-outlined">arrow_back</span>
-                    </Link>
+                    </button>
                     <h1 className="text-2xl font-bold tracking-tight">Due List</h1>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={handleDownloadReport} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        <span className="material-symbols-outlined">download</span>
+                    <button onClick={handleDownloadReport} className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200 dark:border-slate-700 active:scale-95 transition-all">
+                        <span className="material-symbols-outlined font-variation-FILL">download</span>
                     </button>
-                    <button onClick={handleBulkSendReminders} className="p-2 rounded-full bg-green-100 text-green-600">
+                    <button onClick={handleBulkSendReminders} className="p-2.5 rounded-xl bg-green-600 text-white shadow-md shadow-green-500/30 active:scale-95 transition-all">
                         <WhatsAppIcon className="w-6 h-6" />
                     </button>
                 </div>
@@ -559,7 +563,7 @@ const DueList: React.FC = () => {
                                 <div className="flex flex-col gap-2">
                                     <button
                                         onClick={() => setSelectedEmi(emi)}
-                                        className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/30 active:scale-95 transition-all"
+                                        className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/30 active:scale-95 transition-all hover:brightness-110"
                                     >
                                         Collect
                                     </button>

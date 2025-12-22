@@ -3,31 +3,33 @@ import { useLocation, Link } from 'react-router-dom';
 
 const BottomNav: React.FC = () => {
   const location = useLocation();
-  
+
   const isActive = (path: string) => location.pathname === path;
 
   const NavItem = ({ path, icon, label, isFab = false }: { path: string, icon: string, label?: string, isFab?: boolean }) => {
     const active = isActive(path);
-    
+
     if (isFab) {
-        return (
-            <div className="w-full flex justify-center pb-6">
-                <Link to={path} className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-container dark:bg-primary-dark text-on-primary-container dark:text-on-primary-dark shadow-m3-2 hover:shadow-m3-3 active:scale-95 transition-all ripple">
-                    <span className="material-symbols-outlined text-[28px]">{icon}</span>
-                </Link>
+      return (
+        <div className="w-full flex justify-center pb-6">
+          <Link to={path} className="btn-kadak flex items-center justify-center w-16 h-16 rounded-2xl shadow-xl active:scale-90 transition-all ripple">
+            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[24px] text-white material-symbols-fill">{icon}</span>
             </div>
-        );
+          </Link>
+        </div>
+      );
     }
 
     return (
-        <Link to={path} className="flex flex-col items-center gap-1 w-full pb-2 group">
-            <div className={`flex items-center justify-center w-16 h-8 rounded-full transition-colors duration-200 ${active ? 'bg-primary-container dark:bg-primary-container-dark text-on-primary-container dark:text-primary-dark' : 'text-on-surface-variant-light dark:text-on-surface-variant-dark group-hover:bg-surface-variant-light/50'}`}>
-                <span className={`material-symbols-outlined text-2xl ${active ? 'material-symbols-filled' : ''}`}>{icon}</span>
-            </div>
-            <span className={`text-[12px] font-medium tracking-wide transition-colors ${active ? 'text-on-surface-light dark:text-on-surface-dark' : 'text-on-surface-variant-light dark:text-on-surface-variant-dark'}`}>
-                {label}
-            </span>
-        </Link>
+      <Link to={path} className="flex flex-col items-center gap-1 w-full pb-2 group">
+        <div className={`flex items-center justify-center w-16 h-8 rounded-full transition-colors duration-200 ${active ? 'bg-primary-container dark:bg-primary-container-dark text-on-primary-container dark:text-primary-dark' : 'text-on-surface-variant-light dark:text-on-surface-variant-dark group-hover:bg-surface-variant-light/50'}`}>
+          <span className={`material-symbols-outlined text-2xl ${active ? 'material-symbols-filled' : ''}`}>{icon}</span>
+        </div>
+        <span className={`text-[12px] font-medium tracking-wide transition-colors ${active ? 'text-on-surface-light dark:text-on-surface-dark' : 'text-on-surface-variant-light dark:text-on-surface-variant-dark'}`}>
+          {label}
+        </span>
+      </Link>
     );
   };
 

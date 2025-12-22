@@ -609,8 +609,8 @@ const Loans: React.FC = () => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Link to="/loans/new" className="h-11 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 active:scale-95 transition-all">
-                        <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                    <Link to="/loans/new" className="h-11 px-5 rounded-xl btn-kadak flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all">
+                        <span className="material-symbols-outlined text-[20px] material-symbols-fill">add_circle</span>
                         <span className="hidden sm:inline">New Loan</span>
                     </Link>
                 </div>
@@ -840,9 +840,9 @@ const Loans: React.FC = () => {
                                         <p className="text-sm text-slate-500 mb-6">{currentPdfName}</p>
                                         <button
                                             onClick={handleDownloadPdf}
-                                            className="w-full py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                            className="w-full py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
                                         >
-                                            <span className="material-symbols-outlined">download</span> Download PDF
+                                            <span className="material-symbols-outlined font-variation-FILL">download</span> Download PDF
                                         </button>
                                     </div>
                                 )}

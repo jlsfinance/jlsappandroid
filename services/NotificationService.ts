@@ -95,8 +95,24 @@ export const NotificationService = {
                 localStorage.setItem('fcm_error', JSON.stringify(error));
             });
 
-            await PushNotifications.addListener('pushNotificationReceived', notification => {
+            await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
                 console.log('Push received: ', notification);
+                // Fallback: If presentationOptions doesn't work or for custom handling
+                // We verify if we need to show a local toast/notification
+                // For now, let's just log it. The capacitor config 'presentationOptions' should handle the UI.
+                // But if we want to force it:
+                /*
+                await LocalNotifications.schedule({
+                    notifications: [{
+                        title: notification.title || 'New Notification',
+                        body: notification.body || '',
+                        id: new Date().getTime(),
+                        schedule: { at: new Date(Date.now()) },
+                        smallIcon: 'ic_launcher',
+                        extra: notification.data
+                    }]
+                });
+                */
             });
 
             await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
