@@ -7,7 +7,6 @@ import autoTable from 'jspdf-autotable';
 import { format, parseISO, isValid, addMonths, startOfMonth } from 'date-fns';
 import { useCompany } from '../context/CompanyContext';
 import { Capacitor } from '@capacitor/core';
-import { Loan, RepaymentSchedule } from '../types';
 import LazyImage from '../components/LazyImage';
 import { DownloadService } from '../services/DownloadService';
 
