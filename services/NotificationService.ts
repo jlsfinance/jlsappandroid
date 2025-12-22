@@ -32,16 +32,89 @@ export const NotificationService = {
         }
     },
 
+    async createChannel() {
+        try {
+            await LocalNotifications.createChannel({
+                id: 'default',
+                name: 'General Notifications',
+                description: 'General app notifications',
+                importance: 5,
+                visibility: 1,
+                vibration: true,
+            });
+        } catch (e) {
+            console.error("Error creating channel", e);
+        }
+    },
+
+    async testNotification() {
+        const hasPermission = await this.requestPermissions();
+        if (!hasPermission) {
+            alert("Permission not granted!");
+            return;
+        }
+
+        await this.createChannel();
+
+        try {
+            await LocalNotifications.schedule({
+                notifications: [{
+                    title: 'Test Notification',
+                    body: 'This is a test notification to verify settings.',
+                    id: 99999,
+                    schedule: { at: new Date(Date.now() + 1000 * 2) }, // 2 seconds from now
+                    smallIcon: 'ic_launcher',
+                    channelId: 'default',
+                    sound: undefined,
+                    attachments: undefined,
+                    actionTypeId: "",
+                    extra: null
+                }]
+            });
+            console.log("Test notification scheduled");
+        } catch (e) {
+            console.error("Error scheduling test notification", e);
+            alert("Error scheduling test notification: " + JSON.stringify(e));
+        }
+    },
+
     async registerNotifications() {
         try {
             const { PushNotifications } = await import('@capacitor/push-notifications');
+
+            await PushNotifications.removeAllListeners();
+
+            await PushNotifications.addListener('registration', token => {
+                console.log('Push registration success, token: ' + token.value);
+                // Store token in localStorage for easy access/debug
+                localStorage.setItem('fcm_token', token.value);
+            });
+
+            await PushNotifications.addListener('registrationError', error => {
+                console.error('Push registration error: ', error.error);
+                localStorage.setItem('fcm_error', JSON.stringify(error));
+            });
+
+            await PushNotifications.addListener('pushNotificationReceived', notification => {
+                console.log('Push received: ', notification);
+            });
+
+            await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
+                console.log('Push action performed: ', notification);
+            });
+
             const perm = await PushNotifications.checkPermissions();
             if (perm.receive === 'granted') {
                 await PushNotifications.register();
             }
+            await this.createChannel();
         } catch (e) {
             console.error("Failed to register push", e);
         }
+    },
+
+    getToken() {
+        return localStorage.getItem('fcm_token');
     },
 
     async scheduleLoanNotifications(loans: Loan[]) {
@@ -108,6 +181,8 @@ export const NotificationService = {
                         sound: null,
                         attachments: null,
                         actionTypeId: "",
+                        smallIcon: "ic_launcher",
+                        channelId: 'default',
                         extra: {
                             loanId: loan.id,
                             customerId: loan.customerId

@@ -10,6 +10,15 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
+        // Status bar ko transparent banao
+        getWindow().setStatusBarColor(getResources().getColor(android.R.color.transparent));
+        
+        // Content ko status bar ke peeche extend karo
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE | 
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        );
+        
         // 1. Full Screen / Cutoff Fix
         // Isse content status bar ke niche se start hoga, jisse cutoff nahi hoga
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);

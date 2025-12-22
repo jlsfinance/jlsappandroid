@@ -94,12 +94,11 @@ const CompanyRequiredRoute = ({ children }: { children?: React.ReactNode }) => {
 
 import { Capacitor } from '@capacitor/core';
 import AnimatedSplash from './components/AnimatedSplash';
-
 import BackButtonHandler from './components/BackButtonHandler';
 import PermissionRequestor from './components/PermissionRequestor';
 
 const App: React.FC = () => {
-  const [showSplash, setShowSplash] = useState(Capacitor.isNativePlatform());
+  const [showSplash, setShowSplash] = useState(true);
 
   if (showSplash) {
     return <AnimatedSplash onFinish={() => setShowSplash(false)} />;
@@ -316,17 +315,8 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/terms" element={
-                  <ProtectedRoute>
-                    <Terms />
-                  </ProtectedRoute>
-                } />
-
-                <Route path="/privacy" element={
-                  <ProtectedRoute>
-                    <Privacy />
-                  </ProtectedRoute>
-                } />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
               </Routes>
             </div>
           </div>

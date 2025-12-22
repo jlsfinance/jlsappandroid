@@ -2,12 +2,17 @@
 
 @import "tailwindcss";
 
+
+body {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
 :root {
   --primary-color: #4f46e5;
   --safe-top: env(safe-area-inset-top, 24px);
   --safe-bottom: env(safe-area-inset-bottom, 20px);
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  --ion-safe-area-top: 0px;
 }
 
 html,
@@ -22,11 +27,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f8fafc;
-
-  /* Safe Area Handling */
-  padding-top: env(safe-area-inset-top, 35px) !important;
-  padding-bottom: env(safe-area-inset-bottom, 20px) !important;
-
   box-sizing: border-box;
 }
 
@@ -108,4 +108,9 @@ body {
 
 .min-h-safe {
   min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #2563eb, #9333ea) !important;
+  color: white !important;
 }
