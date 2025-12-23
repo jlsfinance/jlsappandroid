@@ -64,7 +64,14 @@ const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.
     if (customerId) {
       return <Navigate to="/customer-portal" replace />;
     }
-    return <Navigate to="/customer-login" replace />; // Changed default to customer login as this seems to be the customer app context
+    return <Navigate to="/customer-login" replace />;
+  }
+
+  // If user IS logged in, but is a Customer (has portal ID), ensure they don't access Admin routes
+  if (localStorage.getItem('customerPortalId')) {
+    // If they are trying to access anything other than customer portal (and maybe public routes), send them back
+    // Since this ProtectedRoute wraps Admin pages, we should redirect customers to portal
+    return <Navigate to="/customer-portal" replace />;
   }
 
   return <>{children}</>;
@@ -97,6 +104,7 @@ import AnimatedSplash from './components/AnimatedSplash';
 import IntroNotice from './components/IntroNotice';
 import BackButtonHandler from './components/BackButtonHandler';
 import PermissionRequestor from './components/PermissionRequestor';
+import NotificationListener from './components/NotificationListener';
 
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(Capacitor.getPlatform() !== 'web');
@@ -128,6 +136,7 @@ const App: React.FC = () => {
     <Router>
       <BackButtonHandler />
       <PermissionRequestor />
+      <NotificationListener />
       <CompanyProvider>
         <SidebarProvider>
           <div className="flex h-screen bg-background-light dark:bg-background-dark">

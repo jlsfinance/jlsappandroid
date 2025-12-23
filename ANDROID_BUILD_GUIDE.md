@@ -20,7 +20,7 @@ This guide explains how to build and publish the JLS Finance Suite app to the Go
 2. Select your project "jls-finance-company"
 3. Go to **Project Settings** > **General**
 4. Under "Your apps", click "Add app" > Android icon
-5. Enter package name: `com.jls.financesuite`
+5. Enter package name: `com.jls.suite`
 6. Enter app nickname: `JLS Finance Suite`
 7. Click "Register app"
 8. Download `google-services.json`

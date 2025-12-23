@@ -13,35 +13,8 @@ const CustomerProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [syncedContacts, setSyncedContacts] = useState<any[]>([]);
-  const [showContacts, setShowContacts] = useState(false);
 
-  // Fetch synced contacts
-  useEffect(() => {
-    const fetchContacts = async () => {
-      if (!id) return;
-      try {
-        const contactsRef = collection(db, `customers/${id}/synced_contacts`);
-        const q = query(contactsRef, orderBy('uploadedAt', 'desc'));
-        const snapshot = await getDocs(q);
-
-        let allContacts: any[] = [];
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.contacts && Array.isArray(data.contacts)) {
-            allContacts = [...allContacts, ...data.contacts];
-          }
-        });
-
-        // Remove duplicates based on phone
-        const uniqueContacts = Array.from(new Map(allContacts.map(item => [item.phone, item])).values());
-        setSyncedContacts(uniqueContacts);
-      } catch (e) {
-        console.error("Error fetching contacts:", e);
-      }
-    };
-    fetchContacts();
-  }, [id]);
+  // Helper to get initials
 
   // Helper to get initials
   const getInitials = (name: string) => {
@@ -280,57 +253,6 @@ const CustomerProfile: React.FC = () => {
                 </div>
               </div>
             )}
-
-            {/* Synced Contacts Section */}
-            <div className="mt-8 print:hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
-                <h3 className="flex items-center gap-2 text-lg font-bold text-primary">
-                  <span className="material-symbols-outlined">contacts</span> Synced Device Contacts
-                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs px-2 py-0.5 rounded-full ml-2">
-                    {syncedContacts.length}
-                  </span>
-                </h3>
-                <button
-                  onClick={() => setShowContacts(!showContacts)}
-                  className="text-sm font-bold text-primary hover:underline"
-                >
-                  {showContacts ? 'Hide' : 'Show All'}
-                </button>
-              </div>
-
-              {showContacts && (
-                <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden max-h-96 overflow-y-auto">
-                  {syncedContacts.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400">
-                      <span className="material-symbols-outlined text-4xl mb-2">import_contacts_off</span>
-                      <p>No contacts synced from device yet.</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                      {syncedContacts.map((c, idx) => (
-                        <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                              {c.name?.charAt(0) || '?'}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-900 dark:text-white">{c.name}</p>
-                              <p className="text-xs text-slate-500">{c.syncedAt ? new Date(c.syncedAt).toLocaleDateString() : ''}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-mono text-slate-600 dark:text-slate-300">{c.phone}</span>
-                            <a href={`tel:${c.phone}`} className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/40">
-                              <span className="material-symbols-outlined text-sm">call</span>
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
             {/* Documents Preview (Existing) */}
             <div className="mt-8 print:hidden">

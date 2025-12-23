@@ -10,7 +10,7 @@ interface CompanyContextType {
   setCurrentCompany: (company: Company) => void;
   loading: boolean;
   refreshCompanies: () => Promise<void>;
-  addCompany: (name: string, address?: string, phone?: string, gstin?: string) => Promise<string>;
+  addCompany: (name: string, address?: string, phone?: string, gstin?: string, upiId?: string) => Promise<string>;
   deleteCompany: (companyId: string) => Promise<void>;
   updateCompany: (companyId: string, data: { name?: string; address?: string; phone?: string; gstin?: string; upiId?: string }) => Promise<void>;
   userRole: 'admin' | 'agent' | 'customer' | null;
@@ -55,15 +55,15 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
         where("email", "==", user.email)
       );
       const usersSnapshot = await getDocs(usersQuery);
-      
+
       let assignedCompanies: Company[] = [];
       let role: 'admin' | 'agent' | 'customer' | null = null;
-      
+
       if (!usersSnapshot.empty) {
         const userData = usersSnapshot.docs[0].data();
         role = userData.role || 'customer';
         setUserRole(role);
-        
+
         if (userData.companyId && (role === 'admin' || role === 'agent')) {
           const companyRef = doc(db, "companies", userData.companyId);
           const companySnap = await getDoc(companyRef);
@@ -107,7 +107,7 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
-  const addCompany = async (name: string, address?: string, phone?: string, gstin?: string): Promise<string> => {
+  const addCompany = async (name: string, address?: string, phone?: string, gstin?: string, upiId?: string): Promise<string> => {
     const user = auth.currentUser;
     if (!user || !user.email) {
       throw new Error("User not authenticated");
@@ -120,7 +120,7 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       address: address || '',
       phone: phone || '',
       gstin: gstin || '',
-      upiId: ''
+      upiId: upiId || '9413821007@superyes'
     };
 
     const docRef = await addDoc(collection(db, "companies"), newCompany);
@@ -139,12 +139,12 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     await deleteDoc(doc(db, "companies", companyId));
-    
+
     if (currentCompany?.id === companyId) {
       setCurrentCompanyState(null);
       localStorage.removeItem(`selectedCompany_${user.uid}`);
     }
-    
+
     await fetchCompanies();
   };
 

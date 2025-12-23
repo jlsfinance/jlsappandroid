@@ -4,12 +4,14 @@ import { signOut, updateProfile, updateEmail, updatePassword, EmailAuthProvider,
 import { auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { NotificationService } from '../services/NotificationService';
+import AboutModal from '../components/AboutModal';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
 
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [profileName, setProfileName] = useState(auth.currentUser?.displayName || '');
   const [profileEmail, setProfileEmail] = useState(auth.currentUser?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -151,7 +153,10 @@ const Settings: React.FC = () => {
         <h3 className="text-slate-500 dark:text-gray-400 text-sm font-bold uppercase tracking-wider px-6 pb-2 pt-2">About & Legal</h3>
         <div className="mx-4 bg-white dark:bg-[#1a2235] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
 
-          <div className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+          <div
+            onClick={() => setShowAbout(true)}
+            className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
+          >
             <div className="flex items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shrink-0 size-9">
               <span className="material-symbols-outlined text-[20px]">info</span>
             </div>
@@ -313,8 +318,9 @@ const Settings: React.FC = () => {
           </div>
         </div>
       )}
+
+      <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
     </div>
   );
 };
-
 export default Settings;

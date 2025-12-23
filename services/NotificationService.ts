@@ -57,21 +57,24 @@ export const NotificationService = {
         await this.createChannel();
 
         try {
+            const deliveryTime = new Date(Date.now() + 1000 * 10); // 10 seconds from now
+            console.log("Scheduling notification for: " + deliveryTime.toString());
+
             await LocalNotifications.schedule({
                 notifications: [{
-                    title: 'Test Notification',
-                    body: 'This is a test notification to verify settings.',
-                    id: 99999,
-                    schedule: { at: new Date(Date.now() + 1000 * 2) }, // 2 seconds from now
+                    title: 'Background Test Success!',
+                    body: 'If you are reading this, the app can notify you even when closed (via functionality like AlarmManager). For 100% reliability on all devices, use Server-Side Push.',
+                    id: Math.floor(Math.random() * 100000), // Random ID to avoid collisions
+                    schedule: { at: deliveryTime },
                     smallIcon: 'ic_launcher',
                     channelId: 'default',
-                    sound: undefined,
+                    sound: 'beep.wav',
                     attachments: undefined,
                     actionTypeId: "",
                     extra: null
                 }]
             });
-            console.log("Test notification scheduled");
+            console.log("Test notification scheduled for 10s from now. Close the app immediately to test background delivery.");
         } catch (e) {
             console.error("Error scheduling test notification", e);
             alert("Error scheduling test notification: " + JSON.stringify(e));
@@ -84,10 +87,35 @@ export const NotificationService = {
 
             await PushNotifications.removeAllListeners();
 
-            await PushNotifications.addListener('registration', token => {
+            await PushNotifications.addListener('registration', async token => {
                 console.log('Push registration success, token: ' + token.value);
-                // Store token in localStorage for easy access/debug
                 localStorage.setItem('fcm_token', token.value);
+
+                // Save token to Firestore
+                try {
+                    const { auth, db } = await import('../firebaseConfig');
+                    const { doc, setDoc, updateDoc, getDoc } = await import('firebase/firestore');
+
+                    const user = auth.currentUser;
+                    if (user) {
+                        const userRef = doc(db, 'users', user.uid);
+                        // Try to update, if fails (doc doesn't exist), set it
+                        try {
+                            await updateDoc(userRef, { fcmToken: token.value });
+                        } catch (e) {
+                            await setDoc(userRef, { fcmToken: token.value, email: user.email }, { merge: true });
+                        }
+                    } else {
+                        // If customer portal (anonymous or local ID), we might want to store it against the customer ID
+                        const customerId = localStorage.getItem('customerPortalId');
+                        if (customerId) {
+                            const custRef = doc(db, 'customers', customerId);
+                            await updateDoc(custRef, { fcmToken: token.value }).catch(() => { });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error saving token to Firestore", e);
+                }
             });
 
             await PushNotifications.addListener('registrationError', error => {
@@ -207,6 +235,18 @@ export const NotificationService = {
                 }
             }
         }
+
+        // Always schedule a "Sync Complete" immediate notification to confirm logic ran
+        notifications.push({
+            title: 'Reminders Synced',
+            body: `Processed active loans. Alerts set for upcoming due dates.`,
+            id: 999999,
+            schedule: { at: new Date(Date.now() + 2000) },
+            sound: 'beep.wav',
+            channelId: 'default',
+            smallIcon: 'ic_launcher',
+            extra: null
+        });
 
         if (notifications.length > 0) {
             try {

@@ -13,6 +13,7 @@ const CompanySelector: React.FC = () => {
   const [newCompanyAddress, setNewCompanyAddress] = useState('');
   const [newCompanyPhone, setNewCompanyPhone] = useState('');
   const [newCompanyGstin, setNewCompanyGstin] = useState('');
+  const [newCompanyUpi, setNewCompanyUpi] = useState('9413821007@superyes');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -32,6 +33,7 @@ const CompanySelector: React.FC = () => {
   const [editCompanyAddress, setEditCompanyAddress] = useState('');
   const [editCompanyPhone, setEditCompanyPhone] = useState('');
   const [editCompanyGstin, setEditCompanyGstin] = useState('');
+  const [editCompanyUpi, setEditCompanyUpi] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
@@ -149,6 +151,7 @@ const CompanySelector: React.FC = () => {
     setEditCompanyAddress(company.address || '');
     setEditCompanyPhone(company.phone || '');
     setEditCompanyGstin(company.gstin || '');
+    setEditCompanyUpi(company.upiId || '9413821007@superyes');
     setShowEditModal(true);
   };
 
@@ -165,7 +168,8 @@ const CompanySelector: React.FC = () => {
         name: editCompanyName,
         address: editCompanyAddress,
         phone: editCompanyPhone,
-        gstin: editCompanyGstin
+        gstin: editCompanyGstin,
+        upiId: editCompanyUpi
       });
       setShowEditModal(false);
       setCompanyToEdit(null);
@@ -210,7 +214,8 @@ const CompanySelector: React.FC = () => {
         deletedCompany.name,
         deletedCompany.address,
         deletedCompany.phone,
-        deletedCompany.gstin
+        deletedCompany.gstin,
+        deletedCompany.upiId
       );
       setShowUndoToast(false);
       setDeletedCompany(null);
@@ -229,12 +234,13 @@ const CompanySelector: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await addCompany(newCompanyName, newCompanyAddress, newCompanyPhone, newCompanyGstin);
+      await addCompany(newCompanyName, newCompanyAddress, newCompanyPhone, newCompanyGstin, newCompanyUpi);
       setShowAddModal(false);
       setNewCompanyName('');
       setNewCompanyAddress('');
       setNewCompanyPhone('');
       setNewCompanyGstin('');
+      setNewCompanyUpi('9413821007@superyes');
       alert("Company added successfully!");
     } catch (error) {
       console.error("Error adding company:", error);
@@ -274,14 +280,14 @@ const CompanySelector: React.FC = () => {
               key={company.id}
               onClick={() => handleSelectCompany(company)}
               className={`bg-surface-light dark:bg-[#1e2736] rounded-2xl p-4 shadow-sm border cursor-pointer transition-all hover:shadow-md ${currentCompany?.id === company.id
-                  ? 'border-primary ring-2 ring-primary/20'
-                  : 'border-outline-light/10 dark:border-outline-dark/10'
+                ? 'border-primary ring-2 ring-primary/20'
+                : 'border-outline-light/10 dark:border-outline-dark/10'
                 }`}
             >
               <div className="flex items-center gap-4">
                 <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${currentCompany?.id === company.id
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-primary-container text-on-primary-container'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-primary-container text-on-primary-container'
                   }`}>
                   <span className="material-symbols-outlined text-2xl">business</span>
                 </div>
@@ -384,8 +390,8 @@ const CompanySelector: React.FC = () => {
                   key={company.id}
                   onClick={() => setSelectedCompanyForMigration(company)}
                   className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedCompanyForMigration?.id === company.id
-                      ? 'border-primary bg-primary/10'
-                      : 'border-outline-light/20 hover:bg-surface-variant-light/30'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-outline-light/20 hover:bg-surface-variant-light/30'
                     }`}
                 >
                   <div className="flex items-center gap-3">
@@ -468,6 +474,16 @@ const CompanySelector: React.FC = () => {
                   placeholder="Enter GSTIN"
                 />
               </div>
+              <div>
+                <label className="text-sm text-on-surface-variant-light block mb-1">Company UPI ID (for QR Payments)</label>
+                <input
+                  type="text"
+                  value={newCompanyUpi}
+                  onChange={(e) => setNewCompanyUpi(e.target.value)}
+                  className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="e.g. 91xxxxxxxx@upi"
+                />
+              </div>
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -533,6 +549,16 @@ const CompanySelector: React.FC = () => {
                   onChange={(e) => setEditCompanyGstin(e.target.value)}
                   className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                   placeholder="Enter GSTIN"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-on-surface-variant-light block mb-1">Company UPI ID (for QR Payments)</label>
+                <input
+                  type="text"
+                  value={editCompanyUpi}
+                  onChange={(e) => setEditCompanyUpi(e.target.value)}
+                  className="w-full rounded-xl border border-outline-light dark:border-outline-dark bg-transparent px-4 py-3 text-on-surface-light dark:text-on-surface-dark focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="e.g. 91xxxxxxxx@upi"
                 />
               </div>
               <div className="flex gap-3 pt-4">
