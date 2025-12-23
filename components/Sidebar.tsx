@@ -219,7 +219,7 @@ const Sidebar: React.FC = () => {
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">© 2025 JLS Suite</span>
                                     <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
-                                    <span className="text-[10px] text-violet-500/70 font-black tracking-tighter uppercase italic">v1.2.0</span>
+                                    <span className="text-[10px] font-black tracking-widest text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-md">v1.3.0</span>
                                 </div>
                             </div>
                             <div className="h-8 w-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">
