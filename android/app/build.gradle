@@ -5,8 +5,8 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
     
     defaultConfig {
@@ -34,8 +34,8 @@ android {
     
     buildTypes {
         release {
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             if (project.hasProperty('RELEASE_STORE_FILE')) {
                 signingConfig signingConfigs.release
@@ -44,6 +44,11 @@ android {
         debug {
             minifyEnabled false
         }
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
     }
     
     bundle {

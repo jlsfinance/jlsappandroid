@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APP_NAME, APP_VERSION, DEVELOPER_NAME } from '../constants';
 import { Link, useNavigate } from 'react-router-dom';
 import { signOut, updateProfile, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
@@ -218,8 +219,8 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="mt-4 mb-4 text-center">
-        <p className="text-xs text-slate-400 uppercase tracking-widest">JLS FINANCE LTD V1.0</p>
-        <p className="text-[10px] text-slate-300 mt-1 font-bold">App Created by LUVI</p>
+        <p className="text-xs text-slate-400 uppercase tracking-widest">{APP_NAME} {APP_VERSION}</p>
+        <p className="text-[10px] text-slate-300 mt-1 font-bold">App Created by {DEVELOPER_NAME}</p>
       </div>
 
       {showProfileModal && (
