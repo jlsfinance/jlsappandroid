@@ -281,7 +281,7 @@ const CustomerPortal: React.FC = () => {
                     if (loanDate && !isNaN(loanDate.getTime())) {
                       logs.push({ type: 'loan', date: loanDate, amount: l.amount, id: l.id });
                     }
-                    l.repaymentSchedule?.filter(e => e.status === 'Paid').forEach(e => {
+                    l.repaymentSchedule?.filter(e => e.status?.toLowerCase() === 'paid').forEach(e => {
                       const pDateS = e.paidDate || e.paymentDate || e.date;
                       const emiDate = pDateS ? new Date(pDateS) : null;
                       if (emiDate && !isNaN(emiDate.getTime())) {
@@ -289,8 +289,15 @@ const CustomerPortal: React.FC = () => {
                       }
                     });
                   });
-                  return logs.sort((a, b) => b.date.getTime() - a.date.getTime());
-                } catch (e) { return []; }
+                  return logs.sort((a, b) => {
+                    const timeA = a.date instanceof Date ? a.date.getTime() : 0;
+                    const timeB = b.date instanceof Date ? b.date.getTime() : 0;
+                    return timeB - timeA;
+                  });
+                } catch (e) {
+                  console.error("History Log generation error:", e);
+                  return [];
+                }
               }, [loans]).map((log, i) => (
                 <div key={i}
                   onClick={async () => {
@@ -316,8 +323,11 @@ const CustomerPortal: React.FC = () => {
                       <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'loan' ? 'Record Created' : `EMI #${log.emiNo} Payment`}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Ref: #{log.id || log.loanId}</p>
                       <div className="flex items-center gap-3 mt-1.5">
-                        <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{log.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span></div>
-                        <div className="flex items-center gap-1 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">Download</div>
+                        <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{log.date instanceof Date ? log.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '---'}</span></div>
+                        <div className="flex items-center gap-1 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest border border-indigo-100 shadow-sm">
+                          <span className="material-symbols-outlined text-[12px]">download</span>
+                          {log.type === 'loan' ? 'Agreement' : 'Receipt'}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -410,7 +420,7 @@ const CustomerPortal: React.FC = () => {
                 </div>
                 <p className="text-[9px] font-bold text-gray-400">Environment: Production (Android)</p>
                 <div className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full border border-gray-200 dark:border-gray-600">
-                  <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">Build v1.2.0</span>
+                  <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">Build v1.3.0</span>
                 </div>
               </div>
             </div>

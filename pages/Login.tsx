@@ -55,7 +55,8 @@ const Login: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       console.error("Google login error:", err);
-      setError('Google Sign-In failed. Please try again.');
+      const errorMessage = err.message || JSON.stringify(err);
+      setError(`Google Sign-In failed: ${errorMessage.slice(0, 50)}... Check Firebase/SHA configuration.`);
     } finally {
       setLoading(false);
     }
