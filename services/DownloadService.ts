@@ -56,7 +56,7 @@ export class DownloadService {
             });
           } catch (nErr) { console.warn('Notification failed:', nErr); }
 
-          // Auto-Open Strategy: Use Share Sheet
+          // Auto-Open Strategy: Use Share Sheet (Act as Opener)
           // We save to cache to ensure Share API can access it easily via FileProvider
           const cacheResult = await Filesystem.writeFile({
             path: filename,
@@ -64,11 +64,14 @@ export class DownloadService {
             directory: Directory.Cache
           });
 
+          // Short delay to ensure OS flushes the file to disk
+          await new Promise(r => setTimeout(r, 200));
+
+          // Open directly via Share action which acts as an 'Open With' on Android
           await Share.share({
-            title: 'Open File',
-            text: `Open ${filename}`,
+            title: filename,
             url: cacheResult.uri,
-            dialogTitle: 'Open or Share PDF'
+            dialogTitle: 'Open PDF with...'
           });
 
         } catch (externalError: any) {

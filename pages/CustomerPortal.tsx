@@ -5,7 +5,6 @@ import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../firebaseConfig';
 import { format } from 'date-fns';
 import NotificationListener from '../components/NotificationListener';
-import { ContactService } from '../services/ContactService';
 import { PdfGenerator } from '../services/PdfGenerator';
 import { NotificationService } from '../services/NotificationService';
 
@@ -95,6 +94,14 @@ const CustomerPortal: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
+    if (loans.length > 0) {
+      // Schedule local notifications for upcoming EMIs automatically
+      // This ensures notifications work even if the app is closed/offline later
+      NotificationService.scheduleLoanNotifications(loans);
+    }
+  }, [loans]);
+
+  useEffect(() => {
     if (isAuthReady) fetchData();
   }, [fetchData, isAuthReady]);
 
@@ -122,11 +129,11 @@ const CustomerPortal: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 pb-24 font-sans selection:bg-blue-100">
+    <div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 font-sans selection:bg-blue-100 scroll-smooth overflow-x-hidden" style={{ paddingBottom: 'calc(16rem + env(safe-area-inset-bottom))' }}>
       <NotificationListener />
 
       {/* Header */}
-      <header className="bg-[#6366f1] pt-12 pb-16 px-6 rounded-b-[2.5rem] shadow-xl relative overflow-hidden">
+      <header className="bg-[#6366f1] pb-16 px-6 rounded-b-[2.5rem] shadow-xl relative overflow-hidden" style={{ paddingTop: 'calc(3rem + env(safe-area-inset-top))' }}>
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
         <div className="flex justify-between items-center relative z-10 text-white">
           <div className="flex items-center gap-3">
@@ -155,12 +162,23 @@ const CustomerPortal: React.FC = () => {
             { label: 'History', icon: 'history', bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => setCurrentTab('history') },
             // Replaced Support with Test Notif for debugging
             {
-              label: 'Test Notif', icon: 'notifications_active', bg: 'bg-blue-50 dark:bg-blue-900/20', color: 'text-blue-600 dark:text-blue-400', action: async () => {
+              label: 'Support',
+              icon: 'support_agent',
+              bg: 'bg-green-50 dark:bg-green-900/20',
+              color: 'text-green-600 dark:text-green-400',
+              action: () => {
                 try {
-                  await NotificationService.registerNotifications();
-                  await NotificationService.testNotification();
-                  alert("Test Notification Scheduled! Wait 2 seconds. Also registered!");
-                } catch (e: any) { alert("Error: " + e.message); }
+                  const phone = (company?.phone || '9413821007').replace(/\D/g, '');
+                  const cleanPhone = phone.startsWith('91') ? phone : '91' + phone;
+                  // Try deep link first, then fallback to wa.me
+                  const waUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent('Hi Support Team, I need help.')}`;
+                  window.location.href = waUrl;
+                  // Fallback for some browsers/webview
+                  setTimeout(() => {
+                    const fallback = `https://wa.me/${cleanPhone}`;
+                    window.open(fallback, '_system');
+                  }, 500);
+                } catch (e) { alert("Could not open WhatsApp."); }
               }
             },
             { label: 'More', icon: 'dashboard_customize', bg: 'bg-orange-50 dark:bg-orange-900/20', color: 'text-orange-600 dark:text-orange-400', action: () => setCurrentTab('profile') },
@@ -198,7 +216,7 @@ const CustomerPortal: React.FC = () => {
             )}
 
             <div className="flex justify-between items-center mb-5">
-              <h2 className="font-black text-xl text-gray-800 dark:text-white flex items-center gap-3"><span className="w-2 h-7 bg-[#6366f1] rounded-full"></span> Active Loans</h2>
+              <h2 className="font-black text-xl text-gray-800 dark:text-white flex items-center gap-3"><span className="w-2 h-7 bg-[#6366f1] rounded-full"></span> Active Records</h2>
               <button onClick={() => setCurrentTab('loans')} className="text-[#6366f1] font-bold text-xs uppercase tracking-widest bg-[#6366f1]/10 px-3 py-1.5 rounded-full hover:bg-[#6366f1]/20 transition">View All</button>
             </div>
 
@@ -211,7 +229,7 @@ const CustomerPortal: React.FC = () => {
               ) : activeLoans.map(loan => (
                 <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.03)] border border-gray-100 dark:border-gray-700 relative overflow-hidden group active:scale-[0.98] transition-all">
                   <div className="absolute top-0 right-0 p-4"><span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">{loan.status}</span></div>
-                  <h3 className="font-bold text-gray-500 uppercase text-[10px] tracking-widest mb-1">Loan Identity</h3>
+                  <h3 className="font-bold text-gray-500 uppercase text-[10px] tracking-widest mb-1">Account Identity</h3>
                   <p className="font-black text-lg text-gray-900 dark:text-white mb-5 flex items-center gap-2">#{loan.id}</p>
 
                   <div className="flex items-center justify-between mt-4 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-2xl border border-black/5">
@@ -231,7 +249,7 @@ const CustomerPortal: React.FC = () => {
         {/* Loans Tab */}
         {currentTab === 'loans' && (
           <div className="px-6 py-6 animate-in slide-in-from-bottom-5 duration-500">
-            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Your Loan Ledger</h2>
+            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Account Ledger</h2>
             <div className="space-y-5">
               {loans.map(loan => (
                 <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.97] transition-all">
@@ -256,27 +274,37 @@ const CustomerPortal: React.FC = () => {
             <div className="space-y-4">
               {/* Combine Disbursals and Payments into a single timeline */}
               {useMemo(() => {
-                const logs: any[] = [];
-                loans.forEach(l => {
-                  logs.push({ type: 'loan', date: new Date(l.date), amount: l.amount, id: l.id });
-                  l.repaymentSchedule?.filter(e => e.status === 'Paid').forEach(e => {
-                    if (e.paidDate) {
-                      logs.push({ type: 'emi', date: new Date(e.paidDate), amount: e.amount, emiNo: e.emiNumber, loanId: l.id });
+                try {
+                  const logs: any[] = [];
+                  loans?.forEach(l => {
+                    const loanDate = l.date ? new Date(l.date) : null;
+                    if (loanDate && !isNaN(loanDate.getTime())) {
+                      logs.push({ type: 'loan', date: loanDate, amount: l.amount, id: l.id });
                     }
+                    l.repaymentSchedule?.filter(e => e.status === 'Paid').forEach(e => {
+                      const pDateS = e.paidDate || e.paymentDate || e.date;
+                      const emiDate = pDateS ? new Date(pDateS) : null;
+                      if (emiDate && !isNaN(emiDate.getTime())) {
+                        logs.push({ type: 'emi', date: emiDate, amount: e.amountPaid || e.amount || 0, emiNo: e.emiNumber, loanId: l.id });
+                      }
+                    });
                   });
-                });
-                return logs.sort((a, b) => b.date.getTime() - a.date.getTime());
+                  return logs.sort((a, b) => b.date.getTime() - a.date.getTime());
+                } catch (e) { return []; }
               }, [loans]).map((log, i) => (
                 <div key={i}
-                  onClick={() => {
-                    if (log.type === 'loan') {
-                      const loan = loans.find(l => l.id === log.id);
-                      if (loan) PdfGenerator.generateLoanAgreement(loan as any, customer as any, company as any);
-                    } else {
-                      const loan = loans.find(l => l.id === log.loanId);
-                      const emi = loan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
-                      if (loan && emi) PdfGenerator.generateReceipt(loan as any, emi, customer as any, company as any);
-                    }
+                  onClick={async () => {
+                    try {
+                      if (!customer || !company) return alert("Please wait for data to load.");
+                      if (log.type === 'loan') {
+                        const lData = loans.find(l => l.id === log.id);
+                        if (lData) await PdfGenerator.generateLoanAgreement(lData as any, customer as any, company as any);
+                      } else {
+                        const tLoan = loans.find(l => l.id === log.loanId);
+                        const tEmi = tLoan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
+                        if (tLoan && tEmi) await PdfGenerator.generateReceipt(tLoan as any, tEmi as any, customer as any, company as any);
+                      }
+                    } catch (err) { alert("Generation failed."); }
                   }}
                   className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group active:bg-gray-50 dark:active:bg-gray-700 transition-all cursor-pointer"
                 >
@@ -285,17 +313,17 @@ const CustomerPortal: React.FC = () => {
                       <span className="material-symbols-outlined text-3xl font-variation-FILL">{log.type === 'loan' ? 'account_balance' : 'verified_user'}</span>
                     </div>
                     <div>
-                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'loan' ? 'Loan Disbursed' : `EMI #${log.emiNo} Payment`}</p>
+                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'loan' ? 'Record Created' : `EMI #${log.emiNo} Payment`}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Ref: #{log.id || log.loanId}</p>
                       <div className="flex items-center gap-3 mt-1.5">
-                        <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{formatDate(log.date.toISOString())}</span></div>
-                        <div className="flex items-center gap-1 text-blue-500"><span className="material-symbols-outlined text-[14px] font-variation-FILL">download</span><span className="text-[8px] font-black uppercase tracking-widest">Receipt</span></div>
+                        <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{log.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span></div>
+                        <div className="flex items-center gap-1 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest">Download</div>
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className={`font-black text-xl leading-none ${log.type === 'loan' ? 'text-indigo-600' : 'text-emerald-600'}`}>{log.type === 'loan' ? '+' : '-'}{formatCurrency(log.amount)}</p>
-                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Success</span>
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Entry</span>
                   </div>
                 </div>
               ))}
@@ -321,17 +349,29 @@ const CustomerPortal: React.FC = () => {
 
               <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
                 {[
-                  { label: 'Download Account Statement', icon: 'description', action: () => PdfGenerator.generateAccountStatement(loans as any, customer as any, company as any) },
+                  {
+                    label: 'Download Account Statement',
+                    icon: 'description',
+                    action: async () => {
+                      if (!customer || !company) return alert("Please wait, data is still loading...");
+                      try {
+                        await PdfGenerator.generateAccountStatement(loans as any, customer as any, company as any);
+                      } catch (err) { alert("Download failed. Try again."); }
+                    }
+                  },
                   {
                     label: 'Loan Clearance Certificate',
                     icon: 'workspace_premium',
-                    action: () => {
-                      const closedLoan = loans.find(l => l.status === 'Closed' || l.status === 'Paid');
-                      if (closedLoan) {
-                        PdfGenerator.generateNoDuesCertificate(closedLoan as any, customer as any, company as any);
-                      } else {
-                        alert("No closed loans found to generate a certificate.");
-                      }
+                    action: async () => {
+                      if (!customer || !company) return alert("Please wait, data is still loading...");
+                      try {
+                        const closedLoan = loans.find(l => l.status === 'Closed' || l.status === 'Paid');
+                        if (closedLoan) {
+                          await PdfGenerator.generateNoDuesCertificate(closedLoan as any, customer as any, company as any);
+                        } else {
+                          alert("No closed records found to generate a certificate.");
+                        }
+                      } catch (err) { alert("Generation failed."); }
                     }
                   },
                   { label: 'Payment Receipts', icon: 'receipt_long', action: () => setCurrentTab('history') },
@@ -340,8 +380,9 @@ const CustomerPortal: React.FC = () => {
                     label: 'Refer a Friend & Earn',
                     icon: 'card_giftcard',
                     action: () => {
-                      const referralCode = 'JLS' + customer?.id.slice(-4).toUpperCase();
-                      const message = `Hello! I use JLS Finance Suite to manage my small business loans. It's very easy and transparent. Use my referral code: ${referralCode} to get started!`;
+                      if (!customer) return;
+                      const referralCode = 'JLS' + (customer?.id || '0000').slice(-4).toUpperCase();
+                      const message = `Hello! I use JLS Suite to manage my personal records. Use my referral code: ${referralCode}`;
                       window.open(`whatsapp://send?text=${encodeURIComponent(message)}`, '_system');
                     }
                   },
@@ -359,14 +400,30 @@ const CustomerPortal: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Build Version Info */}
+              <div className="pt-10 pb-4 flex flex-col items-center gap-2 opacity-30">
+                <div className="flex items-center gap-3">
+                  <span className="w-10 h-[1px] bg-gray-400"></span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">JLS Suite</span>
+                  <span className="w-10 h-[1px] bg-gray-400"></span>
+                </div>
+                <p className="text-[9px] font-bold text-gray-400">Environment: Production (Android)</p>
+                <div className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full border border-gray-200 dark:border-gray-600">
+                  <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">Build v1.2.0</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
       </main>
 
+      {/* Spacer to ensure scrolling past the fixed nav */}
+      <div className="h-40" />
+
       {/* Modern Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 py-4 px-8 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[3rem]">
+      <nav className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 pt-4 px-2 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[3rem]" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
         {[
           { id: 'home', icon: 'home', label: 'Home' },
           { id: 'loans', icon: 'account_balance_wallet', label: 'Loans' },
@@ -374,10 +431,21 @@ const CustomerPortal: React.FC = () => {
           { id: 'history', icon: 'history', label: 'History' },
           { id: 'profile', icon: 'person', label: 'Account' },
         ].map(tab => (
-          <div key={tab.id} onClick={() => { if (tab.id === 'qr') { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No due EMI at this moment!"); } else setCurrentTab(tab.id as any); }}
-            className={`flex flex-col items-center gap-1.5 cursor-pointer transition-all duration-300 ${tab.id === 'qr' ? '-mt-16 bg-[#6366f1] w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl shadow-[#6366f1]/40 active:scale-90 border-[6px] border-white dark:border-gray-900' : currentTab === tab.id ? 'text-[#6366f1] scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
+          <div key={tab.id}
+            onClick={() => {
+              if (tab.id === 'qr') {
+                if (nextEmi && primaryLoan) {
+                  setSelectedLoan(primaryLoan);
+                  setSelectedEmi(nextEmi);
+                  setShowPaymentModal(true);
+                } else alert("No due EMI at this moment!");
+              } else {
+                setCurrentTab(tab.id as any);
+              }
+            }}
+            className={`flex-1 flex flex-col items-center gap-1.5 cursor-pointer transition-all duration-300 ${tab.id === 'qr' ? '-mt-16 bg-[#6366f1] min-w-[64px] h-16 rounded-full flex items-center justify-center text-white shadow-2xl shadow-[#6366f1]/40 active:scale-90 border-[6px] border-white dark:border-gray-900 z-50' : currentTab === tab.id ? 'text-[#6366f1] scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
             <span className={`material-symbols-outlined text-[28px] ${currentTab === tab.id ? 'font-variation-FILL' : ''}`}>{tab.icon}</span>
-            {tab.id !== 'qr' && <span className="text-[9px] font-black uppercase tracking-widest">{tab.label}</span>}
+            {tab.id !== 'qr' && <span className="text-[9px] font-black uppercase tracking-widest leading-none">{tab.label}</span>}
           </div>
         ))}
       </nav>
@@ -394,7 +462,7 @@ const CustomerPortal: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-900/40 rounded-[2.5rem] p-8 mb-10 text-left border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><span className="material-symbols-outlined text-6xl">verified</span></div>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Finance Business</p>
-                <p className="font-black text-xl text-gray-900 dark:text-white mb-6 leading-none">{company?.name || 'JLS Finance Group'}</p>
+                <p className="font-black text-xl text-gray-900 dark:text-white mb-6 leading-none">{company?.name || 'JLS Suite'}</p>
                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Primary Helpline</p>
                 <a href={`tel:${company?.phone || '9413821007'}`} className="font-black text-3xl text-blue-600 decoration-none flex items-center gap-3">
                   <span className="material-symbols-outlined text-3xl">phone_in_talk</span>
@@ -446,8 +514,18 @@ const CustomerPortal: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-5 mb-10">
-              <button onClick={() => PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any)} className="p-5 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-3 text-indigo-700 dark:text-indigo-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-indigo-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
-              <button onClick={() => PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any)} className="p-5 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-3 text-amber-700 dark:text-amber-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-amber-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">contact_emergency</span> Loan Card</button>
+              <button onClick={async () => {
+                if (!customer || !company || !selectedLoan) return;
+                try {
+                  await PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any);
+                } catch (e) { alert("Failed to download."); }
+              }} className="p-5 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-3 text-indigo-700 dark:text-indigo-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-indigo-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
+              <button onClick={async () => {
+                if (!customer || !company || !selectedLoan) return;
+                try {
+                  await PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any);
+                } catch (e) { alert("Failed to download."); }
+              }} className="p-5 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-3 text-amber-700 dark:text-amber-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-amber-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">contact_emergency</span> Card</button>
             </div>
 
             <h4 className="font-black text-xs mb-6 uppercase tracking-[0.4em] text-gray-400 border-b border-gray-100 dark:border-gray-700 pb-3">Repayment Timeline</h4>

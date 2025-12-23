@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
 import { useCompany } from '../context/CompanyContext';
+import { auth } from '../firebaseConfig';
+import { signOut } from 'firebase/auth';
 import AboutModal from './AboutModal';
 
 interface MenuItem {
@@ -16,8 +18,23 @@ const Sidebar: React.FC = () => {
     const { isOpen, closeSidebar } = useSidebar();
     const { currentCompany } = useCompany();
     const location = useLocation();
+    const navigate = useNavigate();
     const [expandedMenus, setExpandedMenus] = useState<string[]>(['Loans', 'Finance']); // Default expanded
     const [showAbout, setShowAbout] = useState(false);
+
+    const handleLogout = async () => {
+        if (window.confirm("Are you sure you want to logout?")) {
+            try {
+                await signOut(auth);
+                localStorage.removeItem('customerPortalId');
+                localStorage.removeItem('customerPortalCompanyId');
+                closeSidebar();
+                navigate('/login');
+            } catch (error) {
+                console.error("Logout error", error);
+            }
+        }
+    };
 
     const toggleSubmenu = (title: string) => {
         setExpandedMenus(prev =>
@@ -165,8 +182,16 @@ const Sidebar: React.FC = () => {
                             </NavLink>
                         </div>
 
-                        {/* About Section */}
-                        <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-800">
+                        {/* Logout & About Section */}
+                        <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-800 space-y-1">
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors group"
+                            >
+                                <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">logout</span>
+                                <span className="font-semibold text-sm">Logout Panel</span>
+                            </button>
+
                             <button
                                 onClick={() => { setShowAbout(true); closeSidebar(); }}
                                 className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group"
@@ -179,10 +204,23 @@ const Sidebar: React.FC = () => {
 
                     {/* Footer */}
                     <div className="p-5 border-t border-slate-200/50 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 backdrop-blur-sm">
+
+                        {/* Privacy Badge */}
+                        <div className="mb-4 flex items-center justify-center">
+                            <div className="bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 rounded-full flex items-center gap-2">
+                                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[16px]">shield_lock</span>
+                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 tracking-wide uppercase">Zero Data Sharing</span>
+                            </div>
+                        </div>
+
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
                                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Created by <span className="text-violet-600 dark:text-violet-400 font-bold">Luvi</span></span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">© 2025 JLS Suite</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">© 2025 JLS Suite</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
+                                    <span className="text-[10px] text-violet-500/70 font-black tracking-tighter uppercase italic">v1.2.0</span>
+                                </div>
                             </div>
                             <div className="h-8 w-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">
                                 <span className="material-symbols-outlined text-sm">code</span>

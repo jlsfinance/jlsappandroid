@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { Filesystem } from '@capacitor/filesystem';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Contacts } from '@capacitor-community/contacts';
+
 import { NotificationService } from '../services/NotificationService';
 
 const PermissionRequestor: React.FC = () => {
@@ -36,14 +36,6 @@ const PermissionRequestor: React.FC = () => {
                         await LocalNotifications.requestPermissions();
                     }
                 } catch (e) { console.warn('Notification Error:', e); }
-
-                // 4. Contacts
-                try {
-                    const contactPerms = await Contacts.checkPermissions();
-                    if (contactPerms.contacts !== 'granted') {
-                        await Contacts.requestPermissions();
-                    }
-                } catch (e) { console.warn('Contacts Error:', e); }
 
             } catch (error) {
                 console.error('Error in permission sequence:', error);

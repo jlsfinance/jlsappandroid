@@ -6,7 +6,7 @@ const Tools: React.FC = () => {
         <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
 
             {/* Header & Settings */}
-            <div className="flex justify-between items-center px-6 pt-6 pb-2">
+            <div className="flex justify-between items-center px-6 pt-6 pb-2" style={{ paddingTop: 'calc(2rem + env(safe-area-inset-top))' }}>
                 <h1 className="text-3xl font-extrabold tracking-tight">Tools & Reports</h1>
                 <Link to="/settings" className="p-2 -mr-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <span className="material-symbols-outlined text-slate-900 dark:text-white">settings</span>

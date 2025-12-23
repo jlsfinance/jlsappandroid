@@ -1,78 +1,119 @@
 import React, { useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const NotificationListener: React.FC = () => {
     useEffect(() => {
-        const init = async () => {
+        const checkPerms = async () => {
             try {
-                // Debug 1: Permission Check
                 const perm = await LocalNotifications.checkPermissions();
-                // alert(`Debug: Permission status is ${perm.display}`);
-
                 if (perm.display !== 'granted') {
-                    const req = await LocalNotifications.requestPermissions();
-                    // alert(`Debug: Request result is ${req.display}`);
+                    await LocalNotifications.requestPermissions();
                 }
-            } catch (e: any) {
-                alert(`Debug: Permission Error - ${e.message}`);
+                // Explicitly create the channel for Android 8+
+                await LocalNotifications.createChannel({
+                    id: 'default',
+                    name: 'General Alerts',
+                    description: 'General system notifications',
+                    importance: 5,
+                    visibility: 1,
+                    sound: 'beep.wav',
+                    vibration: true,
+                });
+            } catch (e) {
+                // Web fallback or error
+                if ("Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
             }
         };
-        init();
+        checkPerms();
 
-        const customerId = localStorage.getItem('customerPortalId');
-        const recipients = ['all'];
-        if (customerId) recipients.push(customerId);
+        let unsubscribe: any;
 
-        const q = query(
-            collection(db, 'notifications'),
-            where('recipientId', 'in', recipients)
-        );
+        const setupListener = (userId: string | null) => {
+            const customerId = localStorage.getItem('customerPortalId');
 
-        let isInitial = true;
+            // Define who this device is listening for
+            const recipients = ['all'];
+            if (customerId) recipients.push(customerId);
+            if (userId) recipients.push(userId);
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            if (isInitial) {
-                isInitial = false;
-                return;
-            }
+            console.log("🔔 Notification Listener Active for:", recipients);
 
-            snapshot.docChanges().forEach(async (change) => {
-                if (change.type === 'added') {
-                    const data = change.doc.data();
-                    const myCompanyId = localStorage.getItem('customerPortalCompanyId');
+            // Create query - Unordered to avoid index requirement for small datasets
+            // We filter by 'added' change type for real-time alerts
+            const q = query(
+                collection(db, 'notifications'),
+                where('recipientId', 'in', recipients)
+            );
 
-                    if (data.recipientId === 'all' && data.companyId && myCompanyId && data.companyId !== myCompanyId) {
-                        return;
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                snapshot.docChanges().forEach(async (change) => {
+                    // We only care about NEWLY ADDED notifications
+                    if (change.type === 'added') {
+                        const data = change.doc.data();
+
+                        // TIME FILTER: Only show notifications created in the last 10 minutes
+                        // Check both common field names
+                        const ts = data.date || data.createdAt;
+                        const createdAt = ts?.toMillis ? ts.toMillis() : (ts?.seconds ? ts.seconds * 1000 : Date.now());
+                        const now = Date.now();
+                        const age = now - createdAt;
+
+                        // Only notify for fresh alerts (avoiding old ones on mount)
+                        if (age > 600000) return;
+
+                        console.log("🔔 Receiving Notification:", data.title);
+
+                        try {
+                            // Schedule Local Notification
+                            await LocalNotifications.schedule({
+                                notifications: [{
+                                    title: data.title || 'JLS Alert',
+                                    body: data.message || '',
+                                    id: Math.floor(Math.random() * 1000000),
+                                    schedule: { at: new Date(Date.now() + 1500) }, // 1.5s delay
+                                    sound: 'beep.wav',
+                                    channelId: 'default',
+                                    smallIcon: 'ic_launcher',
+                                    largeIcon: 'ic_launcher'
+                                }]
+                            });
+                        } catch (err) {
+                            // Fallback for Web Browser
+                            if ("Notification" in window) {
+                                if (Notification.permission === "granted") {
+                                    new Notification(data.title || 'JLS Alert', { body: data.message });
+                                } else if (Notification.permission !== "denied") {
+                                    Notification.requestPermission().then(permission => {
+                                        if (permission === "granted") {
+                                            new Notification(data.title || 'JLS Alert', { body: data.message });
+                                        }
+                                    });
+                                }
+                            }
+                            console.error("Error scheduling local notification:", err);
+                        }
                     }
-
-                    // Debug 2: Data Received
-                    // alert(`Debug: Received Notification - ${data.title}`);
-
-                    try {
-                        await LocalNotifications.schedule({
-                            notifications: [{
-                                title: data.title || 'New Notification',
-                                body: data.message || '',
-                                id: Math.floor(Math.random() * 100000) + 1,
-                                schedule: { at: new Date(Date.now() + 100) },
-                                actionTypeId: '',
-                                extra: null
-                            }]
-                        });
-                        // alert(`Debug: Notification Scheduled!`);
-                    } catch (err: any) {
-                        alert(`Debug: Schedule Error - ${err.message}`);
-                        console.error("Local Notification Error", err);
-                    }
-                }
+                });
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
             });
-        }, (error) => {
-            alert(`Debug: Firestore Listener Error - ${error.message}`);
+        };
+
+        // Wait for Auth to settle so we have the User ID (if admin)
+        const authUnsub = onAuthStateChanged(auth, (user) => {
+            if (unsubscribe) unsubscribe();
+            setupListener(user ? user.uid : null);
         });
 
-        return () => unsubscribe();
+        return () => {
+            if (unsubscribe) unsubscribe();
+            authUnsub();
+        };
     }, []);
 
     return null;

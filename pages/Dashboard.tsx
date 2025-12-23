@@ -34,6 +34,39 @@ const Dashboard: React.FC = () => {
     const [userName, setUserName] = useState('Admin');
     const [isNotifEnabled, setIsNotifEnabled] = useState(false);
     const [randomAvatar, setRandomAvatar] = useState('');
+    const [showReminderModal, setShowReminderModal] = useState(false);
+    const [notifTitle, setNotifTitle] = useState('');
+    const [notifBody, setNotifBody] = useState('');
+    const [selectedCustomerId, setSelectedCustomerId] = useState('all');
+    const [sending, setSending] = useState(false);
+
+    const handleSendNotification = async () => {
+        if (!notifTitle || !notifBody) return alert("Please enter title and message");
+        setSending(true);
+        try {
+            const { addDoc, serverTimestamp, collection } = await import('firebase/firestore');
+            const targetCustomer = customers.find(c => c.id === selectedCustomerId);
+
+            await addDoc(collection(db, 'notifications'), {
+                title: notifTitle,
+                message: notifBody,
+                recipientId: selectedCustomerId,
+                createdAt: serverTimestamp(),
+                companyId: currentCompany?.id,
+                status: 'unread',
+                type: 'admin_push',
+                recipientName: selectedCustomerId === 'all' ? 'All Customers' : (targetCustomer?.name || 'User')
+            });
+            alert("Notification Sent Successfully! 🚀");
+            setShowReminderModal(false);
+            setNotifTitle('');
+            setNotifBody('');
+        } catch (e: any) {
+            alert("Error sending: " + e.message);
+        } finally {
+            setSending(false);
+        }
+    };
 
     useEffect(() => {
         const avatars = [
@@ -558,6 +591,26 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Automated Reminders Banner */}
+                <div
+                    onClick={() => setShowReminderModal(true)}
+                    className="relative overflow-hidden rounded-2xl p-6 shadow-lg shadow-purple-500/30 cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between group mt-6 sm:mt-8"
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }}
+                >
+                    <div className="relative z-10 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner border border-white/10">
+                            <span className="material-symbols-outlined text-white text-2xl">bolt</span>
+                        </div>
+                        <div>
+                            <h3 className="text-white font-black text-lg leading-none mb-1">Automated Reminders</h3>
+                            <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-90">Sync All Due Dates & Push Alerts</p>
+                        </div>
+                    </div>
+                    <div className="relative z-10 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors border border-white/10">
+                        <span className="material-symbols-outlined text-white">rocket_launch</span>
+                    </div>
+                </div>
+
                 {/* Modern Analytics Cards */}
                 <div>
                     <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
@@ -750,6 +803,121 @@ const Dashboard: React.FC = () => {
                     </div>
                 )
             }
+
+            {/* Premium Reminder Modal */}
+            {showReminderModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/20 dark:border-white/5 overflow-hidden ring-1 ring-black/5">
+
+                        {/* Header Section */}
+                        <div className="relative p-8 pb-0 flex justify-between items-start">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 dark:shadow-none">
+                                    <span className="material-symbols-outlined text-3xl">campaign</span>
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-xl text-slate-900 dark:text-white leading-tight">Push Notification</h3>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1 opacity-70">Announcement Center</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowReminderModal(false)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                <span className="material-symbols-outlined text-[20px]">close</span>
+                            </button>
+                        </div>
+
+                        <div className="p-8 space-y-8">
+                            {/* Fast Action: Auto Sync */}
+                            <div onClick={() => {
+                                if (loans.length > 0) {
+                                    if (confirm("Send automated reminders to all active loan customers?")) {
+                                        NotificationService.scheduleLoanNotifications(loans as any);
+                                        alert("One-Click Sync Activated!");
+                                    }
+                                } else {
+                                    alert("No active loans.");
+                                }
+                            }}
+                                className="group p-5 rounded-3xl text-white cursor-pointer active:scale-[0.98] transition-all shadow-xl shadow-indigo-500/20 flex items-center justify-between border border-white/20"
+                                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md"><span className="material-symbols-outlined">sync_lock</span></div>
+                                    <div>
+                                        <h4 className="font-black text-base">One-Click Auto Sync</h4>
+                                        <p className="text-[10px] opacity-80 font-bold uppercase tracking-tight">Sync all local device alerts</p>
+                                    </div>
+                                </div>
+                                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">bolt</span>
+                            </div>
+
+                            <div className="relative flex items-center gap-4">
+                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Manual Compose</span>
+                                <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+                            </div>
+
+                            {/* Manual Form - Premium Style */}
+                            <div className="space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Recipient</label>
+                                    <select
+                                        value={selectedCustomerId}
+                                        onChange={e => setSelectedCustomerId(e.target.value)}
+                                        className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-bold shadow-inner focus:ring-2 focus:ring-indigo-500 transition-shadow transition-colors"
+                                    >
+                                        <option value="all">📢 Everyone (All Customers)</option>
+                                        <optgroup label="Direct Message">
+                                            {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+                                        </optgroup>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 py-1">
+                                    {[
+                                        { l: 'Reminder', t: 'Just a Reminder 🎗️', b: 'Your EMI is due soon. Please keep sufficient balance.' },
+                                        { l: 'Urgent', t: 'Action Required ⚠️', b: 'Your payment is Overdue. Please pay immediately.' },
+                                        { l: 'Offer', t: 'Special Offer 🎉', b: 'Get a Top-Up loan today with 0% processing fee!' }
+                                    ].map((tmpl, i) => (
+                                        <button key={i} onClick={() => { setNotifTitle(tmpl.t); setNotifBody(tmpl.b) }} className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 dark:border-indigo-500/20">
+                                            {tmpl.l}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-3">
+                                    <input
+                                        value={notifTitle}
+                                        onChange={e => setNotifTitle(e.target.value)}
+                                        placeholder="Notification Title (e.g. EMI Reminder)"
+                                        className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-bold placeholder:opacity-50 shadow-inner focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    />
+                                    <textarea
+                                        value={notifBody}
+                                        onChange={e => setNotifBody(e.target.value)}
+                                        placeholder="Enter your announcement details here..."
+                                        className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-medium min-h-[120px] shadow-inner focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
+                                    ></textarea>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleSendNotification}
+                                disabled={sending}
+                                className="w-full py-5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 hover:opacity-90 active:scale-[0.98] transition-all shadow-xl disabled:opacity-50"
+                            >
+                                {sending ? (
+                                    <div className="w-5 h-5 border-3 border-current border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                    <>
+                                        <span className="material-symbols-outlined text-lg">rocket_launch</span>
+                                        Dispatch Alert Now
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div >
     );
