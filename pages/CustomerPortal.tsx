@@ -7,6 +7,8 @@ import { format } from 'date-fns';
 import NotificationListener from '../components/NotificationListener';
 import { PdfGenerator } from '../services/PdfGenerator';
 import { NotificationService } from '../services/NotificationService';
+import { Capacitor } from '@capacitor/core';
+import { APP_VERSION, SUPPORT_EMAIL, SUPPORT_PHONE, APP_NAME, DEVELOPER_NAME } from '../constants';
 
 interface Emi {
   emiNumber: number;
@@ -112,6 +114,42 @@ const CustomerPortal: React.FC = () => {
   const nextEmi = primaryLoan ? getNextEmi(primaryLoan) : null;
   const isOverdue = nextEmi ? new Date() > new Date(nextEmi.dueDate) : false;
 
+  // FIX: Moved useMemo out of JSX to component top level
+  const historyLogs = useMemo(() => {
+    try {
+      const logs: any[] = [];
+      loans?.forEach(l => {
+        const loanDate = l.date ? new Date(l.date) : null;
+        if (loanDate && !isNaN(loanDate.getTime())) {
+          logs.push({ type: 'loan', date: loanDate, amount: l.amount, id: l.id });
+        }
+        if (!l || !l.repaymentSchedule) return;
+        l.repaymentSchedule.filter(e => e && e.status?.toLowerCase() === 'paid').forEach(e => {
+          const pDateS = e.paidDate || e.paymentDate || e.date;
+          const emiDate = pDateS ? new Date(pDateS) : null;
+          if (emiDate && !isNaN(emiDate.getTime())) {
+            logs.push({
+              type: 'emi',
+              date: emiDate,
+              amount: e.amountPaid || e.amount || 0,
+              emiNo: e.emiNumber,
+              loanId: l.id,
+              emiData: e
+            });
+          }
+        });
+      });
+      return logs.sort((a, b) => {
+        const timeA = (a.date instanceof Date && !isNaN(a.date.getTime())) ? a.date.getTime() : 0;
+        const timeB = (b.date instanceof Date && !isNaN(b.date.getTime())) ? b.date.getTime() : 0;
+        return timeB - timeA;
+      });
+    } catch (e) {
+      console.error("History Log generation error:", e);
+      return [];
+    }
+  }, [loans]);
+
   const handleLogout = () => {
     if (confirm("Are you sure you want to logout?")) {
       localStorage.removeItem('customerPortalId');
@@ -166,20 +204,7 @@ const CustomerPortal: React.FC = () => {
               icon: 'support_agent',
               bg: 'bg-green-50 dark:bg-green-900/20',
               color: 'text-green-600 dark:text-green-400',
-              action: () => {
-                try {
-                  const phone = (company?.phone || '9413821007').replace(/\D/g, '');
-                  const cleanPhone = phone.startsWith('91') ? phone : '91' + phone;
-                  // Try deep link first, then fallback to wa.me
-                  const waUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent('Hi Support Team, I need help.')}`;
-                  window.location.href = waUrl;
-                  // Fallback for some browsers/webview
-                  setTimeout(() => {
-                    const fallback = `https://wa.me/${cleanPhone}`;
-                    window.open(fallback, '_system');
-                  }, 500);
-                } catch (e) { alert("Could not open WhatsApp."); }
-              }
+              action: () => setShowSupportModal(true)
             },
             { label: 'More', icon: 'dashboard_customize', bg: 'bg-orange-50 dark:bg-orange-900/20', color: 'text-orange-600 dark:text-orange-400', action: () => setCurrentTab('profile') },
           ].map((item, i) => (
@@ -273,32 +298,7 @@ const CustomerPortal: React.FC = () => {
             <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Transaction Logs</h2>
             <div className="space-y-4">
               {/* Combine Disbursals and Payments into a single timeline */}
-              {useMemo(() => {
-                try {
-                  const logs: any[] = [];
-                  loans?.forEach(l => {
-                    const loanDate = l.date ? new Date(l.date) : null;
-                    if (loanDate && !isNaN(loanDate.getTime())) {
-                      logs.push({ type: 'loan', date: loanDate, amount: l.amount, id: l.id });
-                    }
-                    l.repaymentSchedule?.filter(e => e.status?.toLowerCase() === 'paid').forEach(e => {
-                      const pDateS = e.paidDate || e.paymentDate || e.date;
-                      const emiDate = pDateS ? new Date(pDateS) : null;
-                      if (emiDate && !isNaN(emiDate.getTime())) {
-                        logs.push({ type: 'emi', date: emiDate, amount: e.amountPaid || e.amount || 0, emiNo: e.emiNumber, loanId: l.id });
-                      }
-                    });
-                  });
-                  return logs.sort((a, b) => {
-                    const timeA = a.date instanceof Date ? a.date.getTime() : 0;
-                    const timeB = b.date instanceof Date ? b.date.getTime() : 0;
-                    return timeB - timeA;
-                  });
-                } catch (e) {
-                  console.error("History Log generation error:", e);
-                  return [];
-                }
-              }, [loans]).map((log, i) => (
+              {historyLogs.map((log, i) => (
                 <div key={i}
                   onClick={async () => {
                     try {
@@ -324,10 +324,8 @@ const CustomerPortal: React.FC = () => {
                       <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Ref: #{log.id || log.loanId}</p>
                       <div className="flex items-center gap-3 mt-1.5">
                         <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{log.date instanceof Date ? log.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '---'}</span></div>
-                        <div className="flex items-center gap-1 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest border border-indigo-100 shadow-sm">
-                          <span className="material-symbols-outlined text-[12px]">download</span>
-                          {log.type === 'loan' ? 'Agreement' : 'Receipt'}
-                        </div>
+                        {log.type === 'loan' ? 'Agreement' : 'Receipt'}
+                        <span className="material-symbols-outlined text-[12px] opacity-70">arrow_right_alt</span>
                       </div>
                     </div>
                   </div>
@@ -337,7 +335,7 @@ const CustomerPortal: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {loans.length === 0 && <div className="py-24 text-center opacity-30"><span className="material-symbols-outlined text-8xl mb-4">history_edu</span><p className="font-black text-lg">No records yet.</p></div>}
+              {historyLogs.length === 0 && <div className="py-24 text-center opacity-30"><span className="material-symbols-outlined text-8xl mb-4">history_edu</span><p className="font-black text-lg">No records yet.</p></div>}
             </div>
           </div>
         )}
@@ -420,7 +418,7 @@ const CustomerPortal: React.FC = () => {
                 </div>
                 <p className="text-[9px] font-bold text-gray-400">Environment: Production (Android)</p>
                 <div className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full border border-gray-200 dark:border-gray-600">
-                  <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">Build v1.3.0</span>
+                  <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">Build {APP_VERSION}</span>
                 </div>
               </div>
             </div>
@@ -465,18 +463,26 @@ const CustomerPortal: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/70 backdrop-blur-lg animate-in fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20">
             <div className="p-10 text-center">
-              <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600 border-4 border-emerald-50 shadow-inner"><span className="material-symbols-outlined text-5xl font-variation-FILL">support_agent</span></div>
-              <h3 className="font-black text-2xl mb-2 text-gray-900 dark:text-white">Customer Support</h3>
-              <p className="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Our finance assistants are available to help you with any queries related to your loans.</p>
+              <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white mb-4 shadow-lg shadow-blue-200">
+                <span className="text-2xl font-black">{APP_NAME.charAt(0)}</span>
+              </div>
+              <h3 className="font-black text-xl text-gray-900 dark:text-white mb-2">Contact {APP_NAME} Team</h3>
+              <p className="text-sm text-gray-500 mb-8 max-w-[200px]">How can we help you today? Our support team is ready.</p>
 
-              <div className="bg-gray-50 dark:bg-gray-900/40 rounded-[2.5rem] p-8 mb-10 text-left border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-5"><span className="material-symbols-outlined text-6xl">verified</span></div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Finance Business</p>
-                <p className="font-black text-xl text-gray-900 dark:text-white mb-6 leading-none">{company?.name || 'JLS Suite'}</p>
-                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Primary Helpline</p>
-                <a href={`tel:${company?.phone || '9413821007'}`} className="font-black text-3xl text-blue-600 decoration-none flex items-center gap-3">
-                  <span className="material-symbols-outlined text-3xl">phone_in_talk</span>
-                  {company?.phone || '9413821007'}
+              <div className="w-full space-y-3">
+                <a href={`tel:${SUPPORT_PHONE}`} className="w-full py-4 bg-gray-50 dark:bg-gray-900 rounded-2xl flex items-center justify-between px-6 border border-gray-100 dark:border-gray-700 active:scale-95 transition-all">
+                  <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-blue-600">call</span>
+                    <span className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-widest">{SUPPORT_PHONE}</span>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-300 text-sm">open_in_new</span>
+                </a>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="w-full py-4 bg-gray-50 dark:bg-gray-900 rounded-2xl flex items-center justify-between px-6 border border-gray-100 dark:border-gray-700 active:scale-95 transition-all">
+                  <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-blue-600">mail</span>
+                    <span className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-widest">{SUPPORT_EMAIL}</span>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-300 text-sm">open_in_new</span>
                 </a>
               </div>
 
@@ -496,7 +502,7 @@ const CustomerPortal: React.FC = () => {
               <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-70">Scan or click to pay via UPI</p>
               <div className="mt-8 bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-white">
                 <img
-                  src={`https://quickchart.io/qr?text=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=EMI%20Payment&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`)}&size=250`}
+                  src={`https://quickchart.io/qr?text=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=${encodeURIComponent(company?.name || 'JLS Suite')}&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`)}&size=300`}
                   className="w-48 h-48 rounded-xl"
                   alt="Payment QR"
                 />
@@ -507,7 +513,31 @@ const CustomerPortal: React.FC = () => {
                 <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Net Payable</p><p className="font-black text-3xl text-gray-900 dark:text-white">{formatCurrency(selectedEmi.amount)}</p></div>
                 <div className="text-right"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">EMI REF</p><p className="font-black text-lg text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">#{selectedEmi.emiNumber}</p></div>
               </div>
-              <a href={`upi://pay?pa=${company?.upiId || UPI_ID}&pn=EMI%20Payment&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`} className="w-full py-5 btn-kadak text-sm rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mb-6 uppercase tracking-widest"><span className="material-symbols-outlined text-2xl material-symbols-fill">rocket_launch</span> Pay via UPI App</a>
+              <button
+                onClick={async () => {
+                  try {
+                    const upiId = company?.upiId || UPI_ID;
+                    const payeeName = encodeURIComponent(company?.name || 'JLS Suite');
+                    const amount = selectedEmi.amount;
+                    const transactionNote = encodeURIComponent(`EMI_PAYMENT_LOAN_${selectedLoan?.id}_EMI_${selectedEmi.emiNumber}`);
+                    const upiUrl = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${amount}&cu=INR&tn=${transactionNote}`;
+
+                    if (Capacitor.isNativePlatform()) {
+                      // For native, use window.open with _system to trigger Android Intent Picker
+                      window.open(upiUrl, '_system');
+                    } else {
+                      window.location.href = upiUrl;
+                    }
+                  } catch (e) {
+                    console.error("Payment trigger failed:", e);
+                    alert("Could not open payment app.");
+                  }
+                }}
+                className="w-full py-5 btn-kadak text-sm rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mb-6 uppercase tracking-widest"
+              >
+                <span className="material-symbols-outlined text-2xl material-symbols-fill">rocket_launch</span>
+                Pay via UPI App
+              </button>
               <button onClick={() => setShowPaymentModal(false)} className="w-full py-2 text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] opacity-50">Cancel Transaction</button>
             </div>
           </div>
@@ -523,19 +553,29 @@ const CustomerPortal: React.FC = () => {
               <button onClick={() => setShowDetailsModal(false)} className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-full active:scale-90 transition-all border border-black/5"><span className="material-symbols-outlined text-xl">close</span></button>
             </div>
 
-            <div className="grid grid-cols-2 gap-5 mb-10">
+            <div className="grid grid-cols-3 gap-3 mb-10">
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
                   await PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any);
                 } catch (e) { alert("Failed to download."); }
-              }} className="p-5 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-3 text-indigo-700 dark:text-indigo-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-indigo-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
+              }} className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-2 text-indigo-700 dark:text-indigo-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-indigo-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
+
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
                   await PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any);
                 } catch (e) { alert("Failed to download."); }
-              }} className="p-5 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-3 text-amber-700 dark:text-amber-300 font-black text-[10px] uppercase tracking-widest shadow-sm border border-amber-100 flex-1 group active:scale-95 transition-all"><span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">contact_emergency</span> Card</button>
+              }} className="p-4 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-2 text-amber-700 dark:text-amber-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-amber-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">contact_emergency</span> Card</button>
+
+              <button onClick={async () => {
+                if (!customer || !company || !selectedLoan) return;
+                const latestPaid = selectedLoan.repaymentSchedule?.filter(e => e.status?.toLowerCase() === 'paid').sort((a, b) => b.emiNumber - a.emiNumber)[0];
+                if (!latestPaid) return alert("No paid installments found.");
+                try {
+                  await PdfGenerator.generateReceipt(selectedLoan as any, latestPaid as any, customer as any, company as any);
+                } catch (e) { alert("Failed to download."); }
+              }} className="p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex flex-col items-center gap-2 text-emerald-700 dark:text-emerald-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-emerald-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">receipt_long</span> Receipt</button>
             </div>
 
             <h4 className="font-black text-xs mb-6 uppercase tracking-[0.4em] text-gray-400 border-b border-gray-100 dark:border-gray-700 pb-3">Repayment Timeline</h4>
@@ -550,9 +590,23 @@ const CustomerPortal: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-black text-base mb-1">{formatCurrency(e.amount)}</p>
-                      {isNext && (
+                      {isNext ? (
                         <button onClick={() => { setShowDetailsModal(false); setSelectedEmi(e); setShowPaymentModal(true); }} className="px-4 py-1.5 bg-blue-600 text-white font-black text-[9px] rounded-lg uppercase tracking-widest shadow-lg shadow-blue-200 active:scale-95 transition-all">Pay Now</button>
-                      )}
+                      ) : e.status === 'Paid' ? (
+                        <button
+                          onClick={async (ev) => {
+                            ev.stopPropagation();
+                            if (!customer || !company || !selectedLoan) return;
+                            try {
+                              await PdfGenerator.generateReceipt(selectedLoan as any, e as any, customer as any, company as any);
+                            } catch (err) { alert("Download failed."); }
+                          }}
+                          className="px-4 py-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200 font-black text-[9px] rounded-lg uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">receipt_long</span>
+                          Receipt
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 )

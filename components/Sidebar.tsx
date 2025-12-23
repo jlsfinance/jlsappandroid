@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APP_NAME, APP_VERSION } from '../constants';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
 import { useCompany } from '../context/CompanyContext';
@@ -102,7 +103,7 @@ const Sidebar: React.FC = () => {
                                 J
                             </div>
                             <div className="flex flex-col">
-                                <span className="font-bold text-slate-900 dark:text-white leading-none text-lg">JLS Suite</span>
+                                <span className="font-bold text-slate-900 dark:text-white leading-none text-lg">{APP_NAME}</span>
                                 {currentCompany && <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">{currentCompany.name}</span>}
                             </div>
                         </div>
@@ -197,7 +198,7 @@ const Sidebar: React.FC = () => {
                                 className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group"
                             >
                                 <span className="material-symbols-outlined text-[22px] group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">info</span>
-                                <span className="font-semibold text-sm">About JLS Suite</span>
+                                <span className="font-semibold text-sm">About {APP_NAME}</span>
                             </button>
                         </div>
                     </div>
@@ -217,9 +218,9 @@ const Sidebar: React.FC = () => {
                             <div className="flex flex-col">
                                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Created by <span className="text-violet-600 dark:text-violet-400 font-bold">Luvi</span></span>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">© 2025 JLS Suite</span>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">© 2025 {APP_NAME}</span>
                                     <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
-                                    <span className="text-[10px] font-black tracking-widest text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-md">v1.3.0</span>
+                                    <span className="text-[10px] font-black tracking-widest text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-md">{APP_VERSION}</span>
                                 </div>
                             </div>
                             <div className="h-8 w-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">

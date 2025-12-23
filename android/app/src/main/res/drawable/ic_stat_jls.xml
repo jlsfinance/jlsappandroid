@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Shield Shape (Monochrome for Notifications) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,20 C42,20 32,24 28,34 C28,54 38,78 54,88 C70,78 80,54 80,34 C76,24 66,20 54,20 Z" />
+
+    <!-- "J" Cutout (Transparent) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0"
+        android:pathData="M58,40 L58,62 C58,65.3 55.3,68 52,68 C48.7,68 46,65.3 46,62 L46,58 L42,58 L42,62 C42,67.5 46.5,72 52,72 C57.5,72 62,67.5 62,62 L62,40 L58,40 Z" />
+</vector>

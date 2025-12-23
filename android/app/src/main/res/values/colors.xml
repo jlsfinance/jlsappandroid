@@ -3,4 +3,11 @@
     <color name="colorPrimary">#4f46e5</color>
     <color name="colorPrimaryDark">#3730a3</color>
     <color name="colorAccent">#ec4899</color>
+    <!-- Glassmorphism Reference Palette -->
+    <color name="primary_indigo">#6D28D9</color>
+    <color name="primary_dark">#4C1D95</color>
+    <color name="accent_violet">#8B5CF6</color>
+    <color name="ic_launcher_background">#7C3AED</color>
+    <color name="splash_bg_light">#FFFFFF</color>
+    <color name="splash_bg_dark">#4C1D95</color>
 </resources>

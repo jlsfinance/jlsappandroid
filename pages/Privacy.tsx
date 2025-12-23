@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { APP_NAME, SUPPORT_EMAIL } from '../constants';
 
 const Privacy: React.FC = () => {
     const navigate = useNavigate();
@@ -21,7 +22,7 @@ const Privacy: React.FC = () => {
                         <div>
                             <h3 className="font-bold text-blue-800 dark:text-blue-300 text-sm">Non-Lending Entity Declaration</h3>
                             <p className="text-blue-700 dark:text-blue-400 text-xs mt-1 leading-relaxed">
-                                JLS Suite is purely a management tool for personal record-keeping. We are <strong>NOT</strong> a lender, bank, or NBFC. We do not provide loans, process payments, or connect users with lenders. Your data remains yours.
+                                {APP_NAME} is purely a management tool for personal record-keeping. We are <strong>NOT</strong> a lender, bank, or NBFC. We do not provide loans, process payments, or connect users with lenders. Your data remains yours.
                             </p>
                         </div>
                     </div>
@@ -30,7 +31,7 @@ const Privacy: React.FC = () => {
                 <section className="space-y-3">
                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">1. Introduction</h2>
                     <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                        JLS Suite ("we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.
+                        {APP_NAME} ("we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.
                     </p>
                 </section>
 
@@ -107,8 +108,8 @@ const Privacy: React.FC = () => {
                 </section>
 
                 <div className="pt-10 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-400">
-                    <p>Contact Us: admin@jlsfinance.com</p>
-                    <p className="mt-1">Last updated: December 22, 2025</p>
+                    <p>Contact Us: {SUPPORT_EMAIL}</p>
+                    <p className="mt-1">Last updated: December 23, 2025</p>
                 </div>
             </div>
         </div>

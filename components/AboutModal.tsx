@@ -1,4 +1,5 @@
 import React from 'react';
+import { APP_NAME, APP_VERSION, APP_BUILD, DEVELOPER_NAME } from '../constants';
 
 interface AboutModalProps {
     isOpen: boolean;
@@ -9,70 +10,50 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300">
+            <div className="w-full max-w-sm bg-white dark:bg-[#0f172a] rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20">
 
-                {/* Header with Image or Gradient */}
-                <div className="h-32 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 relative flex items-center justify-center">
-                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight relative z-10">JLS Suite</h1>
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white transition-colors"
-                    >
+                {/* Close Button Header */}
+                <div className="flex justify-end p-6 pb-0">
+                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                         <span className="material-symbols-outlined text-xl">close</span>
                     </button>
                 </div>
 
-                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                <div className="px-8 pb-10 text-center">
+                    {/* App Icon */}
+                    <div className="flex justify-center mb-6">
+                        <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-[#6366f1] to-[#a855f7] p-0.5 shadow-2xl shadow-indigo-500/30">
+                            <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[1.9rem] flex items-center justify-center">
+                                <span className="text-4xl font-black bg-gradient-to-br from-[#6366f1] to-[#a855f7] bg-clip-text text-transparent">J</span>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div className="mb-6 text-center">
-                        <p className="text-sm font-medium text-violet-500 dark:text-violet-400 uppercase tracking-wider mb-2">Premium Financial Suite</p>
-                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                            Experience the future of financial management with JLS Suite. Designed for speed, security, and simplicity.
+                    <h2 className="text-2xl font-black text-[#6366f1] dark:text-white mb-1">{APP_NAME}</h2>
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-8">Enterprise Management Suite</p>
+
+                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-6 space-y-4 border border-slate-100 dark:border-slate-800">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-400 dark:text-slate-500">Version</span>
+                            <span className="text-sm font-black text-slate-900 dark:text-white">{APP_VERSION}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-400 dark:text-slate-500">Build</span>
+                            <span className="text-sm font-black text-slate-900 dark:text-white">{APP_BUILD}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-400 dark:text-slate-500">Platform</span>
+                            <span className="text-sm font-black text-slate-900 dark:text-white">Android</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-10 space-y-2">
+                        <p className="text-[10px] font-bold text-slate-300 dark:text-slate-600">© 2025 {APP_NAME}. All rights reserved.</p>
+                        <p className="text-[10px] font-bold text-slate-300 dark:text-slate-600 flex items-center justify-center gap-1.5">
+                            Developed with <span className="text-rose-500 animate-pulse">❤️</span> by <span className="text-slate-400 dark:text-slate-400">{DEVELOPER_NAME}</span>
                         </p>
                     </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
-                                <span className="material-symbols-outlined">rocket_launch</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Lightning Fast</h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Optimized performance for instant access to your financial data.</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-start gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-                                <span className="material-symbols-outlined">security</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Bank-Grade Security</h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Your data is fast, encrypted, and safely stored in the cloud.</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-start gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-                                <span className="material-symbols-outlined">analytics</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Smart Analytics</h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gain insights with beautiful, data-driven dashboards.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
-                        <p className="text-xs text-slate-400 dark:text-slate-500">Version 1.0.1</p>
-                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800">
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Created by</span>
-                            <span className="text-xs font-bold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">Luvi</span>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>
