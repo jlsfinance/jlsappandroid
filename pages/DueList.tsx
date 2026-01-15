@@ -228,74 +228,41 @@ const DueList: React.FC = () => {
         y += 10;
 
         pdfDoc.setFont("helvetica", "bold");
-        pdfDoc.text("LOAN DETAILS", 14, y);
+        pdfDoc.text("PAYMENT DETAILS", 14, y);
         y += 7;
         pdfDoc.setFont("helvetica", "normal");
         pdfDoc.text(`Record ID: ${receiptData.loanId}`, 14, y);
         y += 6;
         pdfDoc.text(`Installment Number: ${receiptData.emiNumber} of ${receiptData.tenure}`, 14, y);
         y += 6;
-        pdfDoc.text(`Regular Installment Amount: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
-        y += 10;
-
-        pdfDoc.setFont("helvetica", "bold");
-        pdfDoc.text("PAYMENT DETAILS", 14, y);
-        y += 7;
-
-        pdfDoc.setFont("helvetica", "normal");
-        pdfDoc.text(`Payment Method: ${receiptData.paymentMethod.toUpperCase()}`, 14, y);
+        pdfDoc.text(`Installment Amount: Rs. ${receiptData.emiAmount.toLocaleString('en-IN')}`, 14, y);
         y += 6;
-
-        if (receiptData.isExtraPayment) {
-            const extraAmount = receiptData.amountPaid - receiptData.emiAmount;
-            pdfDoc.text(`Regular Installment: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
+        pdfDoc.text(`Amount Paid: Rs. ${receiptData.amountPaid.toLocaleString('en-IN')}`, 14, y);
+        y += 6;
+        pdfDoc.text(`Payment Method: ${receiptData.paymentMethod.toUpperCase()}`, 14, y);
+        if (receiptData.remark) {
             y += 6;
-            pdfDoc.text(`Extra Payment: ${formatCurrency(extraAmount)}`, 14, y);
-            y += 8;
+            pdfDoc.text(`Remark: ${receiptData.remark}`, 14, y);
         }
+        y += 20;
 
         pdfDoc.setFont("helvetica", "bold");
-        pdfDoc.setFillColor(240, 240, 240);
-        pdfDoc.rect(14, y - 5, 182, 12, 'F');
-        pdfDoc.text(`TOTAL AMOUNT PAID: ${formatCurrency(receiptData.amountPaid)}`, 14, y + 2);
-        y += 15;
-
-        if (receiptData.remark) {
-            pdfDoc.setFont("helvetica", "normal");
-            pdfDoc.text(`Remark: ${receiptData.remark}`, 14, y);
-            y += 10;
-        }
-
-        pdfDoc.line(14, y, 196, y);
-        y += 10;
-
-        pdfDoc.setFont("helvetica", "italic");
-        pdfDoc.setFontSize(10);
-        pdfDoc.text("Thank you for your payment. This is a computer generated receipt.", 14, y);
-        y += 15;
-
+        pdfDoc.text("Authorized Signatory", 140, y);
+        y += 5;
+        pdfDoc.setFontSize(8);
         pdfDoc.setFont("helvetica", "normal");
-        pdfDoc.text("Authorized Signature: ____________________", 14, y);
-
-        const pageCount = (pdfDoc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            pdfDoc.setPage(i);
-            pdfDoc.setFontSize(8);
-            pdfDoc.setTextColor(150);
-            pdfDoc.text(`© ${new Date().getFullYear()} ${companyDetails.name}`, pdfDoc.internal.pageSize.getWidth() / 2, 287, { align: 'center' });
-        }
+        pdfDoc.text("This is a computer generated receipt.", 14, y + 10);
 
         return pdfDoc;
     };
 
     const handlePreviewPdf = () => {
         if (!selectedEmi) return;
-
         const amountToPay = customAmount > 0 ? customAmount : selectedEmi.amount;
         const isExtra = amountToPay > selectedEmi.amount;
 
         const receiptData = {
-            receiptId: `RCPT-PREVIEW`,
+            receiptId: "PREVIEW",
             customerName: selectedEmi.customerName,
             customerId: selectedEmi.customerId,
             loanId: selectedEmi.loanId,
@@ -498,7 +465,7 @@ const DueList: React.FC = () => {
                     <h1 className="text-2xl font-bold tracking-tight">Due List</h1>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={handleDownloadReport} className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200 dark:border-slate-700 active:scale-95 transition-all">
+                    <button onClick={handleDownloadReport} className="p-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
                         <span className="material-symbols-outlined font-variation-FILL">download</span>
                     </button>
                     <button onClick={handleBulkSendReminders} className="p-2.5 rounded-xl bg-green-600 text-white shadow-md shadow-green-500/30 active:scale-95 transition-all">
@@ -678,30 +645,30 @@ const DueList: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
                         <div className="mx-auto h-12 w-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-4">
-                            <span className="material-symbols-outlined text-3xl">check</span>
+                            <span className="material-symbols-outlined text-3xl">check_circle</span>
                         </div>
-                        <h3 className="text-lg font-bold mb-2">Payment Collected!</h3>
+                        <h3 className="text-xl font-bold mb-2">Payment Collected!</h3>
                         <p className="text-sm text-slate-500 mb-6">
-                            Would you like to send a confirmation WhatsApp message to {lastCollectedEmi?.customerName}?
+                            Successfully collected {formatCurrency(lastCollectedEmi?.amount || 0)} from {lastCollectedEmi?.customerName}.
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
                                 onClick={handleSendConfirmation}
-                                className="w-full py-3 rounded-xl bg-green-600 text-white font-bold flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
                             >
-                                <WhatsAppIcon className="w-5 h-5" /> Send WhatsApp
+                                <WhatsAppIcon className="w-5 h-5" />
+                                Send WhatsApp Confirmation
                             </button>
                             <button
-                                onClick={() => setIsNotificationModalOpen(false)}
-                                className="w-full py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold"
+                                onClick={() => { setIsNotificationModalOpen(false); setLastCollectedEmi(null); }}
+                                className="w-full py-3 text-slate-500 font-bold hover:text-slate-800 dark:hover:text-slate-200"
                             >
-                                Skip
+                                Done
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-
         </div>
     );
 };
