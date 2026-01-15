@@ -171,7 +171,7 @@ const NewLoan: React.FC = () => {
         return nextId;
       });
 
-      alert(`New Record Submitted Successfully! Record ID: ${newLoanId}`);
+      alert(`New Record Added Successfully! Record ID: ${newLoanId}`);
       navigate('/records');
 
     } catch (error) {

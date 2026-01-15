@@ -239,8 +239,8 @@ const CustomerPortal: React.FC = () => {
                   <h3 className="font-extrabold text-xl mb-1.5">{isOverdue ? '⚠️ तत्काल भुगतान करें!' : `नमस्ते ${customer?.name?.split(' ')[0]} 🙏`}</h3>
                   <p className="text-sm font-semibold leading-snug">
                     {isOverdue
-                      ? `सावधान! आपकी ₹${nextEmi.amount} की क़िस्त दिनांक ${formatDate(nextEmi.dueDate)} को देय थी। देरी के कारण अतिरिक्त चार्ज लग सकता है। कृपया तुरंत भुगतान करके क़ानूनी कार्यवाही से बचें।`
-                      : `प्रिय ग्राहक, आपकी अगली क़िस्त ₹${nextEmi.amount} दिनांक ${formatDate(nextEmi.dueDate)} को देय है। कृपया अच्छा क्रेडिट स्कोर बनाए रखने के लिए समय पर भुगतान करें।`
+                      ? `आपकी ₹${nextEmi.amount} की क़िस्त दिनांक ${formatDate(nextEmi.dueDate)} को देय थी। कृपया समय पर भुगतान सुनिश्चित करें।`
+                      : `प्रिय ग्राहक, आपकी अगली क़िस्त ₹${nextEmi.amount} दिनांक ${formatDate(nextEmi.dueDate)} को देय है। कृपया समय पर भुगतान करें।`
                     }
                   </p>
                 </div>

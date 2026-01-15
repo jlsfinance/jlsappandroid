@@ -5,7 +5,7 @@ import { db } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 
 interface UserPermissions {
-  canViewLoans: boolean;
+  canViewRecords: boolean;
   canCollectEMI: boolean;
   canViewCustomers: boolean;
 }
@@ -20,7 +20,7 @@ interface User {
 }
 
 const defaultPermissions: UserPermissions = {
-  canViewLoans: false,
+  canViewRecords: false,
   canCollectEMI: false,
   canViewCustomers: false,
 };
@@ -209,8 +209,8 @@ const UserManagement: React.FC = () => {
                   <label className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={editedPermissions.canViewLoans}
-                      onChange={(e) => setEditedPermissions(p => ({ ...p, canViewLoans: e.target.checked }))}
+                      checked={editedPermissions.canViewRecords}
+                      onChange={(e) => setEditedPermissions(p => ({ ...p, canViewRecords: e.target.checked }))}
                       className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
                     />
                     <span className="text-sm">Can View Records</span>
