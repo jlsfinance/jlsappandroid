@@ -12,7 +12,7 @@ interface ApprovedLoan {
     amount: number;
     approvalDate?: string;
     tenure: number;
-    emi: number;
+    installment: number;
     processingFee: number;
 }
 
@@ -22,7 +22,7 @@ const Finalization: React.FC = () => {
     const [approvedLoans, setApprovedLoans] = useState<ApprovedLoan[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const companyName = useMemo(() => currentCompany?.name || "Finance Company", [currentCompany]);
+    const companyName = useMemo(() => currentCompany?.name || "Management Company", [currentCompany]);
     
     // Modal State
     const [selectedLoan, setSelectedLoan] = useState<ApprovedLoan | null>(null);
@@ -40,8 +40,8 @@ const Finalization: React.FC = () => {
             setLoading(true);
             try {
                 const q = query(
-                    collection(db, "loans"), 
-                    where("status", "==", "Confirmed"),
+                    collection\(db, "loans"\), 
+                    where\("status", "==", "Confirmed"\),
                     where("companyId", "==", currentCompany.id)
                 );
                 const querySnapshot = await getDocs(q);
@@ -67,7 +67,7 @@ const Finalization: React.FC = () => {
             const loanRef = doc(db, "records", selectedLoan.id);
             const dateObj = new Date(disbursalDate);
 
-            // Generate EMI schedule with selected due day
+            // Generate Installment schedule with selected due day
             const repaymentSchedule = [];
             const nextMonth = addMonths(dateObj, 1);
             const year = nextMonth.getFullYear();
@@ -79,7 +79,7 @@ const Finalization: React.FC = () => {
                 repaymentSchedule.push({
                     emiNumber: i + 1,
                     dueDate: format(emiDate, 'yyyy-MM-dd'),
-                    amount: selectedLoan.emi,
+                    amount: selectedLoan.installment,
                     status: 'Pending'
                 });
             }
@@ -222,7 +222,7 @@ const Finalization: React.FC = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">EMI Due Day (Har Mahine Ki Tarikh)</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Installment Due Day (Har Mahine Ki Tarikh)</label>
                                 <select
                                     value={emiDueDay}
                                     onChange={(e) => setEmiDueDay(Number(e.target.value))}
@@ -235,7 +235,7 @@ const Finalization: React.FC = () => {
                                     ))}
                                 </select>
                                 <p className="text-xs text-slate-400 mt-2">
-                                    * First EMI: {emiDueDay === 1 ? '1st' : emiDueDay === 2 ? '2nd' : emiDueDay === 3 ? '3rd' : `${emiDueDay}th`} of next month
+                                    * First Installment: {emiDueDay === 1 ? '1st' : emiDueDay === 2 ? '2nd' : emiDueDay === 3 ? '3rd' : `${emiDueDay}th`} of next month
                                 </p>
                             </div>
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">

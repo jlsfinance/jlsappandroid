@@ -20,7 +20,7 @@ const Terms: React.FC = () => {
                 {/* Critical Red Disclosure */}
                 <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/30 rounded-[2rem] p-8 text-center">
                     <p className="text-red-600 dark:text-red-400 font-black text-lg leading-relaxed">
-                        “This application is strictly for record management and digital ledger purposes. We do not provide loans, financial services, or connect users with any lending entities. We are not a bank or NBFC.”
+                        “This application is strictly for record management and digital ledger purposes. We do not provide records, financial services, or connect users with any lending entities. We are not a bank or Service Provider.”
                     </p>
                 </div>
 
@@ -40,7 +40,7 @@ const Terms: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-slate-900 dark:text-white font-black">Annual Percentage Rate (APR):</p>
-                            <p className="text-slate-600 dark:text-slate-400 text-sm">This app allows users to track records with custom parameters. We do not set or collect interest.</p>
+                            <p className="text-slate-600 dark:text-slate-400 text-sm">This app allows users to track records with custom parameters. We do not set or collect service fee.</p>
                         </div>
 
                         <div className="bg-white dark:bg-slate-900/50 rounded-3xl p-6 border border-blue-50 dark:border-blue-800">
@@ -52,7 +52,7 @@ const Terms: React.FC = () => {
                                     <span className="font-bold">₹10,000</span>
                                 </li>
                                 <li className="flex justify-between text-sm">
-                                    <span className="text-slate-500">• Interest (24%):</span>
+                                    <span className="text-slate-500">• Service Fee (24%):</span>
                                     <span className="font-bold">₹2,400</span>
                                 </li>
                                 <li className="flex justify-between text-sm">
@@ -64,7 +64,7 @@ const Terms: React.FC = () => {
                                     <span className="font-black text-blue-600">₹12,700</span>
                                 </li>
                                 <li className="flex justify-between text-sm">
-                                    <span className="text-slate-900 dark:text-white font-bold">• Monthly EMI:</span>
+                                    <span className="text-slate-900 dark:text-white font-bold">• Monthly Installment:</span>
                                     <span className="font-black text-blue-600">₹1,058.33</span>
                                 </li>
                             </ul>
@@ -77,21 +77,21 @@ const Terms: React.FC = () => {
                     <section className="space-y-3">
                         <h2 className="text-2xl font-black text-[#004a99] dark:text-blue-300 leading-tight">1. Eligibility</h2>
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                            Eligibility criteria (age, income, citizenship) are determined by the finance company managing your records. {APP_NAME} only facilitates the digital record-keeping of these assessments and does not influence approval or rejection decisions.
+                            Eligibility criteria (age, income, citizenship) are determined by the management company managing your records. {APP_NAME} only facilitates the digital record-keeping of these assessments and does not influence approval or rejection decisions.
                         </p>
                     </section>
 
                     <section className="space-y-3">
                         <h2 className="text-2xl font-black text-[#004a99] dark:text-blue-300 leading-tight">2. Service Charges</h2>
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                            Any processing fees or documentation charges are levied by your respective finance company. {APP_NAME} is a platform to view and manage these records and does not collect any record-related fees from users directly.
+                            Any processing fees or documentation charges are levied by your respective management company. {APP_NAME} is a platform to view and manage these records and does not collect any record-related fees from users directly.
                         </p>
                     </section>
 
                     <section className="space-y-3">
                         <h2 className="text-2xl font-black text-[#004a99] dark:text-blue-300 leading-tight">3. Late Payments</h2>
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                            Delay in EMI payment will attract late payment penalties as per the record agreement. This app is for tracking purposes only and does not report to credit bureaus.
+                            Delay in Installment payment will attract late payment penalties as per the record agreement. This app is for tracking purposes only and does not report to credit bureaus.
                         </p>
                     </section>
 

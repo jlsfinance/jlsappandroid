@@ -50,7 +50,7 @@ const DueList: React.FC = () => {
     const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
     const companyDetails = useMemo(() => ({
-        name: currentCompany?.name || "Finance Company",
+        name: currentCompany?.name || "Management Company",
         address: currentCompany?.address || "",
         phone: currentCompany?.phone || ""
     }), [currentCompany]);
@@ -67,7 +67,7 @@ const DueList: React.FC = () => {
         try {
             // 1. Fetch all finalized records and customers filtered by company
             const loansQuery = query(
-                collection(db, "loans"),
+                collection\(db, "loans"\),
                 where("status", "in", ["Finalized", "Active", "Overdue"]),
                 where("companyId", "==", currentCompany.id)
             );
@@ -93,15 +93,15 @@ const DueList: React.FC = () => {
                 const customerData = customerMap.get(record.customerId);
 
                 if (record.repaymentSchedule) {
-                    record.repaymentSchedule.forEach((emi: any) => {
-                        if (emi.status === 'Pending') {
+                    record.repaymentSchedule.forEach((installment: any) => {
+                        if (installment.status === 'Pending') {
                             pendingEmisList.push({
                                 loanId: loanDoc.id,
                                 customerId: record.customerId,
                                 customerName: record.customerName,
-                                emiNumber: emi.emiNumber,
-                                dueDate: emi.dueDate,
-                                amount: emi.amount,
+                                emiNumber: installment.emiNumber,
+                                dueDate: installment.dueDate,
+                                amount: installment.amount,
                                 tenure: record.tenure,
                                 phoneNumber: customerData?.phone || 'N/A',
                                 customerPhoto: customerData?.photo_url
@@ -127,31 +127,31 @@ const DueList: React.FC = () => {
 
     useEffect(() => {
         const monthKey = format(viewDate, 'yyyy-MM');
-        const filtered = allPendingEmis.filter(emi => format(parseISO(emi.dueDate), 'yyyy-MM') === monthKey);
+        const filtered = allPendingEmis.filter(installment => format(parseISO(installment.dueDate), 'yyyy-MM') === monthKey);
         setFilteredEmis(filtered);
         setTotalDue(filtered.reduce((sum, item) => sum + item.amount, 0));
     }, [viewDate, allPendingEmis]);
 
     // --- Actions ---
 
-    const handleSendReminder = (emi: PendingEmi) => {
-        const customerPhone = emi.phoneNumber;
+    const handleSendReminder = (installment: PendingEmi) => {
+        const customerPhone = installment.phoneNumber;
         if (!customerPhone || customerPhone === 'N/A' || customerPhone.length < 10) {
             alert("Customer phone number not found or invalid.");
             return;
         }
 
         const formattedPhone = `91${customerPhone.replace(/\D/g, '').slice(-10)}`;
-        const dueDateFormatted = format(parseISO(emi.dueDate), 'dd MMMM, yyyy');
-        const amountFormatted = `Rs. ${emi.amount.toLocaleString('en-IN')}`;
+        const dueDateFormatted = format(parseISO(installment.dueDate), 'dd MMMM, yyyy');
+        const amountFormatted = `Rs. ${installment.amount.toLocaleString('en-IN')}`;
 
         let message;
-        const isOverdue = isPast(parseISO(emi.dueDate));
+        const isOverdue = isPast(parseISO(installment.dueDate));
 
         if (isOverdue) {
-            message = `चेतावनी: ${emi.customerName},\n\nJLS Finance Company से आपकी EMI (किश्त संख्या ${emi.emiNumber}) जिसका भुगतान ${dueDateFormatted} को होना था, अभी तक नहीं चुकाई गई है। राशि: ${amountFormatted}.\n\nकानूनी कार्रवाई और अतिरिक्त शुल्क से बचने के लिए तुरंत भुगतान करें।\n\nJLS Finance Company`;
+            message = `चेतावनी: ${installment.customerName},\n\nJLS Management Company से आपकी Installment (किश्त संख्या ${installment.emiNumber}) जिसका भुगतान ${dueDateFormatted} को होना था, अभी तक नहीं चुकाई गई है। राशि: ${amountFormatted}.\n\nखाता समीक्षा और अतिरिक्त शुल्क से बचने के लिए तुरंत भुगतान करें।\n\nJLS Management Company`;
         } else {
-            message = `नमस्ते ${emi.customerName},\n\nJLS Finance Company की ओर से यह आपकी आने वाली EMI के लिए एक विनम्र अनुस्मारक है।\n\nराशि: ${amountFormatted}\nदेय तिथि: ${dueDateFormatted}\nEMI संख्या: ${emi.emiNumber}\n\nअतिरिक्त शुल्क से बचने के लिए कृपया समय पर भुगतान सुनिश्चित करें। धन्यवाद।`;
+            message = `नमस्ते ${installment.customerName},\n\nJLS Management Company की ओर से यह आपकी आने वाली Installment के लिए एक विनम्र अनुस्मारक है।\n\nराशि: ${amountFormatted}\nदेय तिथि: ${dueDateFormatted}\nEMI संख्या: ${installment.emiNumber}\n\nअतिरिक्त शुल्क से बचने के लिए कृपया समय पर भुगतान सुनिश्चित करें। धन्यवाद।`;
         }
 
         const whatsappUrl = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
@@ -162,9 +162,9 @@ const DueList: React.FC = () => {
         if (filteredEmis.length === 0) return alert("No EMIs to remind.");
 
         let count = 0;
-        filteredEmis.forEach((emi, index) => {
-            if (emi.phoneNumber && emi.phoneNumber.length >= 10) {
-                setTimeout(() => handleSendReminder(emi), index * 500);
+        filteredEmis.forEach((installment, index) => {
+            if (installment.phoneNumber && installment.phoneNumber.length >= 10) {
+                setTimeout(() => handleSendReminder(installment), index * 500);
                 count++;
             }
         });
@@ -233,9 +233,9 @@ const DueList: React.FC = () => {
         pdfDoc.setFont("helvetica", "normal");
         pdfDoc.text(`Record ID: ${receiptData.loanId}`, 14, y);
         y += 6;
-        pdfDoc.text(`EMI Number: ${receiptData.emiNumber} of ${receiptData.tenure}`, 14, y);
+        pdfDoc.text(`Installment Number: ${receiptData.emiNumber} of ${receiptData.tenure}`, 14, y);
         y += 6;
-        pdfDoc.text(`Regular EMI Amount: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
+        pdfDoc.text(`Regular Installment Amount: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
         y += 10;
 
         pdfDoc.setFont("helvetica", "bold");
@@ -248,7 +248,7 @@ const DueList: React.FC = () => {
 
         if (receiptData.isExtraPayment) {
             const extraAmount = receiptData.amountPaid - receiptData.emiAmount;
-            pdfDoc.text(`Regular EMI: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
+            pdfDoc.text(`Regular Installment: ${formatCurrency(receiptData.emiAmount)}`, 14, y);
             y += 6;
             pdfDoc.text(`Extra Payment: ${formatCurrency(extraAmount)}`, 14, y);
             y += 8;
@@ -320,7 +320,7 @@ const DueList: React.FC = () => {
         const amountToPay = customAmount > 0 ? customAmount : selectedEmi.amount;
 
         if (amountToPay < selectedEmi.amount) {
-            alert(`Amount cannot be less than EMI amount (${formatCurrency(selectedEmi.amount)})`);
+            alert(`Amount cannot be less than Installment amount (${formatCurrency(selectedEmi.amount)})`);
             return;
         }
 
@@ -347,10 +347,10 @@ const DueList: React.FC = () => {
                     ? `Extra Payment: ${formatCurrency(amountToPay - selectedEmi.amount)}${paymentRemark ? ' - ' + paymentRemark : ''}`
                     : paymentRemark;
 
-                const updatedSchedule = loanData.repaymentSchedule.map((emi: any) => {
-                    if (emi.emiNumber === selectedEmi.emiNumber) {
+                const updatedSchedule = loanData.repaymentSchedule.map((installment: any) => {
+                    if (installment.emiNumber === selectedEmi.emiNumber) {
                         return {
-                            ...emi,
+                            ...installment,
                             status: 'Paid',
                             paymentDate: paymentDate,
                             paymentMethod: paymentMethod,
@@ -358,7 +358,7 @@ const DueList: React.FC = () => {
                             remark: remarkText,
                         };
                     }
-                    return emi;
+                    return installment;
                 });
 
                 let nextReceiptId = 1;
@@ -420,7 +420,7 @@ const DueList: React.FC = () => {
             alert("Collection Successful! Receipt downloaded.");
 
         } catch (error: any) {
-            console.error("Error collecting EMI:", error);
+            console.error("Error collecting Installment:", error);
             alert("Collection Failed: " + error.message);
         } finally {
             setIsSubmitting(false);
@@ -431,13 +431,13 @@ const DueList: React.FC = () => {
         try {
             const doc = new jsPDF();
             const monthName = format(viewDate, 'MMMM yyyy');
-            const totalDue = filteredEmis.reduce((sum, emi) => sum + emi.amount, 0);
+            const totalDue = filteredEmis.reduce((sum, installment) => sum + installment.amount, 0);
 
             doc.setFontSize(18);
             doc.setFont("helvetica", "bold");
             doc.text(`${companyDetails.name}`, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
             doc.setFontSize(14);
-            doc.text(`Monthly EMI Due Report - ${monthName}`, doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+            doc.text(`Monthly Installment Due Report - ${monthName}`, doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
@@ -445,12 +445,12 @@ const DueList: React.FC = () => {
             doc.text(`Total Due: ${formatCurrency(totalDue)}`, 14, 40);
 
             const tableColumns = ["Customer", "Record ID", "Amount", "Due Date", "Phone"];
-            const tableRows = filteredEmis.map(emi => [
-                emi.customerName,
-                emi.loanId,
-                formatCurrency(emi.amount),
-                format(parseISO(emi.dueDate), 'dd-MMM-yyyy'),
-                emi.phoneNumber || 'N/A'
+            const tableRows = filteredEmis.map(installment => [
+                installment.customerName,
+                installment.loanId,
+                formatCurrency(installment.amount),
+                format(parseISO(installment.dueDate), 'dd-MMM-yyyy'),
+                installment.phoneNumber || 'N/A'
             ]);
 
             autoTable(doc, {
@@ -476,7 +476,7 @@ const DueList: React.FC = () => {
         }
 
         const formattedPhone = `91${lastCollectedEmi.phoneNumber.replace(/\D/g, '').slice(-10)}`;
-        const message = `Payment Received!\n\nDear ${lastCollectedEmi.customerName},\nWe have received your payment of ${formatCurrency(lastCollectedEmi.amount)} for EMI #${lastCollectedEmi.emiNumber}.\n\nThank you,\nJLS Finance Company`;
+        const message = `Payment Received!\n\nDear ${lastCollectedEmi.customerName},\nWe have received your payment of ${formatCurrency(lastCollectedEmi.amount)} for Installment #${lastCollectedEmi.emiNumber}.\n\nThank you,\nJLS Management Company`;
 
         window.open(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`, '_system');
         setIsNotificationModalOpen(false);
@@ -535,12 +535,12 @@ const DueList: React.FC = () => {
                     {loading ? (
                         <div className="flex justify-center py-10"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>
                     ) : filteredEmis.length > 0 ? (
-                        filteredEmis.map((emi) => (
-                            <div key={`${emi.loanId}-${emi.emiNumber}`} className="bg-white dark:bg-[#1e2736] rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center group hover:shadow-md transition-all">
+                        filteredEmis.map((installment) => (
+                            <div key={`${installment.loanId}-${installment.emiNumber}`} className="bg-white dark:bg-[#1e2736] rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center group hover:shadow-md transition-all">
                                 <div className="flex items-center gap-4">
                                     <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
-                                        {emi.customerPhoto ? (
-                                            <img src={emi.customerPhoto} alt={emi.customerName} className="h-full w-full object-cover" />
+                                        {installment.customerPhoto ? (
+                                            <img src={installment.customerPhoto} alt={installment.customerName} className="h-full w-full object-cover" />
                                         ) : (
                                             <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
                                                 <span className="material-symbols-outlined text-[24px]">person</span>
@@ -548,27 +548,27 @@ const DueList: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <h3 className="font-bold text-base text-slate-900 dark:text-white capitalize">{emi.customerName.toLowerCase()}</h3>
+                                        <h3 className="font-bold text-base text-slate-900 dark:text-white capitalize">{installment.customerName.toLowerCase()}</h3>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">EMI {emi.emiNumber}/{emi.tenure}</span>
-                                            {isPast(parseISO(emi.dueDate)) ? (
+                                            <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">Installment {installment.emiNumber}/{installment.tenure}</span>
+                                            {isPast(parseISO(installment.dueDate)) ? (
                                                 <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">Overdue</span>
                                             ) : (
-                                                <span className="text-[10px] font-bold text-slate-500">{format(parseISO(emi.dueDate), 'dd MMM')}</span>
+                                                <span className="text-[10px] font-bold text-slate-500">{format(parseISO(installment.dueDate), 'dd MMM')}</span>
                                             )}
                                         </div>
-                                        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300 mt-1">{formatCurrency(emi.amount)}</p>
+                                        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300 mt-1">{formatCurrency(installment.amount)}</p>
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <button
-                                        onClick={() => setSelectedEmi(emi)}
+                                        onClick={() => setSelectedEmi(installment)}
                                         className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/30 active:scale-95 transition-all hover:brightness-110"
                                     >
                                         Collect
                                     </button>
                                     <button
-                                        onClick={() => handleSendReminder(emi)}
+                                        onClick={() => handleSendReminder(installment)}
                                         className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg flex items-center justify-center hover:bg-green-100 hover:text-green-600 transition-colors"
                                     >
                                         <span className="material-symbols-outlined text-[18px]">chat</span>
@@ -591,12 +591,12 @@ const DueList: React.FC = () => {
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                         <h3 className="text-lg font-bold mb-1">Collect Payment</h3>
                         <p className="text-sm text-slate-500 mb-4">
-                            EMI #{selectedEmi.emiNumber} from {selectedEmi.customerName}
+                            Installment #{selectedEmi.emiNumber} from {selectedEmi.customerName}
                         </p>
 
                         <div className="space-y-4 mb-6">
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">
-                                <span className="text-sm font-bold text-blue-800 dark:text-blue-300">EMI Amount</span>
+                                <span className="text-sm font-bold text-blue-800 dark:text-blue-300">Installment Amount</span>
                                 <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(selectedEmi.amount)}</span>
                             </div>
 

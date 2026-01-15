@@ -9,7 +9,7 @@ import autoTable from 'jspdf-autotable';
 // Interfaces
 interface Partner { id: string; name: string; }
 interface Transaction { id: string; partnerId: string; partnerName?: string; type: 'investment' | 'withdrawal'; amount: number; date: string; }
-interface Record { id: string; amount: number; processingFee: number; interestRate: number; tenure: number; emi: number; disbursalDate: string; actualDisbursed: number; repaymentSchedule: { dueDate: string, status: 'Paid' | 'Pending' }[] }
+interface Record { id: string; amount: number; processingFee: number; interestRate: number; tenure: number; installment: number; disbursalDate: string; actualDisbursed: number; repaymentSchedule: { dueDate: string, status: 'Paid' | 'Pending' }[] }
 interface Receipt { id: string; loanId: string, amount: number; paymentDate: string; emiNumber: number; }
 interface PartnerLedgerEntry { date: Date; particulars: string; type: 'credit' | 'debit'; amount: number; }
 
@@ -57,7 +57,7 @@ const Partners: React.FC = () => {
             }) as Transaction[];
             setTransactions(transactionsData);
 
-            const loansSnap = await getDocs(query(collection(db, "loans"), where("status", "in", ["Finalized", "Completed", "Active", "Overdue"])));
+            const loansSnap = await getDocs(query(collection\(db, "loans"\), where("status", "in", ["Finalized", "Completed", "Active", "Overdue"])));
             const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Record[];
             setLoans(loansData);
             
@@ -105,14 +105,14 @@ const Partners: React.FC = () => {
                 const monthlyInterestRate = (record.interestRate || 0) / 12 / 100;
                 
                 let balance = Number(record.amount);
-                // Simplified Interest Calculation for Receipts
+                // Simplified Service Fee Calculation for Receipts
                 // Ideally this should use the exact principal outstanding at payment time from receipt/schedule
-                // Estimation: Interest portion of this EMI based on schedule logic if available, or simple approximation
+                // Estimation: Service Fee portion of this Installment based on schedule logic if available, or simple approximation
                 const interestComponent = (balance * monthlyInterestRate); // Rough estimate for display
                 return sum + interestComponent;
             }, 0);
             
-        // Simplified Total Profit = Fees + Estimated Interest
+        // Simplified Total Profit = Fees + Estimated Service Fee
         const totalProfit = processingFees + interestCollected;
 
         if (partners.length === 0) return { totalProfit, processingFees, interestCollected, profitSplits: [] };
@@ -298,7 +298,7 @@ const Partners: React.FC = () => {
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
-                    <Link to="/finance" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
+                    <Link to="/management" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </Link>
                     <h1 className="text-2xl font-bold tracking-tight">Partner Capital</h1>
@@ -354,7 +354,7 @@ const Partners: React.FC = () => {
                             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2 text-sm">
                                 <h4 className="font-bold text-slate-700 dark:text-slate-300">Profit Breakdown</h4>
                                 <div className="flex justify-between"><span>Processing Fees:</span> <span className="font-medium">{formatCurrency(monthlyCalculations.processingFees)}</span></div>
-                                <div className="flex justify-between"><span>Est. Interest:</span> <span className="font-medium">{formatCurrency(monthlyCalculations.interestCollected)}</span></div>
+                                <div className="flex justify-between"><span>Est. Service Fee:</span> <span className="font-medium">{formatCurrency(monthlyCalculations.interestCollected)}</span></div>
                                 <div className="flex justify-between font-bold border-t border-slate-200 dark:border-slate-700 pt-2"><span>Total Profit:</span> <span>{formatCurrency(monthlyCalculations.totalProfit)}</span></div>
                             </div>
                         </div>

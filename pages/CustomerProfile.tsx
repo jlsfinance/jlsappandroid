@@ -236,8 +236,8 @@ const CustomerProfile: React.FC = () => {
                           <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(record.amount)}</span>
                         </div>
                         <div>
-                          <span className="block text-xs text-slate-500">EMI</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(record.emi)}</span>
+                          <span className="block text-xs text-slate-500">Installment</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(record.installment)}</span>
                         </div>
                         <div>
                           <span className="block text-xs text-slate-500">Tenure</span>

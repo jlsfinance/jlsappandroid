@@ -39,7 +39,7 @@ const Reports: React.FC = () => {
 
             try {
                 const [loansSnap, receiptsSnap, customersSnap] = await Promise.all([
-                    getDocs(query(collection(db, "loans"), where("companyId", "==", currentCompany.id))),
+                    getDocs(query(collection\(db, "loans"\), where("companyId", "==", currentCompany.id))),
                     getDocs(query(collection(db, "receipts"), where("companyId", "==", currentCompany.id))),
                     getDocs(query(collection(db, "customers"), where("companyId", "==", currentCompany.id)))
                 ]);
@@ -86,14 +86,14 @@ const Reports: React.FC = () => {
         const overdueItems: any[] = [];
         records.forEach(record => {
             if (['Active', 'Finalized', 'Overdue'].includes(record.status) && record.repaymentSchedule) {
-                record.repaymentSchedule.forEach((emi: any) => {
-                    if (emi.status === 'Pending' && new Date(emi.dueDate) < new Date()) {
+                record.repaymentSchedule.forEach((installment: any) => {
+                    if (installment.status === 'Pending' && new Date(installment.dueDate) < new Date()) {
                         overdueItems.push({
                             customerName: record.customerName,
                             loanId: record.id,
-                            dueDate: emi.dueDate,
-                            amount: emi.amount,
-                            emiNumber: emi.emiNumber
+                            dueDate: installment.dueDate,
+                            amount: installment.amount,
+                            emiNumber: installment.emiNumber
                         });
                     }
                 });
@@ -205,7 +205,7 @@ const Reports: React.FC = () => {
                                         <tr key={i}>
                                             <td className="px-4 py-2">
                                                 <div className="font-bold">{item.customerName}</div>
-                                                <div className="text-xs text-slate-500">#{item.loanId} (EMI {item.emiNumber})</div>
+                                                <div className="text-xs text-slate-500">#{item.loanId} (Installment {item.emiNumber})</div>
                                             </td>
                                             <td className="px-4 py-2 text-red-600">{item.dueDate}</td>
                                             <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.amount)}</td>
@@ -313,7 +313,7 @@ const Reports: React.FC = () => {
                 return (
                     <div className="space-y-4 animate-in fade-in">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500">Select Borrower</label>
+                            <label className="text-xs font-bold text-slate-500">Select Customer</label>
                             <select
                                 value={selectedCustomer}
                                 onChange={(e) => setSelectedCustomer(e.target.value)}

@@ -1,5 +1,5 @@
 {
   "name": "BillBook Suite",
-  "description": "A comprehensive record management application featuring customer profiles, record tracking, finance dashboards, and tools like EMI calculators, integrated with Firebase.",
+  "description": "A comprehensive record management application featuring customer profiles, record tracking, management dashboards, and tools like Installment calculators, integrated with Firebase.",
   "requestFramePermissions": []
 }

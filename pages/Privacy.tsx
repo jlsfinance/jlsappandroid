@@ -22,7 +22,7 @@ const Privacy: React.FC = () => {
                         <div>
                             <h3 className="font-bold text-blue-800 dark:text-blue-300 text-sm">Non-Lending Entity Declaration</h3>
                             <p className="text-blue-700 dark:text-blue-400 text-xs mt-1 leading-relaxed">
-                                {APP_NAME} is strictly a record management and digital ledger tool. We are <strong>NOT</strong> a lending platform, bank, or Non-Banking Financial Company (NBFC). We do not provide loans, facilitate credit, or connect users with any lending institutions. This app is for tracking personal or business records only.
+                                {APP_NAME} is strictly a record management and digital ledger tool. We are <strong>NOT</strong> a lending platform, bank, or Non-Banking Financial Company (Service Provider). We do not provide records, facilitate credit, or connect users with any lending institutions. This app is for tracking personal or business records only.
                             </p>
                         </div>
                     </div>

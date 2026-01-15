@@ -18,7 +18,7 @@ interface LoanData {
   tenure: number;
   processingFeePercentage: number;
   processingFee: number;
-  emi: number;
+  installment: number;
   date: string;
   disbursalDate?: string;
   notes?: string;
@@ -115,16 +115,16 @@ const EditLoan: React.FC = () => {
   const calculateLoanDetails = () => {
     const processingFee = Math.round((form.amount * form.processingFeePercentage) / 100);
     const monthlyRate = form.interestRate / 12 / 100;
-    const emi = monthlyRate > 0 && form.tenure > 0
+    const installment = monthlyRate > 0 && form.tenure > 0
       ? Math.round(
         (form.amount * monthlyRate * Math.pow(1 + monthlyRate, form.tenure)) /
         (Math.pow(1 + monthlyRate, form.tenure) - 1)
       )
       : 0;
-    return { processingFee, emi };
+    return { processingFee, installment };
   };
 
-  const { processingFee, emi } = calculateLoanDetails();
+  const { processingFee, installment } = calculateLoanDetails();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +148,7 @@ const EditLoan: React.FC = () => {
         tenure: form.tenure,
         processingFeePercentage: form.processingFeePercentage,
         processingFee,
-        emi,
+        installment,
         date: form.date,
         disbursalDate: form.disbursalDate || null,
         notes: form.notes || null,
@@ -231,7 +231,7 @@ const EditLoan: React.FC = () => {
                 <div>
                   <h4 className="font-bold text-amber-800 dark:text-amber-300">Warning: Editing an Active Record</h4>
                   <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                    This record has already been {record.status.toLowerCase()}. Any changes made here may impact the existing EMI schedule and financial records. Please proceed with caution. This action will not automatically regenerate the payment schedule.
+                    This record has already been {record.status.toLowerCase()}. Any changes made here may impact the existing Installment schedule and financial records. Please proceed with caution. This action will not automatically regenerate the payment schedule.
                   </p>
                 </div>
               </div>
@@ -272,7 +272,7 @@ const EditLoan: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Interest Rate (% p.a.) *</label>
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Service Rate (% p.a.) *</label>
                 <input
                   type="number"
                   name="interestRate"
@@ -342,12 +342,12 @@ const EditLoan: React.FC = () => {
                 <p className="text-xl font-bold text-slate-800 dark:text-white mt-1">₹{processingFee.toLocaleString('en-IN')}</p>
               </div>
               <div className="bg-white dark:bg-[#1e2736] rounded-xl p-4 text-center shadow-sm">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Monthly EMI</p>
-                <p className="text-xl font-bold text-primary mt-1">₹{emi.toLocaleString('en-IN')}</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Monthly Installment</p>
+                <p className="text-xl font-bold text-primary mt-1">₹{installment.toLocaleString('en-IN')}</p>
               </div>
               <div className="bg-white dark:bg-[#1e2736] rounded-xl p-4 text-center shadow-sm">
                 <p className="text-xs text-slate-500 uppercase tracking-wider">Total Payable</p>
-                <p className="text-xl font-bold text-slate-800 dark:text-white mt-1">₹{(emi * form.tenure).toLocaleString('en-IN')}</p>
+                <p className="text-xl font-bold text-slate-800 dark:text-white mt-1">₹{(installment * form.tenure).toLocaleString('en-IN')}</p>
               </div>
             </div>
           </div>

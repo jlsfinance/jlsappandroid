@@ -46,7 +46,7 @@ const Tools: React.FC = () => {
                 <div>
                     <h3 className="text-lg font-bold mb-3 px-1">Utilities</h3>
                     <div className="grid grid-cols-2 gap-3">
-                        <Link to="/tools/emi" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-4 hover:shadow-md transition-all active:scale-95">
+                        <Link to="/tools/installment" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-4 hover:shadow-md transition-all active:scale-95">
                             <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
                                 <span className="material-symbols-outlined">calculate</span>
                             </div>
@@ -64,7 +64,7 @@ const Tools: React.FC = () => {
                             <div className="h-10 w-10 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center">
                                 <span className="material-symbols-outlined">gavel</span>
                             </div>
-                            <span className="font-bold text-sm">Legal Notice</span>
+                            <span className="font-bold text-sm">Payment Reminder</span>
                         </Link>
 
                         <Link to="/customers" className="bg-white dark:bg-[#1e2736] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start gap-4 hover:shadow-md transition-all active:scale-95">

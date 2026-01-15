@@ -31,7 +31,7 @@ export interface Record {
   id: string;
   customerId?: string;
   amount: number;
-  emi: number;
+  installment: number;
   interestRate: number;
   tenure: number; // in months
   status: 'Pending' | 'Confirmed' | 'Finalized' | 'Declined' | 'Completed' | 'Active' | 'Overdue';

@@ -91,7 +91,7 @@ const Dashboard: React.FC = () => {
                 const companyId = currentCompany.id;
 
                 const [loansSnap, customersSnap, partnerTxSnap, expensesSnap] = await Promise.all([
-                    getDocs(query(collection(db, "loans"), where("companyId", "==", companyId))),
+                    getDocs(query(collection\(db, "loans"\), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "customers"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))
@@ -173,7 +173,7 @@ const Dashboard: React.FC = () => {
 
         records.forEach(record => {
             const amount = Number(record.amount) || 0;
-            const emi = Number(record.emi) || 0;
+            const installment = Number(record.installment) || 0;
             const tenure = Number(record.tenure) || 0;
             const processingFee = Number(record.processingFee) || 0;
             const status = record.status;
@@ -196,7 +196,7 @@ const Dashboard: React.FC = () => {
                 });
             }
 
-            // Add foreclosure payment if amountReceived is true
+            // Add pre-closure payment if amountReceived is true
             const foreclosureDetails = (record as any).foreclosureDetails;
             if (foreclosureDetails && foreclosureDetails.amountReceived) {
                 calculatedBalance += Number(foreclosureDetails.totalPaid) || 0;
@@ -205,7 +205,7 @@ const Dashboard: React.FC = () => {
             if (['Finalized', 'Active', 'Overdue'].includes(status)) {
                 activeLoansCount++;
                 activeLoansPrincipal += amount;
-                const totalPayablePI = emi * tenure;
+                const totalPayablePI = installment * tenure;
                 const outstanding = Math.max(0, totalPayablePI - paidAmount);
                 activeLoansOutstandingPI += outstanding;
             }
@@ -257,14 +257,14 @@ const Dashboard: React.FC = () => {
         switch (activeCard) {
             case 'Total Finalized Records':
                 modalData = records.filter(l => ['Finalized', 'Active', 'Completed', 'Overdue'].includes(l.status));
-                columns = ['Customer', 'Record ID', 'Amount', 'Finalization', 'EMI', 'Status'];
+                columns = ['Customer', 'Record ID', 'Amount', 'Finalization', 'Installment', 'Status'];
                 renderRow = (row, index) => (
                     <tr key={index} className="hover:bg-surface-variant-light/30 dark:hover:bg-surface-variant-dark/30 transition-colors border-b border-outline-light/20 dark:border-outline-dark/20">
                         <td className="px-4 py-4 font-medium">{row.customerName}</td>
                         <td className="px-4 py-4 text-on-surface-variant-light">{row.id}</td>
                         <td className="px-4 py-4 font-bold">{formatCurrency(row.amount)}</td>
                         <td className="px-4 py-4">{row.disbursalDate ? format(parseISO(row.disbursalDate), 'dd-MMM-yy') : '-'}</td>
-                        <td className="px-4 py-4">{formatCurrency(row.emi)}</td>
+                        <td className="px-4 py-4">{formatCurrency(row.installment)}</td>
                         <td className="px-4 py-4">
                             <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-primary-container text-on-primary-container">{row.status}</span>
                         </td>
@@ -273,13 +273,13 @@ const Dashboard: React.FC = () => {
                 break;
             case 'Active Records':
                 modalData = records.filter(l => ['Finalized', 'Active', 'Overdue'].includes(l.status)).map(l => {
-                    const totalPI = (Number(l.emi) || 0) * (Number(l.tenure) || 0);
+                    const totalPI = (Number(l.installment) || 0) * (Number(l.tenure) || 0);
                     const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
                     const paidAmount = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
                     const pendingPI = Math.max(0, totalPI - paidAmount);
-                    return { ...l, loanAmountPI: totalPI, emiPI: l.emi, emisPaidCount: `${paidEmis.length} / ${l.tenure}`, amountPendingPI: pendingPI };
+                    return { ...l, loanAmountPI: totalPI, emiPI: l.installment, emisPaidCount: `${paidEmis.length} / ${l.tenure}`, amountPendingPI: pendingPI };
                 });
-                columns = ['Customer', 'Total (P+I)', 'EMI', 'Paid', 'Pending'];
+                columns = ['Customer', 'Total (P+I)', 'Installment', 'Paid', 'Pending'];
                 renderRow = (row, index) => (
                     <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
                         <td className="px-4 py-4 font-medium">{row.customerName}</td>
@@ -293,18 +293,18 @@ const Dashboard: React.FC = () => {
             case 'Active Record Value':
                 modalData = records.filter(l => ['Finalized', 'Active', 'Overdue'].includes(l.status)).map(l => {
                     const principal = Number(l.amount) || 0;
-                    const emi = Number(l.emi) || 0;
+                    const installment = Number(l.installment) || 0;
                     const tenure = Number(l.tenure) || 0;
-                    const totalPI = emi * tenure;
+                    const totalPI = installment * tenure;
                     const totalInterest = totalPI - principal;
                     const emiPrincipal = tenure > 0 ? principal / tenure : 0;
-                    const emiInterest = emi - emiPrincipal;
+                    const emiInterest = installment - emiPrincipal;
                     const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
                     const paidAmount = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
                     const pendingPI = Math.max(0, totalPI - paidAmount);
-                    return { ...l, principal, totalInterest, totalLoanPI: totalPI, emiPrincipal, emiInterest, emi, totalReceivedPI: paidAmount, balancePI: pendingPI };
+                    return { ...l, principal, totalInterest, totalLoanPI: totalPI, emiPrincipal, emiInterest, installment, totalReceivedPI: paidAmount, balancePI: pendingPI };
                 });
-                columns = ['Customer', 'Principal', 'Interest', 'Total', 'EMI (P)', 'EMI (I)', 'EMI', 'Received', 'Balance'];
+                columns = ['Customer', 'Principal', 'Service Fee', 'Total', 'Installment (P)', 'Installment (I)', 'Installment', 'Received', 'Balance'];
                 renderRow = (row, index) => (
                     <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
                         <td className="px-4 py-4 font-medium">{row.customerName}</td>
@@ -313,7 +313,7 @@ const Dashboard: React.FC = () => {
                         <td className="px-4 py-4">{formatCurrency(row.totalLoanPI)}</td>
                         <td className="px-4 py-4">{formatCurrency(row.emiPrincipal)}</td>
                         <td className="px-4 py-4">{formatCurrency(row.emiInterest)}</td>
-                        <td className="px-4 py-4">{formatCurrency(row.emi)}</td>
+                        <td className="px-4 py-4">{formatCurrency(row.installment)}</td>
                         <td className="px-4 py-4 text-primary">{formatCurrency(row.totalReceivedPI)}</td>
                         <td className="px-4 py-4 font-bold text-tertiary">{formatCurrency(row.balancePI)}</td>
                     </tr>
@@ -339,9 +339,9 @@ const Dashboard: React.FC = () => {
             case 'Portfolio Outstanding':
                 modalData = records.filter(l => ['Finalized', 'Active', 'Overdue'].includes(l.status)).map(l => {
                     const principal = Number(l.amount) || 0;
-                    const emi = Number(l.emi) || 0;
+                    const installment = Number(l.installment) || 0;
                     const tenure = Number(l.tenure) || 0;
-                    const totalPI = emi * tenure;
+                    const totalPI = installment * tenure;
                     const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
                     const paidAmount = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
                     const outstanding = Math.max(0, totalPI - paidAmount);
@@ -367,7 +367,7 @@ const Dashboard: React.FC = () => {
                     const totalCollected = emiCollected + foreclosureAmount;
                     return { ...l, emisPaid: paidEmis.length, emiCollected, foreclosureAmount, totalCollected };
                 }).filter(l => l.totalCollected > 0);
-                columns = ['Customer', 'EMIs Paid', 'EMI Collected', 'Foreclosure', 'Total Collected'];
+                columns = ['Customer', 'EMIs Paid', 'Installment Collected', 'Pre-closure', 'Total Collected'];
                 renderRow = (row, index) => (
                     <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
                         <td className="px-4 py-4 font-medium">{row.customerName}</td>
@@ -390,7 +390,7 @@ const Dashboard: React.FC = () => {
         const { data, columns } = getModalContent();
         if (!data || data.length === 0) { alert("No data available."); return; }
         const doc = new jsPDF('l', 'mm', 'a4');
-        doc.text((currentCompany?.name || "Finance Company") + " Report - " + activeCard, 14, 15);
+        doc.text((currentCompany?.name || "Management Company") + " Report - " + activeCard, 14, 15);
 
         let tableRows: any[] = [];
 
@@ -400,7 +400,7 @@ const Dashboard: React.FC = () => {
                 row.id || '-',
                 formatCurrency(row.amount),
                 row.disbursalDate ? format(parseISO(row.disbursalDate), 'dd-MMM-yy') : '-',
-                formatCurrency(row.emi),
+                formatCurrency(row.installment),
                 row.status || '-'
             ]);
         } else if (activeCard === 'Active Records') {
@@ -419,7 +419,7 @@ const Dashboard: React.FC = () => {
                 formatCurrency(row.totalLoanPI),
                 formatCurrency(row.emiPrincipal),
                 formatCurrency(row.emiInterest),
-                formatCurrency(row.emi),
+                formatCurrency(row.installment),
                 formatCurrency(row.totalReceivedPI),
                 formatCurrency(row.balancePI)
             ]);
@@ -528,7 +528,7 @@ const Dashboard: React.FC = () => {
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-3">
                     <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[20px]">info</span>
                     <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-tight">
-                        <strong>Important:</strong> This is a record management tool for tracking and ledger purposes. We do not provide loans or financial services.
+                        <strong>Important:</strong> This is a record management tool for tracking and ledger purposes. We do not provide records or financial services.
                     </p>
                 </div>
 
@@ -547,7 +547,7 @@ const Dashboard: React.FC = () => {
                                 <span className="material-symbols-outlined text-indigo-200 text-sm">account_balance_wallet</span>
                                 <span className="text-xs font-semibold text-indigo-100 tracking-wide uppercase">Available Balance</span>
                             </div>
-                            <Link to="/finance" className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20">
+                            <Link to="/management" className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20">
                                 <span className="material-symbols-outlined">arrow_outward</span>
                             </Link>
                         </div>
@@ -575,9 +575,9 @@ const Dashboard: React.FC = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {[
                             { link: "/records/new", icon: "add", isKadak: true, label: "New Record" },
-                            { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Collect EMI" },
+                            { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Collect Installment" },
                             { link: "/customers/new", icon: "person_add", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", label: "Add Client" },
-                            { link: "/finance", icon: "bar_chart", color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", label: "Reports" }
+                            { link: "/management", icon: "bar_chart", color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", label: "Reports" }
                         ].map((action, i) => (
                             <Link key={i} to={action.link}
                                 className={`group flex flex-col items-center justify-center p-5 transition-all duration-300 ${action.isKadak
@@ -881,7 +881,7 @@ const Dashboard: React.FC = () => {
 
                                 <div className="flex flex-wrap gap-2 py-1">
                                     {[
-                                        { l: 'Reminder', t: 'Just a Reminder 🎗️', b: 'Your EMI is due soon. Please keep sufficient balance.' },
+                                        { l: 'Reminder', t: 'Just a Reminder 🎗️', b: 'Your Installment is due soon. Please keep sufficient balance.' },
                                         { l: 'Urgent', t: 'Action Required ⚠️', b: 'Your payment is Overdue. Please pay immediately.' },
                                         { l: 'Offer', t: 'Special Offer 🎉', b: 'Get a Top-Up record today with 0% processing fee!' }
                                     ].map((tmpl, i) => (
@@ -895,7 +895,7 @@ const Dashboard: React.FC = () => {
                                     <input
                                         value={notifTitle}
                                         onChange={e => setNotifTitle(e.target.value)}
-                                        placeholder="Notification Title (e.g. EMI Reminder)"
+                                        placeholder="Notification Title (e.g. Installment Reminder)"
                                         className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-bold placeholder:opacity-50 shadow-inner focus:ring-2 focus:ring-indigo-500 transition-all"
                                     />
                                     <textarea

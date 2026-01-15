@@ -57,7 +57,7 @@ const NewLoan: React.FC = () => {
 
         // Fetch active records to prevent duplicates (also filter by company)
         const activeLoansQuery = query(
-          collection(db, "loans"),
+          collection\(db, "loans"\),
           where("status", "==", "Finalized"),
           where("companyId", "==", currentCompany.id)
         );
@@ -108,14 +108,14 @@ const NewLoan: React.FC = () => {
   const calculateLoanDetails = () => {
     const processingFee = Math.round((form.amount * form.processingFeePercentage) / 100);
     const monthlyRate = form.interestRate / 12 / 100;
-    const emi = Math.round(
+    const installment = Math.round(
       (form.amount * monthlyRate * Math.pow(1 + monthlyRate, form.tenure)) /
       (Math.pow(1 + monthlyRate, form.tenure) - 1)
     );
-    return { processingFee, emi };
+    return { processingFee, installment };
   };
 
-  const { processingFee, emi } = calculateLoanDetails();
+  const { processingFee, installment } = calculateLoanDetails();
 
   // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,7 +155,7 @@ const NewLoan: React.FC = () => {
           tenure: form.tenure,
           processingFeePercentage: form.processingFeePercentage,
           processingFee,
-          emi,
+          installment,
           notes: form.notes || null,
           status: "Pending",
           createdBy: auth.currentUser!.uid,
@@ -331,9 +331,9 @@ const NewLoan: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Interest Rate */}
+                {/* Service Rate */}
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Interest Rate (% p.a.)</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Service Rate (% p.a.)</label>
                   <input
                     type="number"
                     name="interestRate"
@@ -372,8 +372,8 @@ const NewLoan: React.FC = () => {
               {/* Summary Box */}
               <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <p className="text-xs text-slate-500 uppercase font-bold">Monthly EMI</p>
-                  <p className="text-xl font-extrabold text-primary">₹{emi.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-slate-500 uppercase font-bold">Monthly Installment</p>
+                  <p className="text-xl font-extrabold text-primary">₹{installment.toLocaleString('en-IN')}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-slate-500 uppercase font-bold">Processing Fee</p>

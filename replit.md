@@ -1,7 +1,7 @@
-# JLS Finance Suite
+# JLS Management Suite
 
 ## Overview
-A React + TypeScript finance management application built with Vite with Capacitor for Android app generation. The application provides record management, customer tracking, EMI calculations, and financial reporting features.
+A React + TypeScript management management application built with Vite with Capacitor for Android app generation. The application provides record management, customer tracking, Installment calculations, and financial reporting features.
 
 ## Tech Stack
 - React 19 with TypeScript
@@ -65,7 +65,7 @@ All of the following fixes are **already implemented** in the project:
    - File → Invalidate Caches & Restart
    - File → Sync with Gradle Files
 4. Add `google-services.json` from Firebase Console to `android/app/`
-5. Generate signing key: `keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-finance`
+5. Generate signing key: `keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-management`
 6. Build: Build > Generate Signed Bundle / APK > Android App Bundle
 7. Upload AAB to Play Console
 
@@ -76,16 +76,16 @@ npx cap sync android
 ```
 
 ## Recent Features (Dec 2025)
-1. **Foreclosure PDF Certificate** - Auto-generates detailed PDF when record is pre-closed with full record details, payment summary, and foreclosure calculation
-2. **Extra Payment Feature** - In Due List, can now enter custom amount higher than EMI for extra payments, with PDF preview before save and auto-download after
-3. **Amount Received Checkbox** - When foreclosing a record, checkbox to confirm amount received. When checked, the foreclosure amount is automatically added as credit to cash ledger
-4. **Undo Foreclosure** - For records that were pre-closed, an "Undo Foreclosure" button restores the record to active status with pending EMIs
-5. **Record Finalization** - Added Record Finalization option in Tools page. Confirmed records can be finalized with date selection, automatic EMI schedule generation, and WhatsApp notification
+1. **Pre-closure PDF Certificate** - Auto-generates detailed PDF when record is pre-closed with full record details, payment summary, and pre-closure calculation
+2. **Extra Payment Feature** - In Due List, can now enter custom amount higher than Installment for extra payments, with PDF preview before save and auto-download after
+3. **Amount Received Checkbox** - When foreclosing a record, checkbox to confirm amount received. When checked, the pre-closure amount is automatically added as credit to cash ledger
+4. **Undo Pre-closure** - For records that were pre-closed, an "Undo Pre-closure" button restores the record to active status with pending EMIs
+5. **Record Finalization** - Added Record Finalization option in Tools page. Confirmed records can be finalized with date selection, automatic Installment schedule generation, and WhatsApp notification
 6. **Role-Based Company Access** - Users assigned admin/agent roles in a company now automatically see that company when they login, no need to add company again
-7. **Customer Portal** - Customers can login using phone number (as both user ID and password) to view their record details and EMI schedule
-8. **UPI Payment for EMI** - Customer portal generates QR code and UPI payment link for EMI payments to 9413821007@superyes
-9. **Enhanced Record Top-up** - Top-up now asks for new duration (months), auto-generates new Record Agreement PDF and Record Card PDF with updated terms. Preserves the original EMI due day.
-10. **Flexible EMI Due Date** - When disbursing a record, can now select which day of month (1-28) EMI should be due instead of hardcoded 1st
+7. **Customer Portal** - Customers can login using phone number (as both user ID and password) to view their record details and Installment schedule
+8. **UPI Payment for Installment** - Customer portal generates QR code and UPI payment link for Installment payments to 9413821007@superyes
+9. **Enhanced Record Top-up** - Top-up now asks for new duration (months), auto-generates new Record Agreement PDF and Record Card PDF with updated terms. Preserves the original Installment due day.
+10. **Flexible Installment Due Date** - When disbursing a record, can now select which day of month (1-28) Installment should be due instead of hardcoded 1st
 
 ## Configuration
 - Vite is configured to allow all hosts for Replit proxy compatibility

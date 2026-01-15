@@ -39,7 +39,7 @@ const BottomNav: React.FC = () => {
         <NavItem path="/" icon="dashboard" label="Home" />
         <NavItem path="/customers" icon="group" label="Clients" />
         <NavItem path="/records" icon="credit_score" isFab />
-        <NavItem path="/finance" icon="account_balance_wallet" label="Finance" />
+        <NavItem path="/management" icon="account_balance_wallet" label="Management" />
         <NavItem path="/tools" icon="grid_view" label="Tools" />
       </div>
     </nav>

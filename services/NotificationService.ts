@@ -193,8 +193,8 @@ export const NotificationService = {
                     // If "isPast" (and not today), it's Overdue. 
 
                     let trigger: any = { at: scheduleDate };
-                    let body = `EMI of Rs. ${nextInstallment.amount} is due today for ${record.customerName}`;
-                    let title = 'EMI Due Today';
+                    let body = `Installment of Rs. ${nextInstallment.amount} is due today for ${record.customerName}`;
+                    let title = 'Installment Due Today';
 
                     if (isToday(dueDate)) {
                         // It's due today. 
@@ -205,8 +205,8 @@ export const NotificationService = {
                         }
                     } else if (isPast(dueDate)) {
                         // It is OVERDUE.
-                        title = 'EMI Overdue';
-                        body = `EMI of Rs. ${nextInstallment.amount} from ${record.customerName} was due on ${nextInstallment.date}`;
+                        title = 'Installment Overdue';
+                        body = `Installment of Rs. ${nextInstallment.amount} from ${record.customerName} was due on ${nextInstallment.date}`;
                         // Trigger immediately (5 sec delay)
                         trigger = { at: new Date(Date.now() + 1000 * 5) };
                     }

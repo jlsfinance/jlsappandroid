@@ -57,7 +57,7 @@ const LegalNotice: React.FC = () => {
     const { currentCompany } = useCompany();
 
     const companyDetails = useMemo(() => ({
-        name: currentCompany?.name || "Finance Company",
+        name: currentCompany?.name || "Management Company",
         address: currentCompany?.address || "",
         phone: currentCompany?.phone || ""
     }), [currentCompany]);
@@ -105,7 +105,7 @@ const LegalNotice: React.FC = () => {
                     where("companyId", "==", currentCompany.id)
                 )),
                 getDocs(query(
-                    collection(db, "loans"),
+                    collection\(db, "loans"\),
                     where("status", "in", ["Finalized", "Active", "Overdue"]),
                     where("companyId", "==", currentCompany.id)
                 ))
@@ -114,12 +114,12 @@ const LegalNotice: React.FC = () => {
             const allCustomers = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Customer[];
             const allLoans = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Record[];
 
-            // Filter for customers who have at least one overdue pending EMI
+            // Filter for customers who have at least one overdue pending Installment
             const overdueCustomerIds = new Set<string>();
             allLoans.forEach(record => {
                 if (record.repaymentSchedule) {
-                    const hasOverdue = record.repaymentSchedule.some(emi =>
-                        emi.status === 'Pending' && isPast(parseISO(emi.dueDate))
+                    const hasOverdue = record.repaymentSchedule.some(installment =>
+                        installment.status === 'Pending' && isPast(parseISO(installment.dueDate))
                     );
                     if (hasOverdue) overdueCustomerIds.add(record.customerId);
                 }
@@ -148,14 +148,14 @@ const LegalNotice: React.FC = () => {
         setSelectedCustomer(customer);
         const customerLoans = records.filter(l => l.customerId === customer.id);
 
-        // Find the oldest overdue EMI
+        // Find the oldest overdue Installment
         let targetLoan: Record | undefined;
         let targetEmi: any;
 
         for (const record of customerLoans) {
             if (!record.repaymentSchedule) continue;
-            const overdueEmi = record.repaymentSchedule.find(emi =>
-                emi.status === 'Pending' && isPast(parseISO(emi.dueDate))
+            const overdueEmi = record.repaymentSchedule.find(installment =>
+                installment.status === 'Pending' && isPast(parseISO(installment.dueDate))
             );
             if (overdueEmi) {
                 targetLoan = record;
@@ -216,14 +216,14 @@ Mr./Ms. ${form.customerName}
 ${form.customerAddress}
 Record Account: ${form.loanAccountNumber}
 
-Subject: IMMEDIATE PAYMENT DEMAND for Overdue Equated Monthly Installment (EMI)
+Subject: IMMEDIATE PAYMENT DEMAND for Overdue Equated Monthly Installment (Installment)
 
 This notice serves as a FINAL WARNING regarding your outstanding record from ${companyDetails.name}.
 
-Your EMI (Installment No. ${form.emiNumber}), which was due on ${calculatedDueDate ? format(parseISO(calculatedDueDate), 'dd MMMM, yyyy') : '---'}, remains unpaid. This payment is now overdue by ${daysOverdue} days.
+Your Installment (Installment No. ${form.emiNumber}), which was due on ${calculatedDueDate ? format(parseISO(calculatedDueDate), 'dd MMMM, yyyy') : '---'}, remains unpaid. This payment is now overdue by ${daysOverdue} days.
 
 OUTSTANDING DETAILS:
-- EMI Amount: ${formatCurrency(form.emiAmount)}
+- Installment Amount: ${formatCurrency(form.emiAmount)}
 - Late Fees (${daysOverdue} days): ${formatCurrency(daysOverdue * form.lateFeePerDay)}
 - TOTAL DUE: ${formatCurrency(totalAmountDue)}
 
@@ -232,7 +232,7 @@ You are instructed to pay the total amount of ${formatCurrency(totalAmountDue)} 
 PAYMENT DETAILS:
 ${form.paymentDetails}
 
-Failure to comply will result in reporting to credit bureaus and initiation of legal recovery proceedings.
+Failure to comply will result in reporting to credit bureaus and initiation of account reconciliation proceedings.
 
 Sincerely,
 ${form.signatoryName}
@@ -322,7 +322,7 @@ For ${companyDetails.name}`;
                         <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
                             <span className="material-symbols-outlined">arrow_back</span>
                         </button>
-                        <h1 className="text-2xl font-bold tracking-tight">Legal Notice Generator</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">Payment Reminder Generator</h1>
                     </div>
                 </div>
 
@@ -415,7 +415,7 @@ For ${companyDetails.name}`;
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-500">EMI Amount</label>
+                                <label className="text-xs font-bold text-slate-500">Installment Amount</label>
                                 <input type="number" value={form.emiAmount} onChange={e => setForm({ ...form, emiAmount: Number(e.target.value) })} className="w-full mt-1 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm" />
                             </div>
                             <div>
@@ -498,13 +498,13 @@ For ${companyDetails.name}`;
                         <div className="bg-white dark:bg-[#151b26] p-3 rounded-lg text-xs border border-green-100 dark:border-green-900/20 text-slate-600 dark:text-slate-300">
                             🚨 *FINAL REMINDER* 🚨<br /><br />
                             Dear {form.customerName},<br />
-                            Your EMI of *{formatCurrency(totalAmountDue)}* due on {calculatedDueDate} is overdue.<br />
-                            Please pay within {form.paymentDeadlineHours} hours to avoid legal action.<br /><br />
+                            Your Installment of *{formatCurrency(totalAmountDue)}* due on {calculatedDueDate} is overdue.<br />
+                            Please pay within {form.paymentDeadlineHours} hours to avoid account review.<br /><br />
                             UPI: {form.paymentDetails.split('\n')[0].split(':')[1] || 'As per notice'}
                         </div>
                         <button
                             onClick={() => {
-                                const msg = `🚨 *FINAL REMINDER* 🚨\n\nDear ${form.customerName},\nYour EMI of *${formatCurrency(totalAmountDue)}* due on ${calculatedDueDate} is overdue.\nPlease pay within ${form.paymentDeadlineHours} hours to avoid legal action.\n\nUPI: ${form.paymentDetails.split('\n')[0].split(':')[1] || 'As per notice'}`;
+                                const msg = `🚨 *FINAL REMINDER* 🚨\n\nDear ${form.customerName},\nYour Installment of *${formatCurrency(totalAmountDue)}* due on ${calculatedDueDate} is overdue.\nPlease pay within ${form.paymentDeadlineHours} hours to avoid account review.\n\nUPI: ${form.paymentDetails.split('\n')[0].split(':')[1] || 'As per notice'}`;
                                 const phone = selectedCustomer.phone?.replace(/\D/g, '').slice(-10);
                                 if (phone) window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                                 else alert("Customer phone number not available.");

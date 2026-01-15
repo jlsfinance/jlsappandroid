@@ -18,7 +18,7 @@ interface Record {
     amount: number;
     status: string;
     date: string;
-    emi: number;
+    installment: number;
     tenure: number;
     processingFee: number;
     disbursalDate?: string;
@@ -139,7 +139,7 @@ const Records: React.FC = () => {
     const [showPdfModal, setShowPdfModal] = useState(false);
 
     const companyDetails = useMemo(() => ({
-        name: currentCompany?.name || "Finance Company",
+        name: currentCompany?.name || "Management Company",
         address: currentCompany?.address || "",
         phone: currentCompany?.phone || ""
     }), [currentCompany]);
@@ -150,7 +150,7 @@ const Records: React.FC = () => {
 
         setLoading(true);
         try {
-            const q = query(collection(db, "loans"), where("companyId", "==", currentCompany.id));
+            const q = query(collection\(db, "loans"\), where("companyId", "==", currentCompany.id));
             const querySnapshot = await getDocs(q);
             const loansData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -289,15 +289,15 @@ const Records: React.FC = () => {
             pdfDoc.text(agreementTitle, 14, startY);
             startY += 4;
 
-            const totalRepayment = record.emi * record.tenure;
+            const totalRepayment = record.installment * record.tenure;
             const totalInterest = totalRepayment - record.amount;
 
             const summaryBody = [
                 [{ content: 'Record Amount (Principal)', styles: { fontStyle: 'bold' } }, `${formatCurrency(record.amount)} (${toWords(record.amount)} Only)`],
                 [{ content: 'Record Tenure', styles: { fontStyle: 'bold' } }, `${record.tenure} Months`],
-                [{ content: 'EMI', styles: { fontStyle: 'bold' } }, formatCurrency(record.emi)],
+                [{ content: 'Installment', styles: { fontStyle: 'bold' } }, formatCurrency(record.installment)],
                 [{ content: 'Processing Fee', styles: { fontStyle: 'bold' } }, formatCurrency(record.processingFee || 0)],
-                [{ content: 'Total Interest Payable', styles: { fontStyle: 'bold' } }, formatCurrency(totalInterest)],
+                [{ content: 'Total Service Fee Payable', styles: { fontStyle: 'bold' } }, formatCurrency(totalInterest)],
                 [{ content: 'Total Amount Repayable', styles: { fontStyle: 'bold' } }, formatCurrency(totalRepayment)],
                 [{ content: 'Finalization Date', styles: { fontStyle: 'bold' } }, record.disbursalDate ? format(new Date(record.disbursalDate), 'do MMMM yyyy') : 'N/A'],
             ];
@@ -349,12 +349,12 @@ const Records: React.FC = () => {
             pdfDoc.setFont("helvetica", "normal");
 
             const clauses = [
-                "The Borrower agrees to repay the record amount along with interest in the form of EMIs as specified in the record summary.",
+                "The Customer agrees to repay the record amount along with service fee in the form of EMIs as specified in the record summary.",
                 "All payments shall be made on or before the due date of each month.",
-                "In case of a delay in payment of EMI, a penal interest/late fee as per the company's prevailing policy will be charged.",
-                "Default in repayment of three or more consecutive EMIs shall entitle the Lender to recall the entire record amount and initiate legal proceedings for recovery.",
-                "The Borrower confirms that all information provided in the record application is true and correct.",
-                "This record is unsecured. No collateral has been provided by the Borrower.",
+                "In case of a delay in payment of Installment, a penal service fee/late fee as per the company's prevailing policy will be charged.",
+                "Default in repayment of three or more consecutive EMIs shall entitle the Provider to recall the entire record amount and initiate legal proceedings for recovery.",
+                "The Customer confirms that all information provided in the record application is true and correct.",
+                "This record is unsecured. No collateral has been provided by the Customer.",
                 "Any disputes arising out of this agreement shall be subject to the jurisdiction of the courts.",
             ];
 
@@ -386,7 +386,7 @@ const Records: React.FC = () => {
             pdfDoc.setFontSize(10);
             pdfDoc.setFont("helvetica", "bold");
             pdfDoc.text(`For ${companyDetails.name} `, 50, startY, { align: 'center' });
-            pdfDoc.text("Borrower's Signature", 160, startY, { align: 'center' });
+            pdfDoc.text("Customer's Signature", 160, startY, { align: 'center' });
 
             const pdfBlob = pdfDoc.output('blob');
             setCurrentPdfBlob(pdfBlob);
@@ -450,7 +450,7 @@ const Records: React.FC = () => {
             const details = [
                 [{ label: "Customer Name", value: record.customerName }, { label: "Record ID", value: record.id }],
                 [{ label: "Record Amount", value: formatCurrency(record.amount) }, { label: "Tenure", value: `${record.tenure} Months` }],
-                [{ label: "Monthly EMI", value: formatCurrency(record.emi) }, { label: "Finalization Date", value: record.disbursalDate ? format(parseISO(record.disbursalDate), 'dd-MMM-yyyy') : 'N/A' }],
+                [{ label: "Monthly Installment", value: formatCurrency(record.installment) }, { label: "Finalization Date", value: record.disbursalDate ? format(parseISO(record.disbursalDate), 'dd-MMM-yyyy') : 'N/A' }],
             ];
 
             details.forEach(row => {
@@ -465,7 +465,7 @@ const Records: React.FC = () => {
             y += 3;
 
             // Schedule
-            const head = [["No", "Due Date", "Amount", "Principal", "Interest", "Balance"]];
+            const head = [["No", "Due Date", "Amount", "Principal", "Service Fee", "Balance"]];
             const body: any[] = [];
 
             if (record.repaymentSchedule && record.repaymentSchedule.length > 0) {
@@ -480,18 +480,18 @@ const Records: React.FC = () => {
                 // Actually, for the Record Card, we want to show the schedule matching the current tenure.
                 // The 'repaymentSchedule' in DB has the correct dates and statuses.
 
-                // Re-calculating Principal/Interest split for display is complex with mixed history without 'amortizationSchedule'.
+                // Re-calculating Principal/Service Fee split for display is complex with mixed history without 'amortizationSchedule'.
                 // If we have 'amortizationSchedule', use it!
 
                 // Fallback: If no amortization schedule, we just list the EMIs without detailed P/I split for old ones if missing.
 
-                record.repaymentSchedule.forEach((emi: any, index: number) => {
+                record.repaymentSchedule.forEach((installment: any, index: number) => {
                     body.push([
-                        emi.emiNumber,
-                        emi.dueDate ? format(new Date(emi.dueDate), 'dd-MMM-yy') : 'N/A',
-                        formatCurrency(emi.amount),
+                        installment.emiNumber,
+                        installment.dueDate ? format(new Date(installment.dueDate), 'dd-MMM-yy') : 'N/A',
+                        formatCurrency(installment.amount),
                         '-', // Principal split might be missing in simple schedule object
-                        '-', // Interest split might be missing
+                        '-', // Service Fee split might be missing
                         '-'  // Balance might be missing
                     ]);
                 });
@@ -503,9 +503,9 @@ const Records: React.FC = () => {
                         body.push([
                             row.emiNo,
                             format(new Date(row.dueDate), 'dd-MMM-yy'),
-                            formatCurrency(row.emi),
+                            formatCurrency(row.installment),
                             formatCurrency(row.principal),
-                            formatCurrency(row.interest),
+                            formatCurrency(row.service fee),
                             formatCurrency(row.closingBalance)
                         ]);
                     });
@@ -518,7 +518,7 @@ const Records: React.FC = () => {
 
                 for (let i = 1; i <= record.tenure; i++) {
                     const interestPayment = balance * monthlyInterestRate;
-                    const principalPayment = record.emi - interestPayment;
+                    const principalPayment = record.installment - interestPayment;
                     balance -= principalPayment;
                     if (balance < 0) balance = 0;
 
@@ -532,7 +532,7 @@ const Records: React.FC = () => {
                     body.push([
                         i,
                         dateStr,
-                        formatCurrency(record.emi),
+                        formatCurrency(record.installment),
                         formatCurrency(principalPayment),
                         formatCurrency(interestPayment),
                         formatCurrency(balance)

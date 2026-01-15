@@ -34,7 +34,7 @@ const Approvals: React.FC = () => {
             setLoading(true);
             try {
                 const q = query(
-                    collection(db, "loans"),
+                    collection\(db, "loans"\),
                     where("status", "==", "Pending"),
                     where("companyId", "==", currentCompany.id)
                 );
@@ -189,7 +189,7 @@ const Approvals: React.FC = () => {
                                 <textarea
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
-                                    placeholder={modalType === 'approve' ? "E.g. Verified documents..." : "E.g. Low credit score..."}
+                                    placeholder={modalType === 'approve' ? "E.g. Verified documents..." : "E.g. Low record history..."}
                                     className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none h-24"
                                 />
                             </div>

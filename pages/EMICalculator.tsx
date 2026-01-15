@@ -6,11 +6,11 @@ const EMICalculator: React.FC = () => {
   const [rate, setRate] = useState(12.5);
   const [tenure, setTenure] = useState(2); // in years
 
-  // Simple EMI Calculation Logic (Mock visualization of updates)
+  // Simple Installment Calculation Logic (Mock visualization of updates)
   const monthlyInterest = rate / 12 / 100;
   const months = tenure * 12;
-  const emi = (amount * monthlyInterest * Math.pow(1 + monthlyInterest, months)) / (Math.pow(1 + monthlyInterest, months) - 1);
-  const totalPayment = emi * months;
+  const installment = (amount * monthlyInterest * Math.pow(1 + monthlyInterest, months)) / (Math.pow(1 + monthlyInterest, months) - 1);
+  const totalPayment = installment * months;
   const totalInterest = totalPayment - amount;
 
   return (
@@ -20,7 +20,7 @@ const EMICalculator: React.FC = () => {
         <Link to="/tools" className="flex items-center justify-center p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
         </Link>
-        <h1 className="text-lg font-bold flex-1 text-center pr-10">EMI Calculator</h1>
+        <h1 className="text-lg font-bold flex-1 text-center pr-10">Installment Calculator</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -30,13 +30,13 @@ const EMICalculator: React.FC = () => {
           <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6">Monthly Installment</h2>
           <div className="relative size-56 rounded-full flex items-center justify-center mb-6 shadow-inner bg-gradient-to-tr from-primary to-blue-300 p-1">
              <div className="bg-white dark:bg-[#1a2233] w-full h-full rounded-full flex flex-col items-center justify-center shadow-lg">
-                <span className="text-3xl font-extrabold text-primary">₹{emi.toFixed(2)}</span>
+                <span className="text-3xl font-extrabold text-primary">₹{installment.toFixed(2)}</span>
                 <span className="text-xs text-slate-500 mt-1 font-medium">per month</span>
              </div>
           </div>
           <div className="flex items-center justify-between w-full gap-4 px-2">
             <div className="flex flex-col items-center flex-1 p-3 rounded-xl bg-background-light dark:bg-background-dark">
-              <span className="text-xs text-slate-500">Interest</span>
+              <span className="text-xs text-slate-500">Service Fee</span>
               <span className="text-sm font-bold text-primary">₹{totalInterest.toFixed(2)}</span>
             </div>
             <div className="flex flex-col items-center flex-1 p-3 rounded-xl bg-background-light dark:bg-background-dark">
@@ -61,7 +61,7 @@ const EMICalculator: React.FC = () => {
 
           <div className="space-y-4">
             <div className="flex justify-between items-end">
-              <label className="font-semibold text-base">Interest Rate</label>
+              <label className="font-semibold text-base">Service Rate</label>
               <div className="flex items-center bg-background-light dark:bg-background-dark rounded-lg px-3 py-2 w-24">
                 <input className="bg-transparent border-none p-0 w-full text-right font-bold focus:ring-0" type="number" value={rate} onChange={(e) => setRate(Number(e.target.value))} />
                 <span className="text-slate-500 font-medium ml-1">%</span>

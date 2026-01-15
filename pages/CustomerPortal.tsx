@@ -90,7 +90,7 @@ const CustomerPortal: React.FC = () => {
         const compSnap = await getDoc(doc(db, "companies", cData.companyId));
         if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() } as Company);
       }
-      const lSnap = await getDocs(query(collection(db, "loans"), where("customerId", "==", cid)));
+      const lSnap = await getDocs(query(collection\(db, "loans"\), where("customerId", "==", cid)));
       setLoans(lSnap.docs.map(d => ({ id: d.id, ...d.data() } as Record)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [navigate]);
@@ -129,7 +129,7 @@ const CustomerPortal: React.FC = () => {
           const emiDate = pDateS ? new Date(pDateS) : null;
           if (emiDate && !isNaN(emiDate.getTime())) {
             logs.push({
-              type: 'emi',
+              type: 'installment',
               date: emiDate,
               amount: e.amountPaid || e.amount || 0,
               emiNo: e.emiNumber,
@@ -196,14 +196,14 @@ const CustomerPortal: React.FC = () => {
         <div className="mx-6 mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 flex items-start gap-3">
           <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]">info</span>
           <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
-            <strong>Note:</strong> This app is for record management only. We do not provide loans or financial services.
+            <strong>Note:</strong> This app is for record management only. We do not provide records or financial services.
           </p>
         </div>
 
         {/* Quick Actions Panel */}
         <div className="mx-6 mt-4 bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-3 relative z-30">
           {[
-            { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI found!"); } },
+            { label: 'Pay Installment', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending Installment found!"); } },
             { label: 'History', icon: 'history', bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => setCurrentTab('history') },
             // Replaced Support with Test Notif for debugging
             {
@@ -312,7 +312,7 @@ const CustomerPortal: React.FC = () => {
                       if (!customer || !company) return alert("Please wait for data to load.");
                       if (log.type === 'record') {
                         const lData = records.find(l => l.id === log.id);
-                        if (lData) await PdfGenerator.generateLoanAgreement(lData as any, customer as any, company as any);
+                        if (lData) await PdfGenerator.generateRecordAgreement(lData as any, customer as any, company as any);
                       } else {
                         const tLoan = records.find(l => l.id === log.loanId);
                         const tEmi = tLoan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
@@ -327,7 +327,7 @@ const CustomerPortal: React.FC = () => {
                       <span className="material-symbols-outlined text-3xl font-variation-FILL">{log.type === 'record' ? 'account_balance' : 'verified_user'}</span>
                     </div>
                     <div>
-                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'record' ? 'Record Created' : `EMI #${log.emiNo} Payment`}</p>
+                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'record' ? 'Record Created' : `Installment #${log.emiNo} Payment`}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Ref: #{log.id || log.loanId}</p>
                       <div className="flex items-center gap-3 mt-1.5">
                         <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{log.date instanceof Date ? log.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '---'}</span></div>
@@ -397,7 +397,7 @@ const CustomerPortal: React.FC = () => {
                     action: () => {
                       if (!customer) return;
                       const referralCode = 'JLS' + (customer?.id || '0000').slice(-4).toUpperCase();
-                      const message = `Hello! I use JLS Suite to manage my personal records. Use my referral code: ${referralCode}`;
+                      const message = `Hello! I use BillBook Suite to manage my personal records. Use my referral code: ${referralCode}`;
                       window.open(`whatsapp://send?text=${encodeURIComponent(message)}`, '_system');
                     }
                   },
@@ -420,7 +420,7 @@ const CustomerPortal: React.FC = () => {
               <div className="pt-10 pb-4 flex flex-col items-center gap-2 opacity-30">
                 <div className="flex items-center gap-3">
                   <span className="w-10 h-[1px] bg-gray-400"></span>
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">JLS Suite</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">BillBook Suite</span>
                   <span className="w-10 h-[1px] bg-gray-400"></span>
                 </div>
                 <p className="text-[9px] font-bold text-gray-400">Environment: Production (Android)</p>
@@ -453,7 +453,7 @@ const CustomerPortal: React.FC = () => {
                   setSelectedLoan(primaryLoan);
                   setSelectedEmi(nextEmi);
                   setShowPaymentModal(true);
-                } else alert("No due EMI at this moment!");
+                } else alert("No due Installment at this moment!");
               } else {
                 setCurrentTab(tab.id as any);
               }
@@ -509,7 +509,7 @@ const CustomerPortal: React.FC = () => {
               <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-70">Scan or click to pay via UPI</p>
               <div className="mt-8 bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-white">
                 <img
-                  src={`https://quickchart.io/qr?text=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=${encodeURIComponent(company?.name || 'JLS Suite')}&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`)}&size=300`}
+                  src={`https://quickchart.io/qr?text=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=${encodeURIComponent(company?.name || 'BillBook Suite')}&am=${selectedEmi.amount}&cu=INR&tn=Installment${selectedEmi.emiNumber}`)}&size=300`}
                   className="w-48 h-48 rounded-xl"
                   alt="Payment QR"
                 />
@@ -518,13 +518,13 @@ const CustomerPortal: React.FC = () => {
             <div className="p-10">
               <div className="flex justify-between items-center mb-10">
                 <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Net Payable</p><p className="font-black text-3xl text-gray-900 dark:text-white">{formatCurrency(selectedEmi.amount)}</p></div>
-                <div className="text-right"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">EMI REF</p><p className="font-black text-lg text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">#{selectedEmi.emiNumber}</p></div>
+                <div className="text-right"><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Installment REF</p><p className="font-black text-lg text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">#{selectedEmi.emiNumber}</p></div>
               </div>
               <button
                 onClick={async () => {
                   try {
                     const upiId = company?.upiId || UPI_ID;
-                    const payeeName = encodeURIComponent(company?.name || 'JLS Suite');
+                    const payeeName = encodeURIComponent(company?.name || 'BillBook Suite');
                     const amount = selectedEmi.amount;
                     const transactionNote = encodeURIComponent(`EMI_PAYMENT_LOAN_${selectedLoan?.id}_EMI_${selectedEmi.emiNumber}`);
                     const upiUrl = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${amount}&cu=INR&tn=${transactionNote}`;
@@ -571,7 +571,7 @@ const CustomerPortal: React.FC = () => {
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
-                  await PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any);
+                  await PdfGenerator.generateRecordCard(selectedLoan as any, customer as any, company as any);
                 } catch (e) { alert("Failed to download."); }
               }} className="p-4 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-2 text-amber-700 dark:text-amber-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-amber-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">contact_emergency</span> Card</button>
 
@@ -593,7 +593,7 @@ const CustomerPortal: React.FC = () => {
                   <div key={i} className={`p-5 rounded-[1.5rem] flex justify-between items-center transition-all ${e.status === 'Paid' ? 'bg-emerald-50/40 border border-emerald-100 grayscale-[0.5]' : e.status === 'Overdue' ? 'bg-red-50 border-red-100 animate-pulse' : 'bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700'}`}>
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${e.status === 'Paid' ? 'bg-emerald-600 text-white' : e.status === 'Overdue' ? 'bg-red-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-400'}`}>{e.emiNumber}</div>
-                      <div><p className="font-black text-sm text-gray-800 dark:text-white">EMI #{e.emiNumber}</p><p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">{formatDate(e.dueDate)} • {e.status}</p></div>
+                      <div><p className="font-black text-sm text-gray-800 dark:text-white">Installment #{e.emiNumber}</p><p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">{formatDate(e.dueDate)} • {e.status}</p></div>
                     </div>
                     <div className="text-right">
                       <p className="font-black text-base mb-1">{formatCurrency(e.amount)}</p>

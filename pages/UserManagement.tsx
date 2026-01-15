@@ -222,7 +222,7 @@ const UserManagement: React.FC = () => {
                       onChange={(e) => setEditedPermissions(p => ({ ...p, canCollectEMI: e.target.checked }))}
                       className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
                     />
-                    <span className="text-sm">Can Collect EMI</span>
+                    <span className="text-sm">Can Collect Installment</span>
                   </label>
                 </div>
               )}

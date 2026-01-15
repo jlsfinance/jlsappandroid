@@ -27,7 +27,7 @@ const Receipts: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
   const companyDetails = useMemo(() => ({
-    name: currentCompany?.name || "Finance Company",
+    name: currentCompany?.name || "Management Company",
     address: currentCompany?.address || "",
     phone: currentCompany?.phone || ""
   }), [currentCompany]);
@@ -119,7 +119,7 @@ const Receipts: React.FC = () => {
         pdfDoc.text("Amount", 180, y, { align: 'right' });
         y += 8;
         pdfDoc.setFont("helvetica", "normal");
-        pdfDoc.text(`EMI Payment (No. ${receipt.emiNumber || 'N/A'})`, 14, y);
+        pdfDoc.text(`Installment Payment (No. ${receipt.emiNumber || 'N/A'})`, 14, y);
         pdfDoc.text(formatCurrency(receipt.amount), 180, y, { align: 'right' });
         y += 10;
 

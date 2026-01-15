@@ -20,7 +20,7 @@ const Sidebar: React.FC = () => {
     const { currentCompany } = useCompany();
     const location = useLocation();
     const navigate = useNavigate();
-    const [expandedMenus, setExpandedMenus] = useState<string[]>(['Records', 'Finance']); // Default expanded
+    const [expandedMenus, setExpandedMenus] = useState<string[]>(['Records', 'Management']); // Default expanded
     const [showAbout, setShowAbout] = useState(false);
 
     const handleLogout = async () => {
@@ -51,14 +51,14 @@ const Sidebar: React.FC = () => {
             submenu: [
                 { title: 'All Records', path: '/records', icon: 'list_alt' },
                 { title: 'New Record', path: '/records/new', icon: 'add_circle' },
-                { title: 'EMI Calculator', path: '/tools/emi', icon: 'calculate' },
+                { title: 'Installment Calculator', path: '/tools/installment', icon: 'calculate' },
             ]
         },
         {
-            title: 'Finance',
+            title: 'Management',
             icon: 'payments',
             submenu: [
-                { title: 'Overview', path: '/finance', icon: 'finance' },
+                { title: 'Overview', path: '/management', icon: 'management' },
                 { title: 'Receipts', path: '/receipts', icon: 'receipt_long' },
                 { title: 'Approvals', path: '/approvals', icon: 'verified' },
                 { title: 'Finalization', path: '/finalization', icon: 'monetization_on' },

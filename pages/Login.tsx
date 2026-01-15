@@ -79,7 +79,7 @@ const Login: React.FC = () => {
           <p className="text-white/60 text-xs">Secure Access to BillBook Suite</p>
           <div className="mt-2 bg-white/10 border border-white/20 rounded-lg p-2">
             <p className="text-[10px] text-white/80 leading-tight">
-              <strong>Disclaimer:</strong> This is a record management tool. We do not provide loans or financial services.
+              <strong>Disclaimer:</strong> This is a record management tool. We do not provide records or financial services.
             </p>
           </div>
         </div>

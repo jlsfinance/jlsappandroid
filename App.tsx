@@ -230,7 +230,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/finance" element={
+                <Route path="/management" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <FinanceOverview />
@@ -312,7 +312,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/tools/emi" element={
+                <Route path="/tools/installment" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <EMICalculator />

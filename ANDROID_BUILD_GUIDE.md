@@ -1,6 +1,6 @@
-# JLS Finance Suite - Android Build Guide
+# JLS Management Suite - Android Build Guide
 
-This guide explains how to build and publish the JLS Finance Suite app to the Google Play Store.
+This guide explains how to build and publish the JLS Management Suite app to the Google Play Store.
 
 ## Prerequisites
 
@@ -17,11 +17,11 @@ This guide explains how to build and publish the JLS Finance Suite app to the Go
 ## Step 2: Configure Firebase (Required)
 
 1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Select your project "jls-finance-company"
+2. Select your project "jls-management-company"
 3. Go to **Project Settings** > **General**
 4. Under "Your apps", click "Add app" > Android icon
 5. Enter package name: `com.jls.suite`
-6. Enter app nickname: `JLS Finance Suite`
+6. Enter app nickname: `JLS Management Suite`
 7. Click "Register app"
 8. Download `google-services.json`
 9. Copy the file to `android/app/google-services.json`
@@ -43,7 +43,7 @@ Copy the SHA-1 and SHA-256 fingerprints and add them to Firebase Console:
 Open terminal in Android Studio and run:
 
 ```bash
-keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-finance
+keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias jls-management
 ```
 
 Follow the prompts to set:
@@ -66,7 +66,7 @@ Add these lines to `android/gradle.properties`:
 ```properties
 RELEASE_STORE_FILE=keystores/release-key.jks
 RELEASE_STORE_PASSWORD=your_keystore_password
-RELEASE_KEY_ALIAS=jls-finance
+RELEASE_KEY_ALIAS=jls-management
 RELEASE_KEY_PASSWORD=your_key_password
 ```
 
@@ -100,7 +100,7 @@ The AAB file will be generated at:
 1. Go to [Google Play Console](https://play.google.com/console)
 2. Click **Create app**
 3. Fill in app details:
-   - App name: JLS Finance Suite
+   - App name: JLS Management Suite
    - Default language: English (India)
    - App or game: App
    - Free or paid: Free
@@ -121,7 +121,7 @@ Prepare these images:
 Fill in:
 - Short description (max 80 characters)
 - Full description (max 4000 characters)
-- App category: Finance
+- App category: Management
 - Contact email
 - Privacy Policy URL (required)
 

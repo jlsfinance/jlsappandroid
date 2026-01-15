@@ -15,7 +15,7 @@ interface LedgerEntry {
     date: Date;
     particulars: string;
     type: 'credit' | 'debit';
-    category: 'record' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure';
+    category: 'record' | 'installment' | 'partner' | 'expense' | 'fee' | 'pre-closure';
     amount: number;
     customerId?: string;
 }
@@ -60,7 +60,7 @@ const FinanceOverview: React.FC = () => {
             const companyId = currentCompany.id;
             const [partnerTxSnap, loansSnap, expensesSnap, customersSnap] = await Promise.all([
                 getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Finalized", "Active", "Completed", "Overdue"]))),
+                getDocs(query(collection\(db, "loans"\), where("companyId", "==", companyId), where("status", "in", ["Finalized", "Active", "Completed", "Overdue"]))),
                 getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId))),
                 getDocs(query(collection(db, "customers"), where("companyId", "==", companyId)))
             ]);
@@ -216,31 +216,31 @@ const FinanceOverview: React.FC = () => {
                     }
                 }
 
-                // Credit: EMI Payments
+                // Credit: Installment Payments
                 if (record.repaymentSchedule) {
-                    record.repaymentSchedule.forEach((emi: any) => {
+                    record.repaymentSchedule.forEach((installment: any) => {
                         // Only record ACTUAL cash received (Status = Paid)
-                        if (emi.status === 'Paid' && emi.paymentDate) {
+                        if (installment.status === 'Paid' && installment.paymentDate) {
                             flatLedgerEntries.push({
-                                date: parseISO(emi.paymentDate),
-                                particulars: `EMI Recd: ${record.customerName}`,
+                                date: parseISO(installment.paymentDate),
+                                particulars: `Installment Recd: ${record.customerName}`,
                                 type: 'credit',
-                                category: 'emi',
-                                amount: Number(emi.amount),
+                                category: 'installment',
+                                amount: Number(installment.amount),
                                 customerId: (record as any).customerId
                             });
                         }
                     });
                 }
 
-                // Credit: Foreclosure Payment (if amountReceived is true)
+                // Credit: Pre-closure Payment (if amountReceived is true)
                 const foreclosureDetails = (record as any).foreclosureDetails;
                 if (foreclosureDetails && foreclosureDetails.amountReceived && foreclosureDetails.date) {
                     flatLedgerEntries.push({
                         date: parseISO(foreclosureDetails.date),
-                        particulars: `Foreclosure Recd: ${record.customerName}`,
+                        particulars: `Pre-closure Recd: ${record.customerName}`,
                         type: 'credit',
-                        category: 'foreclosure',
+                        category: 'pre-closure',
                         amount: Number(foreclosureDetails.totalPaid),
                         customerId: (record as any).customerId
                     });
@@ -353,7 +353,7 @@ const FinanceOverview: React.FC = () => {
 
         doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
-        doc.text(currentCompany?.name || "Finance Company", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+        doc.text(currentCompany?.name || "Management Company", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
         doc.setFontSize(14);
         doc.text("Cash Account Ledger", doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
         doc.setFontSize(10);
@@ -400,7 +400,7 @@ const FinanceOverview: React.FC = () => {
 
     const getIconForCategory = (category: string, type: 'credit' | 'debit') => {
         if (category === 'record') return 'payments';
-        if (category === 'emi') return 'account_balance_wallet';
+        if (category === 'installment') return 'account_balance_wallet';
         if (category === 'fee') return 'percent';
         if (category === 'partner') return 'handshake';
         if (category === 'expense') return 'receipt_long';
