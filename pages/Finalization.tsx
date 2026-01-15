@@ -40,8 +40,8 @@ const Finalization: React.FC = () => {
             setLoading(true);
             try {
                 const q = query(
-                    collection\(db, "loans"\), 
-                    where\("status", "==", "Confirmed"\),
+                    collection(db, "loans"), 
+                    where("status", "==", "Confirmed"),
                     where("companyId", "==", currentCompany.id)
                 );
                 const querySnapshot = await getDocs(q);
@@ -64,7 +64,7 @@ const Finalization: React.FC = () => {
         setProcessing(true);
 
         try {
-            const loanRef = doc(db, "records", selectedLoan.id);
+            const loanRef = doc(db, "loans", selectedLoan.id);
             const dateObj = new Date(disbursalDate);
 
             // Generate Installment schedule with selected due day

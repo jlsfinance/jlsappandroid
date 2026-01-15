@@ -57,7 +57,7 @@ const NewLoan: React.FC = () => {
 
         // Fetch active records to prevent duplicates (also filter by company)
         const activeLoansQuery = query(
-          collection\(db, "loans"\),
+          collection(db, "loans"),
           where("status", "==", "Finalized"),
           where("companyId", "==", currentCompany.id)
         );
@@ -142,7 +142,7 @@ const NewLoan: React.FC = () => {
           nextId = typeof lastId === 'number' ? lastId + 10 : 10110;
         }
 
-        const newLoanRef = doc(db, 'records', nextId.toString());
+        const newLoanRef = doc(db, 'loans', nextId.toString());
 
         // Construct Record Object
         const loanData = {

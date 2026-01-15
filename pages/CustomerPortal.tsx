@@ -90,7 +90,7 @@ const CustomerPortal: React.FC = () => {
         const compSnap = await getDoc(doc(db, "companies", cData.companyId));
         if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() } as Company);
       }
-      const lSnap = await getDocs(query(collection\(db, "loans"\), where("customerId", "==", cid)));
+      const lSnap = await getDocs(query(collection(db, "loans"), where("customerId", "==", cid)));
       setLoans(lSnap.docs.map(d => ({ id: d.id, ...d.data() } as Record)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [navigate]);

@@ -34,7 +34,7 @@ const Approvals: React.FC = () => {
             setLoading(true);
             try {
                 const q = query(
-                    collection\(db, "loans"\),
+                    collection(db, "loans"),
                     where("status", "==", "Pending"),
                     where("companyId", "==", currentCompany.id)
                 );
@@ -69,7 +69,7 @@ const Approvals: React.FC = () => {
         const newStatus = modalType === 'approve' ? 'Confirmed' : 'Declined';
 
         try {
-            const loanRef = doc(db, "records", selectedApp.id);
+            const loanRef = doc(db, "loans", selectedApp.id);
 
             const updateData: any = {
                 status: newStatus,

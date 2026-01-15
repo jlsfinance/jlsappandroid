@@ -91,7 +91,7 @@ const Dashboard: React.FC = () => {
                 const companyId = currentCompany.id;
 
                 const [loansSnap, customersSnap, partnerTxSnap, expensesSnap] = await Promise.all([
-                    getDocs(query(collection\(db, "loans"\), where("companyId", "==", companyId))),
+                    getDocs(query(collection(db, "loans"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "customers"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))

@@ -57,7 +57,7 @@ const Partners: React.FC = () => {
             }) as Transaction[];
             setTransactions(transactionsData);
 
-            const loansSnap = await getDocs(query(collection\(db, "loans"\), where("status", "in", ["Finalized", "Completed", "Active", "Overdue"])));
+            const loansSnap = await getDocs(query(collection(db, "loans"), where("status", "in", ["Finalized", "Completed", "Active", "Overdue"])));
             const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Record[];
             setLoans(loansData);
             

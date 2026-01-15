@@ -105,7 +105,7 @@ const LegalNotice: React.FC = () => {
                     where("companyId", "==", currentCompany.id)
                 )),
                 getDocs(query(
-                    collection\(db, "loans"\),
+                    collection(db, "loans"),
                     where("status", "in", ["Finalized", "Active", "Overdue"]),
                     where("companyId", "==", currentCompany.id)
                 ))

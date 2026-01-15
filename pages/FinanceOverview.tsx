@@ -60,7 +60,7 @@ const FinanceOverview: React.FC = () => {
             const companyId = currentCompany.id;
             const [partnerTxSnap, loansSnap, expensesSnap, customersSnap] = await Promise.all([
                 getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                getDocs(query(collection\(db, "loans"\), where("companyId", "==", companyId), where("status", "in", ["Finalized", "Active", "Completed", "Overdue"]))),
+                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Finalized", "Active", "Completed", "Overdue"]))),
                 getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId))),
                 getDocs(query(collection(db, "customers"), where("companyId", "==", companyId)))
             ]);

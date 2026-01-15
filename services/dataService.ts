@@ -38,7 +38,7 @@ export const fetchCustomerById = async (id: string): Promise<Customer | null> =>
 export const fetchLoansByCustomerId = async (customerId: string): Promise<Record[]> => {
   try {
     const loansQuery = query(
-      collection\(db, "loans"\), 
+      collection(db, "loans"), 
       where("customerId", "==", customerId)
     );
     const querySnapshot = await getDocs(loansQuery);
@@ -59,9 +59,9 @@ export const fetchLoans = async (companyId?: string): Promise<Record[]> => {
   try {
     let q;
     if (companyId) {
-      q = query(collection\(db, "loans"\), where("companyId", "==", companyId));
+      q = query(collection(db, "loans"), where("companyId", "==", companyId));
     } else {
-      q = collection\(db, "loans"\);
+      q = collection(db, "loans");
     }
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Record));

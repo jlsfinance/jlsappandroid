@@ -150,7 +150,7 @@ const Records: React.FC = () => {
 
         setLoading(true);
         try {
-            const q = query(collection\(db, "loans"\), where("companyId", "==", currentCompany.id));
+            const q = query(collection(db, "loans"), where("companyId", "==", currentCompany.id));
             const querySnapshot = await getDocs(q);
             const loansData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -216,7 +216,7 @@ const Records: React.FC = () => {
             await Promise.all(deletePromises);
 
             // 2. Delete the Record document
-            await deleteDoc(doc(db, "records", loanToDelete.id));
+            await deleteDoc(doc(db, "loans", loanToDelete.id));
 
             fetchLoans();
             setShowDeleteConfirm(false);
@@ -505,7 +505,7 @@ const Records: React.FC = () => {
                             format(new Date(row.dueDate), 'dd-MMM-yy'),
                             formatCurrency(row.installment),
                             formatCurrency(row.principal),
-                            formatCurrency(row.service fee),
+                            formatCurrency(row['service fee']),
                             formatCurrency(row.closingBalance)
                         ]);
                     });

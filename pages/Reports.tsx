@@ -39,7 +39,7 @@ const Reports: React.FC = () => {
 
             try {
                 const [loansSnap, receiptsSnap, customersSnap] = await Promise.all([
-                    getDocs(query(collection\(db, "loans"\), where("companyId", "==", currentCompany.id))),
+                    getDocs(query(collection(db, "loans"), where("companyId", "==", currentCompany.id))),
                     getDocs(query(collection(db, "receipts"), where("companyId", "==", currentCompany.id))),
                     getDocs(query(collection(db, "customers"), where("companyId", "==", currentCompany.id)))
                 ]);

@@ -60,7 +60,7 @@ const EditLoan: React.FC = () => {
   const fetchLoanAndCustomer = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const loanRef = doc(db, "records", id);
+      const loanRef = doc(db, "loans", id);
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
@@ -141,7 +141,7 @@ const EditLoan: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const loanRef = doc(db, "records", loanId);
+      const loanRef = doc(db, "loans", loanId);
       await updateDoc(loanRef, {
         amount: form.amount,
         interestRate: form.interestRate,

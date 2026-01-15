@@ -66,7 +66,7 @@ interface AmortizationRow {
     dueDate: string;
     openingBalance: number;
     installment: number;
-    service fee: number;
+    serviceFee: number;
     principal: number;
     closingBalance: number;
 }
@@ -140,8 +140,8 @@ const generateAmortizationSchedule = (
     const schedule: AmortizationRow[] = [];
 
     for (let i = 1; i <= tenure; i++) {
-        const service fee = Math.round(balance * monthlyRate);
-        const principalPaid = Math.round(installment - service fee);
+        const serviceFee = Math.round(balance * monthlyRate);
+        const principalPaid = Math.round(installment - serviceFee);
         const closing = Math.max(balance - principalPaid, 0);
 
         const dueDate = new Date(
@@ -155,7 +155,7 @@ const generateAmortizationSchedule = (
             dueDate: dueDate.toISOString().split("T")[0],
             openingBalance: balance,
             installment,
-            service fee,
+            serviceFee,
             principal: principalPaid,
             closingBalance: closing
         });
@@ -302,7 +302,7 @@ const LoanDetails: React.FC = () => {
         if (!loanId) return;
         setLoading(true);
         try {
-            const loanRef = doc(db, "records", loanId);
+            const loanRef = doc(db, "loans", loanId);
             const docSnap = await getDoc(loanRef);
 
             if (docSnap.exists()) {
@@ -434,7 +434,7 @@ const LoanDetails: React.FC = () => {
                 month: existingEmi.emiNumber,
                 dueDate: existingEmi.dueDate || null,
                 principal: isOldEmi ? 0 : principalPayment, // Hide Principal for Old
-                service fee: isOldEmi ? 0 : interestPayment,   // Hide Service Fee for Old
+                serviceFee: isOldEmi? 0 : interestPayment,   // Hide Service Fee for Old
                 totalPayment: totalPayment,
                 balance: isOldEmi ? 0 : currentBalance,     // Hide Balance for Old
                 status: existingEmi.status || 'Pending',
@@ -612,7 +612,7 @@ const LoanDetails: React.FC = () => {
                 installment.status === 'Pending' ? { ...installment, status: 'Cancelled' as 'Cancelled' } : installment
             );
 
-            await updateDoc(doc(db, "records", record.id), {
+            await updateDoc(doc(db, "loans", record.id), {
                 status: 'Completed',
                 repaymentSchedule: updatedSchedule,
                 foreclosureDetails: foreclosureData
@@ -642,7 +642,7 @@ const LoanDetails: React.FC = () => {
                 installment.status === 'Cancelled' ? { ...installment, status: 'Pending' as 'Pending' } : installment
             );
 
-            await updateDoc(doc(db, "records", record.id), {
+            await updateDoc(doc(db, "loans", record.id), {
                 status: 'Finalized',
                 repaymentSchedule: updatedSchedule,
                 foreclosureDetails: null
@@ -754,7 +754,7 @@ const LoanDetails: React.FC = () => {
             // ===============================
             // 5️⃣ UPDATE LOAN
             // ===============================
-            await updateDoc(doc(db, "records", record!.id), {
+            await updateDoc(doc(db, "loans", record!.id), {
                 amount: newPrincipal,
                 tenure: paidEmis.length + topUpTenure,
                 originalEmi: record!.originalEmi || record!.installment,
@@ -1186,7 +1186,7 @@ const LoanDetails: React.FC = () => {
                         safeFormatDate(installment.dueDate),
                         formatCurrency(installment.totalPayment),
                         installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.principal),
-                        installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.service fee),
+                        installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.serviceFee),
                         installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.balance)
                     ]);
                 });
@@ -1197,7 +1197,7 @@ const LoanDetails: React.FC = () => {
                         safeFormatDate(row.dueDate),
                         formatCurrency(row.installment),
                         formatCurrency(row.principal),
-                        formatCurrency(row.service fee),
+                        formatCurrency(row.serviceFee),
                         formatCurrency(row.closingBalance)
                     ]);
                 });
@@ -1284,7 +1284,7 @@ const LoanDetails: React.FC = () => {
                     `${installment.month}/${record.tenure}`,
                     safeFormatDate(installment.dueDate),
                     installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.principal),
-                    installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.service fee),
+                    installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.serviceFee),
                     formatCurrency(installment.totalPayment),
                     installment.type === 'OLD Installment' ? '-' : formatCurrency(installment.balance),
                     safeFormatDate(installment.paymentDate),
@@ -1478,7 +1478,7 @@ const LoanDetails: React.FC = () => {
             row.emiNo,
             formatCurrency(row.openingBalance),
             formatCurrency(row.installment),
-            formatCurrency(row.service fee),
+            formatCurrency(row.serviceFee),
             formatCurrency(row.principal),
             formatCurrency(row.closingBalance),
             safeFormatDate(row.dueDate)
@@ -1599,7 +1599,7 @@ const LoanDetails: React.FC = () => {
             // =========================
             // 3️⃣ UPDATE FIRESTORE
             // =========================
-            await updateDoc(doc(db, "records", record.id), {
+            await updateDoc(doc(db, "loans", record.id), {
                 amount: restoredAmount,
                 installment: restoredEmi,
                 topUpEmi: deleteField(),
@@ -1853,7 +1853,7 @@ const LoanDetails: React.FC = () => {
                                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{installment.month}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{safeFormatDate(installment.dueDate)}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(installment.principal)}</td>
-                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(installment.service fee)}</td>
+                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(installment.serviceFee)}</td>
                                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{formatCurrency(getEmiAmountForDisplay(installment, record))}</td>
                                         <td>
                                             {installment.status === "Paid" ? (
@@ -1925,7 +1925,7 @@ const LoanDetails: React.FC = () => {
                                             <td className="px-4 py-2">{row.emiNo}</td>
                                             <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{formatCurrency(row.openingBalance)}</td>
                                             <td className="px-4 py-2 font-medium">{formatCurrency(row.installment)}</td>
-                                            <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{formatCurrency(row.service fee)}</td>
+                                            <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{formatCurrency(row.serviceFee)}</td>
                                             <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{formatCurrency(row.principal)}</td>
                                             <td className="px-4 py-2 font-medium">{formatCurrency(row.closingBalance)}</td>
                                         </tr>

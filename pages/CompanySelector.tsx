@@ -42,7 +42,7 @@ const CompanySelector: React.FC = () => {
       try {
         const [customersSnap, loansSnap, partnersSnap, expensesSnap] = await Promise.all([
           getDocs(query(collection(db, "customers"), where("companyId", "==", null))),
-          getDocs(query(collection\(db, "loans"\), where("companyId", "==", null))),
+          getDocs(query(collection(db, "loans"), where("companyId", "==", null))),
           getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", null))),
           getDocs(query(collection(db, "expenses"), where("companyId", "==", null)))
         ]);
@@ -53,7 +53,7 @@ const CompanySelector: React.FC = () => {
         const expensesWithoutCompany = expensesSnap.docs.filter(doc => !doc.data().companyId).length;
 
         const allCustomers = await getDocs(collection(db, "customers"));
-        const allLoans = await getDocs(collection\(db, "loans"\));
+        const allLoans = await getDocs(collection(db, "loans"));
         const allPartners = await getDocs(collection(db, "partner_transactions"));
         const allExpenses = await getDocs(collection(db, "expenses"));
 
@@ -86,7 +86,7 @@ const CompanySelector: React.FC = () => {
 
       const [customersSnap, loansSnap, partnersSnap, expensesSnap] = await Promise.all([
         getDocs(collection(db, "customers")),
-        getDocs(collection\(db, "loans"\)),
+        getDocs(collection(db, "loans")),
         getDocs(collection(db, "partner_transactions")),
         getDocs(collection(db, "expenses"))
       ]);
@@ -99,7 +99,7 @@ const CompanySelector: React.FC = () => {
 
       loansSnap.docs.forEach(docSnap => {
         if (!docSnap.data().companyId) {
-          batch.update(doc(db, "records", docSnap.id), { companyId });
+          batch.update(doc(db, "loans", docSnap.id), { companyId });
         }
       });
 

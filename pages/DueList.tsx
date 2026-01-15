@@ -67,7 +67,7 @@ const DueList: React.FC = () => {
         try {
             // 1. Fetch all finalized records and customers filtered by company
             const loansQuery = query(
-                collection\(db, "loans"\),
+                collection(db, "loans"),
                 where("status", "in", ["Finalized", "Active", "Overdue"]),
                 where("companyId", "==", currentCompany.id)
             );
@@ -331,7 +331,7 @@ const DueList: React.FC = () => {
             let receiptDocId = '';
 
             await runTransaction(db, async (transaction) => {
-                const loanRef = doc(db, "records", selectedEmi.loanId);
+                const loanRef = doc(db, "loans", selectedEmi.loanId);
                 const receiptCounterRef = doc(db, 'counters', 'receiptId_counter');
 
                 const loanDoc = await transaction.get(loanRef);
