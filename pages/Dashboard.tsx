@@ -524,6 +524,13 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="relative px-4 sm:px-6 space-y-6 sm:space-y-8 mt-4 sm:mt-6 max-w-7xl mx-auto w-full">
+                {/* Non-Lending Disclaimer */}
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-3">
+                    <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[20px]">info</span>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-tight">
+                        <strong>Important:</strong> This is a record management tool for tracking and ledger purposes. We do not provide loans or financial services.
+                    </p>
+                </div>
 
                 {/* Hero Balance Card - Premium 3D Effect */}
                 <div className="group relative overflow-hidden rounded-[2rem] bg-slate-900 text-white shadow-2xl shadow-indigo-500/25 transition-all hover:scale-[1.01]">

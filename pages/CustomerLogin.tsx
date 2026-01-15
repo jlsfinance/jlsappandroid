@@ -134,6 +134,11 @@ const CustomerLogin: React.FC = () => {
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Customer Portal</h1>
           <p className="text-white/80 text-xs">View your records and pay EMI</p>
+          <div className="mt-2 bg-white/10 border border-white/20 rounded-lg p-2 max-w-[280px] mx-auto">
+            <p className="text-[9px] text-white/90 leading-tight">
+              <strong>Note:</strong> This app is for record management only. We are not a lending platform and do not provide loans.
+            </p>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-[#1e2736] rounded-3xl shadow-2xl p-5 relative">

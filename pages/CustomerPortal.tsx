@@ -192,9 +192,16 @@ const CustomerPortal: React.FC = () => {
 
       {/* Main Container */}
       <main className="relative z-20">
+        {/* Non-Lending Disclaimer */}
+        <div className="mx-6 mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 flex items-start gap-3">
+          <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]">info</span>
+          <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
+            <strong>Note:</strong> This app is for record management only. We do not provide loans or financial services.
+          </p>
+        </div>
 
         {/* Quick Actions Panel */}
-        <div className="mx-6 -mt-10 bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-3 relative z-30">
+        <div className="mx-6 mt-4 bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-3 relative z-30">
           {[
             { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI found!"); } },
             { label: 'History', icon: 'history', bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => setCurrentTab('history') },

@@ -20,7 +20,7 @@ const Terms: React.FC = () => {
                 {/* Critical Red Disclosure */}
                 <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/30 rounded-[2rem] p-8 text-center">
                     <p className="text-red-600 dark:text-red-400 font-black text-lg leading-relaxed">
-                        “This app is only for personal record record and management. We do not provide records, nor connect users with lenders.”
+                        “This application is strictly for record management and digital ledger purposes. We do not provide loans, financial services, or connect users with any lending entities. We are not a bank or NBFC.”
                     </p>
                 </div>
 
@@ -30,7 +30,7 @@ const Terms: React.FC = () => {
                         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
                             <span className="material-symbols-outlined text-xl">info</span>
                         </div>
-                        <h2 className="text-xl font-black text-[#004a99] dark:text-blue-300">Record Disclosure (APR & Tenure)</h2>
+                        <h2 className="text-xl font-black text-[#004a99] dark:text-blue-300">Record Management Disclosure</h2>
                     </div>
 
                     <div className="space-y-6">
@@ -40,7 +40,7 @@ const Terms: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-slate-900 dark:text-white font-black">Annual Percentage Rate (APR):</p>
-                            <p className="text-slate-600 dark:text-slate-400 text-sm">Maximum 36% per annum. This includes interest plus processing fees.</p>
+                            <p className="text-slate-600 dark:text-slate-400 text-sm">This app allows users to track records with custom parameters. We do not set or collect interest.</p>
                         </div>
 
                         <div className="bg-white dark:bg-slate-900/50 rounded-3xl p-6 border border-blue-50 dark:border-blue-800">
@@ -60,7 +60,7 @@ const Terms: React.FC = () => {
                                     <span className="font-bold">₹300</span>
                                 </li>
                                 <li className="flex justify-between text-sm pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                                    <span className="text-slate-900 dark:text-white font-bold">• Total Cost of Record:</span>
+                                    <span className="text-slate-900 dark:text-white font-bold">• Total Record Value:</span>
                                     <span className="font-black text-blue-600">₹12,700</span>
                                 </li>
                                 <li className="flex justify-between text-sm">
@@ -91,7 +91,7 @@ const Terms: React.FC = () => {
                     <section className="space-y-3">
                         <h2 className="text-2xl font-black text-[#004a99] dark:text-blue-300 leading-tight">3. Late Payments</h2>
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                            Delay in EMI payment will attract late payment penalties as per the record agreement. Continuous defaults may lead to legal action and will negatively impact your credit score (CIBIL).
+                            Delay in EMI payment will attract late payment penalties as per the record agreement. This app is for tracking purposes only and does not report to credit bureaus.
                         </p>
                     </section>
 
