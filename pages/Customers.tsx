@@ -138,7 +138,7 @@ const Customers: React.FC = () => {
             className={`flex h-9 min-w-fit items-center justify-center rounded-full px-4 text-sm font-semibold shadow-sm transition-colors ${filter === 'Active' ? 'bg-primary text-white' : 'bg-white dark:bg-[#1e2736] text-slate-600 dark:text-slate-300 ring-1 ring-slate-900/5 dark:ring-white/10'
               }`}
           >
-            Active Loans
+            Active Records
           </button>
         </div>
       </header>

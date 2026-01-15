@@ -8,7 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
 
 // --- Types ---
-interface Loan { id: string; customerId: string; customerName: string; amount: number; interestRate: number; disbursalDate: string; status: string; repaymentSchedule: any[]; processingFee: number; }
+interface Record { id: string; customerId: string; customerName: string; amount: number; interestRate: number; disbursalDate: string; status: string; repaymentSchedule: any[]; processingFee: number; }
 interface Receipt { id: string; amount: number; paymentDate: string; customerName: string; loanId: string; emiNumber: number; }
 interface Customer { id: string; name: string; phone?: string; }
 
@@ -22,7 +22,7 @@ const Reports: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     // Data State
-    const [loans, setLoans] = useState<Loan[]>([]);
+    const [records, setLoans] = useState<Record[]>([]);
     const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
 
@@ -44,7 +44,7 @@ const Reports: React.FC = () => {
                     getDocs(query(collection(db, "customers"), where("companyId", "==", currentCompany.id)))
                 ]);
 
-                setLoans(loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan)));
+                setLoans(loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Record)));
                 setReceipts(receiptsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Receipt)));
                 setCustomers(customersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Customer)));
             } catch (e) {
@@ -59,14 +59,14 @@ const Reports: React.FC = () => {
     // --- Reports Logic ---
 
     const summaryData = useMemo(() => {
-        const totalLent = loans.reduce((sum, l) => sum + (l.status !== 'Rejected' && l.status !== 'Pending' ? Number(l.amount) : 0), 0);
+        const totalLent = records.reduce((sum, l) => sum + (l.status !== 'Declined' && l.status !== 'Pending' ? Number(l.amount) : 0), 0);
         const totalCollected = receipts.reduce((sum, r) => sum + Number(r.amount), 0);
 
         // Estimate outstanding principal (simplified)
         let totalOutstanding = 0;
         let activeLoansCount = 0;
-        loans.forEach(l => {
-            if (['Disbursed', 'Active', 'Overdue'].includes(l.status)) {
+        records.forEach(l => {
+            if (['Finalized', 'Active', 'Overdue'].includes(l.status)) {
                 activeLoansCount++;
                 const paidEmis = l.repaymentSchedule?.filter((e: any) => e.status === 'Paid').length || 0;
                 const totalEmis = l.repaymentSchedule?.length || 0;
@@ -80,17 +80,17 @@ const Reports: React.FC = () => {
         });
 
         return { totalLent, totalCollected, totalOutstanding, activeLoansCount };
-    }, [loans, receipts]);
+    }, [records, receipts]);
 
     const arrearsData = useMemo(() => {
         const overdueItems: any[] = [];
-        loans.forEach(loan => {
-            if (['Active', 'Disbursed', 'Overdue'].includes(loan.status) && loan.repaymentSchedule) {
-                loan.repaymentSchedule.forEach((emi: any) => {
+        records.forEach(record => {
+            if (['Active', 'Finalized', 'Overdue'].includes(record.status) && record.repaymentSchedule) {
+                record.repaymentSchedule.forEach((emi: any) => {
                     if (emi.status === 'Pending' && new Date(emi.dueDate) < new Date()) {
                         overdueItems.push({
-                            customerName: loan.customerName,
-                            loanId: loan.id,
+                            customerName: record.customerName,
+                            loanId: record.id,
                             dueDate: emi.dueDate,
                             amount: emi.amount,
                             emiNumber: emi.emiNumber
@@ -100,7 +100,7 @@ const Reports: React.FC = () => {
             }
         });
         return overdueItems.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-    }, [loans]);
+    }, [records]);
 
     const monthlyCollectionData = useMemo(() => {
         const start = startOfMonth(parseISO(`${selectedMonth}-01`));
@@ -111,28 +111,28 @@ const Reports: React.FC = () => {
     const lentData = useMemo(() => {
         const start = startOfMonth(parseISO(`${selectedMonth}-01`));
         const end = endOfMonth(parseISO(`${selectedMonth}-01`));
-        return loans.filter(l =>
+        return records.filter(l =>
             l.disbursalDate && isWithinInterval(parseISO(l.disbursalDate), { start, end }) &&
-            ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status)
+            ['Finalized', 'Active', 'Completed', 'Overdue'].includes(l.status)
         );
-    }, [loans, selectedMonth]);
+    }, [records, selectedMonth]);
 
     const ledgerData = useMemo(() => {
         if (!selectedCustomer) return [];
-        const customerLoans = loans.filter(l => l.customerId === selectedCustomer);
+        const customerLoans = records.filter(l => l.customerId === selectedCustomer);
         const customerReceipts = receipts.filter(r => customerLoans.some(l => l.id === r.loanId));
 
         const entries: any[] = [];
         customerLoans.forEach(l => {
             if (l.disbursalDate) {
-                entries.push({ date: l.disbursalDate, type: 'Debit', desc: `Loan Disbursed (ID: ${l.id})`, amount: l.amount });
+                entries.push({ date: l.disbursalDate, type: 'Debit', desc: `Record Finalized (ID: ${l.id})`, amount: l.amount });
             }
         });
         customerReceipts.forEach(r => {
-            entries.push({ date: r.paymentDate, type: 'Credit', desc: `Payment Recd (Loan: ${r.loanId})`, amount: r.amount });
+            entries.push({ date: r.paymentDate, type: 'Credit', desc: `Payment Recd (Record: ${r.loanId})`, amount: r.amount });
         });
         return entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [loans, receipts, selectedCustomer]);
+    }, [records, receipts, selectedCustomer]);
 
     // --- PDF Export ---
     const downloadPDF = (title: string, columns: string[], data: any[]) => {
@@ -160,7 +160,7 @@ const Reports: React.FC = () => {
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800">
-                                <p className="text-xs text-indigo-600 dark:text-indigo-300 font-bold uppercase">Total Disbursed</p>
+                                <p className="text-xs text-indigo-600 dark:text-indigo-300 font-bold uppercase">Total Finalized</p>
                                 <p className="text-2xl font-bold text-indigo-900 dark:text-white">{formatCurrency(summaryData.totalLent)}</p>
                             </div>
                             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-2xl border border-green-100 dark:border-green-800">
@@ -172,7 +172,7 @@ const Reports: React.FC = () => {
                                 <p className="text-2xl font-bold text-purple-900 dark:text-white">{formatCurrency(summaryData.totalOutstanding)}</p>
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                                <p className="text-xs text-slate-500 font-bold uppercase">Active Loans</p>
+                                <p className="text-xs text-slate-500 font-bold uppercase">Active Records</p>
                                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{summaryData.activeLoansCount}</p>
                             </div>
                         </div>
@@ -185,7 +185,7 @@ const Reports: React.FC = () => {
                         <div className="flex justify-between items-center">
                             <h3 className="font-bold text-lg">Arrears Report</h3>
                             <button
-                                onClick={() => downloadPDF('Arrears Report', ['Customer', 'Loan ID', 'Due Date', 'Amount'], arrearsData.map(a => [a.customerName, a.loanId, a.dueDate, formatCurrency(a.amount)]))}
+                                onClick={() => downloadPDF('Arrears Report', ['Customer', 'Record ID', 'Due Date', 'Amount'], arrearsData.map(a => [a.customerName, a.loanId, a.dueDate, formatCurrency(a.amount)]))}
                                 className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"
                             >
                                 <span className="material-symbols-outlined text-sm">download</span> PDF
@@ -228,7 +228,7 @@ const Reports: React.FC = () => {
                                 className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm font-bold"
                             />
                             <button
-                                onClick={() => downloadPDF(`Collections_${selectedMonth}`, ['Date', 'Customer', 'Loan ID', 'Amount'], monthlyCollectionData.map(r => [r.paymentDate, r.customerName, r.loanId, formatCurrency(r.amount)]))}
+                                onClick={() => downloadPDF(`Collections_${selectedMonth}`, ['Date', 'Customer', 'Record ID', 'Amount'], monthlyCollectionData.map(r => [r.paymentDate, r.customerName, r.loanId, formatCurrency(r.amount)]))}
                                 className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"
                             >
                                 <span className="material-symbols-outlined text-sm">download</span> PDF
@@ -274,7 +274,7 @@ const Reports: React.FC = () => {
                                 className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm font-bold"
                             />
                             <button
-                                onClick={() => downloadPDF(`Lent_Report_${selectedMonth}`, ['Date', 'Customer', 'Loan ID', 'Amount', 'Rate'], lentData.map(l => [l.disbursalDate, l.customerName, l.id, formatCurrency(l.amount), l.interestRate + '%']))}
+                                onClick={() => downloadPDF(`Lent_Report_${selectedMonth}`, ['Date', 'Customer', 'Record ID', 'Amount', 'Rate'], lentData.map(l => [l.disbursalDate, l.customerName, l.id, formatCurrency(l.amount), l.interestRate + '%']))}
                                 className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"
                             >
                                 <span className="material-symbols-outlined text-sm">download</span> PDF
@@ -296,7 +296,7 @@ const Reports: React.FC = () => {
                                             <td className="px-4 py-2 font-bold">{item.customerName}</td>
                                             <td className="px-4 py-2 text-right font-mono">{formatCurrency(item.amount)}</td>
                                         </tr>
-                                    )) : <tr><td colSpan={3} className="p-4 text-center text-slate-500">No loans disbursed this month.</td></tr>}
+                                    )) : <tr><td colSpan={3} className="p-4 text-center text-slate-500">No records finalized this month.</td></tr>}
                                 </tbody>
                                 <tfoot className="bg-slate-50 dark:bg-slate-800 font-bold">
                                     <tr>

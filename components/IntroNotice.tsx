@@ -23,7 +23,7 @@ const IntroNotice: React.FC<IntroNoticeProps> = ({ onAccept }) => {
 
                 <div className="space-y-6">
                     <p className="text-[#5E6D82] font-semibold text-lg leading-snug px-2">
-                        We do not provide any type of loans through this application.
+                        We do not provide any type of records through this application.
                     </p>
 
                     <div className="h-[1.5px] w-28 bg-[#F0F2F5] mx-auto" />

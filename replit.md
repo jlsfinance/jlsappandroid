@@ -1,7 +1,7 @@
 # JLS Finance Suite
 
 ## Overview
-A React + TypeScript finance management application built with Vite with Capacitor for Android app generation. The application provides loan management, customer tracking, EMI calculations, and financial reporting features.
+A React + TypeScript finance management application built with Vite with Capacitor for Android app generation. The application provides record management, customer tracking, EMI calculations, and financial reporting features.
 
 ## Tech Stack
 - React 19 with TypeScript
@@ -37,7 +37,7 @@ A React + TypeScript finance management application built with Vite with Capacit
 ## Android App (Play Store Ready)
 - **Full Guide**: See `ANDROID_BUILD_GUIDE.md` for detailed instructions
 - **Capacitor Version**: 7.x (compatible with Node.js 20)
-- **App ID**: com.jls.financesuite
+- **Record ID**: com.jls.financesuite
 - **Target SDK**: 35 (Android 15)
 - **Min SDK**: 23 (Android 6.0)
 - **Java Version**: 17 (required for Capacitor stability)
@@ -76,16 +76,16 @@ npx cap sync android
 ```
 
 ## Recent Features (Dec 2025)
-1. **Foreclosure PDF Certificate** - Auto-generates detailed PDF when loan is pre-closed with full loan details, payment summary, and foreclosure calculation
+1. **Foreclosure PDF Certificate** - Auto-generates detailed PDF when record is pre-closed with full record details, payment summary, and foreclosure calculation
 2. **Extra Payment Feature** - In Due List, can now enter custom amount higher than EMI for extra payments, with PDF preview before save and auto-download after
-3. **Amount Received Checkbox** - When foreclosing a loan, checkbox to confirm amount received. When checked, the foreclosure amount is automatically added as credit to cash ledger
-4. **Undo Foreclosure** - For loans that were pre-closed, an "Undo Foreclosure" button restores the loan to active status with pending EMIs
-5. **Loan Disbursal** - Added Loan Disbursal option in Tools page. Approved loans can be disbursed with date selection, automatic EMI schedule generation, and WhatsApp notification
+3. **Amount Received Checkbox** - When foreclosing a record, checkbox to confirm amount received. When checked, the foreclosure amount is automatically added as credit to cash ledger
+4. **Undo Foreclosure** - For records that were pre-closed, an "Undo Foreclosure" button restores the record to active status with pending EMIs
+5. **Record Finalization** - Added Record Finalization option in Tools page. Confirmed records can be finalized with date selection, automatic EMI schedule generation, and WhatsApp notification
 6. **Role-Based Company Access** - Users assigned admin/agent roles in a company now automatically see that company when they login, no need to add company again
-7. **Customer Portal** - Customers can login using phone number (as both user ID and password) to view their loan details and EMI schedule
+7. **Customer Portal** - Customers can login using phone number (as both user ID and password) to view their record details and EMI schedule
 8. **UPI Payment for EMI** - Customer portal generates QR code and UPI payment link for EMI payments to 9413821007@superyes
-9. **Enhanced Loan Top-up** - Top-up now asks for new duration (months), auto-generates new Loan Agreement PDF and Loan Card PDF with updated terms. Preserves the original EMI due day.
-10. **Flexible EMI Due Date** - When disbursing a loan, can now select which day of month (1-28) EMI should be due instead of hardcoded 1st
+9. **Enhanced Record Top-up** - Top-up now asks for new duration (months), auto-generates new Record Agreement PDF and Record Card PDF with updated terms. Preserves the original EMI due day.
+10. **Flexible EMI Due Date** - When disbursing a record, can now select which day of month (1-28) EMI should be due instead of hardcoded 1st
 
 ## Configuration
 - Vite is configured to allow all hosts for Replit proxy compatibility

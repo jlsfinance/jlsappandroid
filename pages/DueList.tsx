@@ -65,10 +65,10 @@ const DueList: React.FC = () => {
 
         setLoading(true);
         try {
-            // 1. Fetch all disbursed loans and customers filtered by company
+            // 1. Fetch all finalized records and customers filtered by company
             const loansQuery = query(
                 collection(db, "loans"),
-                where("status", "in", ["Disbursed", "Active", "Overdue"]),
+                where("status", "in", ["Finalized", "Active", "Overdue"]),
                 where("companyId", "==", currentCompany.id)
             );
             const customersQuery = query(
@@ -89,20 +89,20 @@ const DueList: React.FC = () => {
             const pendingEmisList: PendingEmi[] = [];
 
             loansSnapshot.docs.forEach(loanDoc => {
-                const loan = loanDoc.data();
-                const customerData = customerMap.get(loan.customerId);
+                const record = loanDoc.data();
+                const customerData = customerMap.get(record.customerId);
 
-                if (loan.repaymentSchedule) {
-                    loan.repaymentSchedule.forEach((emi: any) => {
+                if (record.repaymentSchedule) {
+                    record.repaymentSchedule.forEach((emi: any) => {
                         if (emi.status === 'Pending') {
                             pendingEmisList.push({
                                 loanId: loanDoc.id,
-                                customerId: loan.customerId,
-                                customerName: loan.customerName,
+                                customerId: record.customerId,
+                                customerName: record.customerName,
                                 emiNumber: emi.emiNumber,
                                 dueDate: emi.dueDate,
                                 amount: emi.amount,
-                                tenure: loan.tenure,
+                                tenure: record.tenure,
                                 phoneNumber: customerData?.phone || 'N/A',
                                 customerPhoto: customerData?.photo_url
                             });
@@ -231,7 +231,7 @@ const DueList: React.FC = () => {
         pdfDoc.text("LOAN DETAILS", 14, y);
         y += 7;
         pdfDoc.setFont("helvetica", "normal");
-        pdfDoc.text(`Loan ID: ${receiptData.loanId}`, 14, y);
+        pdfDoc.text(`Record ID: ${receiptData.loanId}`, 14, y);
         y += 6;
         pdfDoc.text(`EMI Number: ${receiptData.emiNumber} of ${receiptData.tenure}`, 14, y);
         y += 6;
@@ -331,13 +331,13 @@ const DueList: React.FC = () => {
             let receiptDocId = '';
 
             await runTransaction(db, async (transaction) => {
-                const loanRef = doc(db, "loans", selectedEmi.loanId);
+                const loanRef = doc(db, "records", selectedEmi.loanId);
                 const receiptCounterRef = doc(db, 'counters', 'receiptId_counter');
 
                 const loanDoc = await transaction.get(loanRef);
                 const counterDoc = await transaction.get(receiptCounterRef);
 
-                if (!loanDoc.exists()) throw new Error("Loan not found!");
+                if (!loanDoc.exists()) throw new Error("Record not found!");
 
                 const loanData = loanDoc.data();
                 const today = new Date();
@@ -444,7 +444,7 @@ const DueList: React.FC = () => {
             doc.text(`Generated: ${format(new Date(), 'dd-MMM-yyyy HH:mm')}`, 14, 35);
             doc.text(`Total Due: ${formatCurrency(totalDue)}`, 14, 40);
 
-            const tableColumns = ["Customer", "Loan ID", "Amount", "Due Date", "Phone"];
+            const tableColumns = ["Customer", "Record ID", "Amount", "Due Date", "Phone"];
             const tableRows = filteredEmis.map(emi => [
                 emi.customerName,
                 emi.loanId,

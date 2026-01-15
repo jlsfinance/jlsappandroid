@@ -33,7 +33,7 @@ interface Emi {
     remark?: string;
 }
 
-interface Loan {
+interface Record {
     id: string;
     customerId: string;
     customerName: string;
@@ -45,7 +45,7 @@ interface Loan {
     originalEmi?: number;
     topUpEmi?: number;
     date: string; // Applied date
-    status: 'Pending' | 'Approved' | 'Disbursed' | 'Rejected' | 'Completed';
+    status: 'Pending' | 'Confirmed' | 'Finalized' | 'Declined' | 'Completed';
     approvalDate?: string;
     disbursalDate?: string;
     repaymentSchedule: Emi[];
@@ -179,7 +179,7 @@ const generateTopUpMessage = ({
     return `
 Dear ${customerName},
 
-Your loan (ID: ${loanId}) has been successfully TOP-UPPED.
+Your record (ID: ${loanId}) has been successfully TOP-UPPED.
 
 Outstanding before top-up: Rs. ${outstanding}
 Top-up amount: Rs. ${topUpAmount}
@@ -234,32 +234,32 @@ async function toBase64(url: string, maxWidth: number = 200, quality: number = 0
 }
 
 const TOPUP_TERMS = [
-    "1. This agreement revises only the EMI schedule of the original loan.",
+    "1. This agreement revises only the EMI schedule of the original record.",
     "2. All EMIs already paid by the borrower shall remain valid and unchanged.",
     "3. The outstanding principal as on the top-up date is acknowledged by the borrower.",
-    "4. An additional amount has been disbursed as top-up and merged with outstanding.",
+    "4. An additional amount has been finalized as top-up and merged with outstanding.",
     "5. The borrower agrees to pay revised EMI as per the new repayment schedule.",
     "6. Processing fees and other charges are applicable as per company policy.",
-    "7. All other terms and conditions of the original loan agreement remain unchanged.",
-    "7. All other terms and conditions of the original loan agreement remain unchanged.",
+    "7. All other terms and conditions of the original record agreement remain unchanged.",
+    "7. All other terms and conditions of the original record agreement remain unchanged.",
 ];
 
 const LOAN_TERMS = [
     "1. The borrower agrees to pay the EMI on or before the due date.",
     "2. Default in payment will attract penalty charges as per company policy.",
-    "3. The loan is secured against the collateral provided (if any).",
-    "4. The company reserves the right to recall the loan in case of default.",
-    "5. Pre-closure charges may apply as per the agreement.",
+    "3. The record is secured against the collateral provided (if any).",
+    "4. The company reserves the right to recall the record in case of default.",
+    "5. Pre-closure charges may add record as per the agreement.",
     "6. This agreement is subject to the jurisdiction of the local courts.",
 ];
 
 
 
-const getEmiAmountForDisplay = (emi: any, loan: Loan) => {
+const getEmiAmountForDisplay = (emi: any, record: Record) => {
     if (emi.status === "Paid") {
-        return loan.originalEmi || loan.emi;
+        return record.originalEmi || record.emi;
     }
-    return loan.topUpEmi || loan.emi;
+    return record.topUpEmi || record.emi;
 };
 
 const LoanDetails: React.FC = () => {
@@ -267,7 +267,7 @@ const LoanDetails: React.FC = () => {
     const { currentCompany } = useCompany();
     const { id: loanId } = useParams(); // React Router uses 'id' usually, depends on route definition
 
-    const [loan, setLoan] = useState<Loan | null>(null);
+    const [record, setLoan] = useState<Record | null>(null);
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -302,15 +302,15 @@ const LoanDetails: React.FC = () => {
         if (!loanId) return;
         setLoading(true);
         try {
-            const loanRef = doc(db, "loans", loanId);
+            const loanRef = doc(db, "records", loanId);
             const docSnap = await getDoc(loanRef);
 
             if (docSnap.exists()) {
-                const loanData = { id: docSnap.id, ...docSnap.data() } as Loan;
+                const loanData = { id: docSnap.id, ...docSnap.data() } as Record;
 
                 // Auto-complete check
                 const allPaid = loanData.repaymentSchedule?.every((emi: Emi) => emi.status === 'Paid' || emi.status === 'Cancelled');
-                if (allPaid && loanData.status === 'Disbursed' && loanData.repaymentSchedule?.length > 0) {
+                if (allPaid && loanData.status === 'Finalized' && loanData.repaymentSchedule?.length > 0) {
                     loanData.status = 'Completed';
                     await updateDoc(loanRef, { status: 'Completed' });
                 }
@@ -326,10 +326,10 @@ const LoanDetails: React.FC = () => {
                 }
 
             } else {
-                console.error("No such loan document!");
+                console.error("No such record document!");
             }
         } catch (error) {
-            console.error("Failed to load loan data:", error);
+            console.error("Failed to load record data:", error);
         } finally {
             setLoading(false);
         }
@@ -340,24 +340,24 @@ const LoanDetails: React.FC = () => {
     }, [fetchLoanAndCustomer]);
 
     // Derived State
-    const paidEmisCount = loan?.repaymentSchedule?.filter(e => e.status === 'Paid').length || 0;
-    const dueEmisCount = (loan?.tenure || 0) - paidEmisCount;
+    const paidEmisCount = record?.repaymentSchedule?.filter(e => e.status === 'Paid').length || 0;
+    const dueEmisCount = (record?.tenure || 0) - paidEmisCount;
 
     const outstandingPrincipal = useMemo(() => {
-        if (!loan || loan.status !== 'Disbursed') return 0;
+        if (!record || record.status !== 'Finalized') return 0;
 
         // Handle Top-Up Scenario
-        const lastTopUp = loan.topUpHistory?.[loan.topUpHistory.length - 1];
+        const lastTopUp = record.topUpHistory?.[record.topUpHistory.length - 1];
         if (lastTopUp && lastTopUp.tenure) { // Fix: use .tenure instead of .newTenure
-            let balance = loan.amount; // This is the New Principal (Reset point)
-            const monthlyInterestRate = loan.interestRate / 12 / 100;
-            const currentEmi = loan.topUpEmi || loan.emi;
+            let balance = record.amount; // This is the New Principal (Reset point)
+            const monthlyInterestRate = record.interestRate / 12 / 100;
+            const currentEmi = record.topUpEmi || record.emi;
 
             // The NEW schedule consists of the last 'tenure' items
-            const startIndex = Math.max(0, loan.repaymentSchedule.length - lastTopUp.tenure); // Fix: use .tenure
+            const startIndex = Math.max(0, record.repaymentSchedule.length - lastTopUp.tenure); // Fix: use .tenure
 
-            for (let i = startIndex; i < loan.repaymentSchedule.length; i++) {
-                const emi = loan.repaymentSchedule[i];
+            for (let i = startIndex; i < record.repaymentSchedule.length; i++) {
+                const emi = record.repaymentSchedule[i];
                 if (emi.status === 'Paid') {
                     const interestPayment = balance * monthlyInterestRate;
                     const principalPayment = currentEmi - interestPayment;
@@ -367,20 +367,20 @@ const LoanDetails: React.FC = () => {
             return Math.max(0, balance);
         }
 
-        // Standard Logic (Original Loan)
-        let balance = loan.amount;
-        const monthlyInterestRate = loan.interestRate / 12 / 100;
+        // Standard Logic (Original Record)
+        let balance = record.amount;
+        const monthlyInterestRate = record.interestRate / 12 / 100;
 
-        for (let i = 1; i <= loan.tenure; i++) {
-            const emi = loan.repaymentSchedule.find(e => e.emiNumber === i);
+        for (let i = 1; i <= record.tenure; i++) {
+            const emi = record.repaymentSchedule.find(e => e.emiNumber === i);
             if (emi?.status === 'Paid') {
                 const interestPayment = balance * monthlyInterestRate;
-                const principalPayment = loan.emi - interestPayment;
+                const principalPayment = record.emi - interestPayment;
                 balance -= principalPayment;
             }
         }
         return Math.max(0, balance);
-    }, [loan]);
+    }, [record]);
 
     const foreclosureAmount = useMemo(() => {
         const charges = outstandingPrincipal * (foreclosureCharges / 100);
@@ -388,16 +388,16 @@ const LoanDetails: React.FC = () => {
     }, [outstandingPrincipal, foreclosureCharges]);
 
     const detailedRepaymentSchedule = useMemo(() => {
-        if (!loan) return [];
+        if (!record) return [];
 
-        const { amount, interestRate, tenure, emi, repaymentSchedule } = loan;
+        const { amount, interestRate, tenure, emi, repaymentSchedule } = record;
         if (!emi || !amount || !interestRate || !tenure || !repaymentSchedule) return [];
 
         const schedule = [];
         const monthlyInterestRate = interestRate / 12 / 100;
 
         // Check Top-Up Split
-        const lastTopUp = loan.topUpHistory?.[loan.topUpHistory.length - 1];
+        const lastTopUp = record.topUpHistory?.[record.topUpHistory.length - 1];
 
         // Fix: use .tenure instead of .newTenure
         const topUpStartIndex = lastTopUp && lastTopUp.tenure ? repaymentSchedule.length - lastTopUp.tenure : 0;
@@ -418,16 +418,16 @@ const LoanDetails: React.FC = () => {
                 // --- OLD EMI (Before Top-Up) ---
                 // We do not calculate P/I split because we might not have the original start amount
                 // Just show the Total Amount
-                totalPayment = loan.originalEmi || existingEmi.amount;
+                totalPayment = record.originalEmi || existingEmi.amount;
                 currentBalance = 0; // Unknown/Irrelevant for display
             } else {
                 // --- NEW EMI (Post Top-Up) ---
-                // Amortize starting from 'loan.amount' (New Principal)
+                // Amortize starting from 'record.amount' (New Principal)
                 interestPayment = balance * monthlyInterestRate;
-                principalPayment = (loan.topUpEmi || loan.emi) - interestPayment;
+                principalPayment = (record.topUpEmi || record.emi) - interestPayment;
                 balance -= principalPayment;
                 currentBalance = balance > 0 ? balance : 0;
-                totalPayment = loan.topUpEmi || loan.emi;
+                totalPayment = record.topUpEmi || record.emi;
             }
 
             schedule.push({
@@ -445,10 +445,10 @@ const LoanDetails: React.FC = () => {
             });
         }
         return schedule;
-    }, [loan]);
+    }, [record]);
 
 
-    const generateForeclosurePDF = async (loanData: Loan, foreclosureData: { date: string; outstandingPrincipal: number; chargesPercentage: number; totalPaid: number; }) => {
+    const generateForeclosurePDF = async (loanData: Record, foreclosureData: { date: string; outstandingPrincipal: number; chargesPercentage: number; totalPaid: number; }) => {
         const pdfDoc = new jsPDF();
         let y = 15;
 
@@ -491,9 +491,9 @@ const LoanDetails: React.FC = () => {
         pdfDoc.text("LOAN DETAILS", 14, y);
         y += 7;
         pdfDoc.setFont("helvetica", "normal");
-        pdfDoc.text(`Loan ID: ${loanData.id}`, 14, y);
+        pdfDoc.text(`Record ID: ${loanData.id}`, 14, y);
         y += 6;
-        pdfDoc.text(`Original Loan Amount: ${formatCurrency(loanData.amount)}`, 14, y);
+        pdfDoc.text(`Original Record Amount: ${formatCurrency(loanData.amount)}`, 14, y);
         y += 6;
         pdfDoc.text(`Interest Rate: ${loanData.interestRate}% p.a.`, 14, y);
         y += 6;
@@ -501,7 +501,7 @@ const LoanDetails: React.FC = () => {
         y += 6;
         pdfDoc.text(`Monthly EMI: ${formatCurrency(loanData.emi)}`, 14, y);
         y += 6;
-        pdfDoc.text(`Disbursement Date: ${safeFormatDate(loanData.disbursalDate)}`, 14, y);
+        pdfDoc.text(`Finalization Date: ${safeFormatDate(loanData.disbursalDate)}`, 14, y);
         y += 10;
 
         pdfDoc.setFont("helvetica", "bold");
@@ -538,9 +538,9 @@ const LoanDetails: React.FC = () => {
 
         pdfDoc.setFont("helvetica", "italic");
         pdfDoc.setFontSize(10);
-        pdfDoc.text("This certificate confirms that the above loan has been foreclosed and all dues have been cleared.", 14, y);
+        pdfDoc.text("This certificate confirms that the above record has been foreclosed and all dues have been cleared.", 14, y);
         y += 6;
-        pdfDoc.text("The customer has no further liability towards this loan.", 14, y);
+        pdfDoc.text("The customer has no further liability towards this record.", 14, y);
         y += 15;
 
         pdfDoc.setFont("helvetica", "normal");
@@ -561,9 +561,9 @@ const LoanDetails: React.FC = () => {
     // Check if foreclosure charges percentage is valid
     const isForeclosureChargesValid = foreclosureCharges >= 0 && foreclosureCharges !== null && !isNaN(foreclosureCharges);
 
-    // Preview Foreclosure PDF (without closing the loan)
+    // Preview Foreclosure PDF (without closing the record)
     const handlePreviewForeclosurePDF = async () => {
-        if (!loan) return;
+        if (!record) return;
         setIsPreviewingForeclosure(true);
         try {
             const foreclosureData = {
@@ -573,7 +573,7 @@ const LoanDetails: React.FC = () => {
                 totalPaid: foreclosureAmount,
             };
 
-            const pdfDoc = await generateForeclosurePDF(loan, foreclosureData);
+            const pdfDoc = await generateForeclosurePDF(record, foreclosureData);
 
             if (Capacitor.isNativePlatform()) {
                 const base64 = pdfDoc.output('datauristring');
@@ -581,12 +581,12 @@ const LoanDetails: React.FC = () => {
                 if (win) {
                     win.document.write('<iframe src="' + base64 + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
                 } else {
-                    savePdf(pdfDoc, `Foreclosure_Preview_${loan.id}.pdf`);
+                    savePdf(pdfDoc, `Foreclosure_Preview_${record.id}.pdf`);
                 }
             } else {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             }
-            // pdfDoc.save(`Foreclosure_Preview_${loan.id}.pdf`);
+            // pdfDoc.save(`Foreclosure_Preview_${record.id}.pdf`);
         } catch (error) {
             console.error("Failed to generate preview PDF:", error);
             alert('Error generating preview PDF.');
@@ -597,7 +597,7 @@ const LoanDetails: React.FC = () => {
 
     // Actions
     const handlePrecloseLoan = async () => {
-        if (!loan) return;
+        if (!record) return;
         setIsPreclosing(true);
         try {
             const foreclosureData = {
@@ -608,47 +608,47 @@ const LoanDetails: React.FC = () => {
                 amountReceived: amountReceived,
             };
 
-            const updatedSchedule = loan.repaymentSchedule.map(emi =>
+            const updatedSchedule = record.repaymentSchedule.map(emi =>
                 emi.status === 'Pending' ? { ...emi, status: 'Cancelled' as 'Cancelled' } : emi
             );
 
-            await updateDoc(doc(db, "loans", loan.id), {
+            await updateDoc(doc(db, "records", record.id), {
                 status: 'Completed',
                 repaymentSchedule: updatedSchedule,
                 foreclosureDetails: foreclosureData
             });
 
-            const pdfDoc = await generateForeclosurePDF({ ...loan, repaymentSchedule: updatedSchedule }, foreclosureData);
-            await savePdf(pdfDoc, `Foreclosure_Certificate_${loan.id}.pdf`);
+            const pdfDoc = await generateForeclosurePDF({ ...record, repaymentSchedule: updatedSchedule }, foreclosureData);
+            await savePdf(pdfDoc, `Foreclosure_Certificate_${record.id}.pdf`);
 
-            alert('Loan Pre-closed successfully. Certificate downloaded.');
+            alert('Record Pre-closed successfully. Certificate downloaded.');
             setIsPrecloseModalOpen(false);
             fetchLoanAndCustomer();
         } catch (error) {
-            console.error("Failed to pre-close loan:", error);
-            alert('Error pre-closing loan.');
+            console.error("Failed to pre-close record:", error);
+            alert('Error pre-closing record.');
         } finally {
             setIsPreclosing(false);
         }
     };
 
     const handleUndoForeclosure = async () => {
-        if (!loan) return;
-        if (!confirm('Are you sure you want to undo this foreclosure? The loan will become active again with pending EMIs restored.')) return;
+        if (!record) return;
+        if (!confirm('Are you sure you want to undo this foreclosure? The record will become active again with pending EMIs restored.')) return;
 
         setIsUndoingForeclosure(true);
         try {
-            const updatedSchedule = loan.repaymentSchedule.map(emi =>
+            const updatedSchedule = record.repaymentSchedule.map(emi =>
                 emi.status === 'Cancelled' ? { ...emi, status: 'Pending' as 'Pending' } : emi
             );
 
-            await updateDoc(doc(db, "loans", loan.id), {
-                status: 'Disbursed',
+            await updateDoc(doc(db, "records", record.id), {
+                status: 'Finalized',
                 repaymentSchedule: updatedSchedule,
                 foreclosureDetails: null
             });
 
-            alert('Foreclosure undone successfully. Loan is now active again.');
+            alert('Foreclosure undone successfully. Record is now active again.');
             fetchLoanAndCustomer();
         } catch (error) {
             console.error("Failed to undo foreclosure:", error);
@@ -659,7 +659,7 @@ const LoanDetails: React.FC = () => {
     };
 
     const getTopUpCalculations = useCallback(() => {
-        if (!loan || topUpAmount <= 0 || topUpTenure <= 0) return null;
+        if (!record || topUpAmount <= 0 || topUpTenure <= 0) return null;
         const outstanding = outstandingPrincipal;
         const newPrincipal = outstanding + topUpAmount;
         const monthlyRate = topUpInterestRate / 12 / 100;
@@ -668,8 +668,8 @@ const LoanDetails: React.FC = () => {
             (Math.pow(1 + monthlyRate, topUpTenure) - 1)
         );
 
-        let emiDueDay = loan.emiDueDay || 1;
-        const firstPending = loan.repaymentSchedule.find(e => e.status === "Pending");
+        let emiDueDay = record.emiDueDay || 1;
+        const firstPending = record.repaymentSchedule.find(e => e.status === "Pending");
         if (firstPending) {
             const d = new Date(firstPending.dueDate);
             if (!isNaN(d.getTime())) emiDueDay = d.getDate();
@@ -686,7 +686,7 @@ const LoanDetails: React.FC = () => {
             firstEmiDate,
             topUpDate: today.toISOString()
         };
-    }, [loan, topUpAmount, topUpTenure, outstandingPrincipal, topUpInterestRate, topUpProcessingFeePercent]);
+    }, [record, topUpAmount, topUpTenure, outstandingPrincipal, topUpInterestRate, topUpProcessingFeePercent]);
 
     const handlePreviewTopUpAgreement = () => {
         const calcs = getTopUpCalculations();
@@ -697,7 +697,7 @@ const LoanDetails: React.FC = () => {
         generateTopUpAgreementPDF(newPrincipal, newEmi, topUpTenure, topUpDate, firstEmiDateStr, processingFee, topUpAmount, 'preview');
     };
 
-    // Preview Updated Loan Card
+    // Preview Updated Record Card
     const handlePreviewUpdatedLoanCard = () => {
         const calcs = getTopUpCalculations();
         if (!calcs) return;
@@ -722,7 +722,7 @@ const LoanDetails: React.FC = () => {
             // ===============================
             // 3️⃣ BUILD NEW SCHEDULE
             // ===============================
-            const paidEmis = loan!.repaymentSchedule.filter(e => e.status === "Paid");
+            const paidEmis = record!.repaymentSchedule.filter(e => e.status === "Paid");
             const newSchedule: Emi[] = [...paidEmis];
 
             for (let i = 0; i < topUpTenure; i++) {
@@ -754,20 +754,20 @@ const LoanDetails: React.FC = () => {
             // ===============================
             // 5️⃣ UPDATE LOAN
             // ===============================
-            await updateDoc(doc(db, "loans", loan!.id), {
+            await updateDoc(doc(db, "records", record!.id), {
                 amount: newPrincipal,
                 tenure: paidEmis.length + topUpTenure,
-                originalEmi: loan!.originalEmi || loan!.emi,
+                originalEmi: record!.originalEmi || record!.emi,
                 topUpEmi: newEmi,
-                emi: newEmi, // FIX: Update main EMI to new value so Loan Card and Dashboard show correct current EMI
+                emi: newEmi, // FIX: Update main EMI to new value so Record Card and Dashboard show correct current EMI
                 interestRate: topUpInterestRate, // Update global Interest Rate? Or keep old? Usually Top-Up resets rate for whole.
                 repaymentSchedule: newSchedule,
                 amortizationSchedule: amortizationSchedule,
                 emiDueDay,
-                processingFee: (loan!.processingFee || 0) + processingFee,
+                processingFee: (record!.processingFee || 0) + processingFee,
                 lastTopUpDate: topUpDate,
                 topUpHistory: [
-                    ...(loan!.topUpHistory || []),
+                    ...(record!.topUpHistory || []),
                     {
                         date: topUpDate,
                         topUpAmount,
@@ -785,11 +785,11 @@ const LoanDetails: React.FC = () => {
             await addDoc(collection(db, "ledger"), {
                 date: topUpDate,
                 companyId: currentCompany?.id,
-                loanId: loan!.id,
-                customerId: loan!.customerId,
-                narration: `Top-up loan disbursement for Loan ${loan!.id}`,
+                loanId: record!.id,
+                customerId: record!.customerId,
+                narration: `Top-up record finalization for Record ${record!.id}`,
                 entries: [
-                    { type: "Debit", account: "Loan Outstanding", amount: topUpAmount },
+                    { type: "Debit", account: "Record Outstanding", amount: topUpAmount },
                     { type: "Credit", account: "Cash / Bank", amount: topUpAmount - processingFee },
                     { type: "Credit", account: "Processing Fee Income", amount: processingFee }
                 ]
@@ -799,8 +799,8 @@ const LoanDetails: React.FC = () => {
 
             // Generate Message
             const message = generateTopUpMessage({
-                customerName: loan!.customerName,
-                loanId: loan!.id,
+                customerName: record!.customerName,
+                loanId: record!.id,
                 outstanding: outstandingPrincipal,
                 topUpAmount,
                 newEmi,
@@ -830,7 +830,7 @@ const LoanDetails: React.FC = () => {
     };
 
     const generateLoanAgreementPDF = async (mode: 'save' | 'preview' = 'save') => {
-        if (!loan || !customer) return;
+        if (!record || !customer) return;
         setIsGeneratingAgreement(true);
         try {
             const pdfDoc = new jsPDF();
@@ -851,16 +851,16 @@ const LoanDetails: React.FC = () => {
             pdfDoc.setFontSize(18);
             pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
             pdfDoc.setFontSize(14);
-            pdfDoc.text("LOAN AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
+            pdfDoc.text("RECORD AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
 
-            const agreementDate = loan.disbursalDate ? safeFormatDate(loan.disbursalDate, 'do MMMM yyyy') : format(new Date(), 'do MMMM yyyy');
+            const agreementDate = record.disbursalDate ? safeFormatDate(record.disbursalDate, 'do MMMM yyyy') : format(new Date(), 'do MMMM yyyy');
             pdfDoc.setFontSize(10);
             pdfDoc.setFont("helvetica", "normal");
             pdfDoc.text(`Date: ${agreementDate}`, pdfDoc.internal.pageSize.getWidth() - 15, 20, { align: 'right' });
-            pdfDoc.text(`Loan ID: ${loan.id}`, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
+            pdfDoc.text(`Record ID: ${record.id}`, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
 
             let startY = 40;
-            const partiesBody = [[`This agreement is made between:\n\nTHE LENDER:\n${companyDetails.name}\n${companyDetails.address || '[Company Address]'}\n\nAND\n\nTHE BORROWER:\n${loan.customerName}\n${(customer as any).address || 'Address not provided'}\nMobile: ${(customer as any).phone || 'N/A'}`]];
+            const partiesBody = [[`This agreement is made between:\n\nTHE LENDER:\n${companyDetails.name}\n${companyDetails.address || '[Company Address]'}\n\nAND\n\nTHE BORROWER:\n${record.customerName}\n${(customer as any).address || 'Address not provided'}\nMobile: ${(customer as any).phone || 'N/A'}`]];
 
             // Using autoTable for parties layout
             autoTable(pdfDoc, {
@@ -881,25 +881,25 @@ const LoanDetails: React.FC = () => {
 
             pdfDoc.setFontSize(12);
             pdfDoc.setFont("helvetica", "bold");
-            const agreementTitle = loan.topUpHistory && loan.topUpHistory.length > 0 ? "LOAN SUMMARY (TOP-UP UPDATED)" : "LOAN SUMMARY";
+            const agreementTitle = record.topUpHistory && record.topUpHistory.length > 0 ? "LOAN SUMMARY (TOP-UP UPDATED)" : "LOAN SUMMARY";
             pdfDoc.text(agreementTitle, 14, startY);
             startY += 4;
 
-            const totalRepayment = loan.emi * loan.tenure;
-            const totalInterest = totalRepayment - loan.amount;
+            const totalRepayment = record.emi * record.tenure;
+            const totalInterest = totalRepayment - record.amount;
 
             const summaryBody = [
-                [{ content: 'Loan Amount (Principal)', styles: { fontStyle: 'bold' } }, `${formatCurrency(loan.amount)} (${toWords(loan.amount)} Only)`],
-                [{ content: 'Loan Tenure', styles: { fontStyle: 'bold' } }, `${loan.tenure} Months`],
-                [{ content: 'EMI', styles: { fontStyle: 'bold' } }, formatCurrency(loan.emi)],
-                [{ content: 'Processing Fee', styles: { fontStyle: 'bold' } }, formatCurrency(loan.processingFee || 0)],
+                [{ content: 'Record Amount (Principal)', styles: { fontStyle: 'bold' } }, `${formatCurrency(record.amount)} (${toWords(record.amount)} Only)`],
+                [{ content: 'Record Tenure', styles: { fontStyle: 'bold' } }, `${record.tenure} Months`],
+                [{ content: 'EMI', styles: { fontStyle: 'bold' } }, formatCurrency(record.emi)],
+                [{ content: 'Processing Fee', styles: { fontStyle: 'bold' } }, formatCurrency(record.processingFee || 0)],
                 [{ content: 'Total Interest Payable', styles: { fontStyle: 'bold' } }, formatCurrency(totalInterest)],
                 [{ content: 'Total Amount Repayable', styles: { fontStyle: 'bold' } }, formatCurrency(totalRepayment)],
-                [{ content: 'Disbursal Date', styles: { fontStyle: 'bold' } }, safeFormatDate(loan.disbursalDate, 'do MMMM yyyy')],
+                [{ content: 'Finalization Date', styles: { fontStyle: 'bold' } }, safeFormatDate(record.disbursalDate, 'do MMMM yyyy')],
             ];
 
-            if (loan.topUpHistory && loan.topUpHistory.length > 0) {
-                const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
+            if (record.topUpHistory && record.topUpHistory.length > 0) {
+                const lastTopUp = record.topUpHistory[record.topUpHistory.length - 1];
                 summaryBody.push(
                     [{ content: 'Last Top-Up Amount', styles: { fontStyle: 'bold' as 'bold' } }, formatCurrency((lastTopUp as any).topUpAmount || lastTopUp.amount)],
                     [{ content: 'Last Top-Up Date', styles: { fontStyle: 'bold' as 'bold' } }, safeFormatDate(lastTopUp.date)]
@@ -945,12 +945,12 @@ const LoanDetails: React.FC = () => {
             pdfDoc.setFont("helvetica", "normal");
 
             const clauses = [
-                "The Borrower agrees to repay the loan amount along with interest in the form of EMIs as specified in the loan summary.",
+                "The Borrower agrees to repay the record amount along with interest in the form of EMIs as specified in the record summary.",
                 "All payments shall be made on or before the due date of each month.",
                 "In case of a delay in payment of EMI, a penal interest/late fee as per the company's prevailing policy will be charged.",
-                "Default in repayment of three or more consecutive EMIs shall entitle the Lender to recall the entire loan amount and initiate legal proceedings for recovery.",
-                "The Borrower confirms that all information provided in the loan application is true and correct.",
-                "This loan is unsecured. No collateral has been provided by the Borrower.",
+                "Default in repayment of three or more consecutive EMIs shall entitle the Lender to recall the entire record amount and initiate legal proceedings for recovery.",
+                "The Borrower confirms that all information provided in the record application is true and correct.",
+                "This record is unsecured. No collateral has been provided by the Borrower.",
                 "Any disputes arising out of this agreement shall be subject to the jurisdiction of the courts.",
             ];
 
@@ -969,7 +969,7 @@ const LoanDetails: React.FC = () => {
                 if (photoY + photoSize < pdfDoc.internal.pageSize.getHeight() - 70) {
                     pdfDoc.addImage(customerPhotoBase64, 'JPEG', photoX, photoY, photoSize, photoSize);
                     pdfDoc.setFontSize(9);
-                    pdfDoc.text(loan.customerName, pageWidth / 2, photoY + photoSize + 7, { align: 'center' });
+                    pdfDoc.text(record.customerName, pageWidth / 2, photoY + photoSize + 7, { align: 'center' });
                 }
             }
 
@@ -987,7 +987,7 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `Loan_Agreement_${loan.id}.pdf`);
+                await savePdf(pdfDoc, `Loan_Agreement_${record.id}.pdf`);
             }
         } catch (error) {
             console.error("Failed to generate agreement PDF:", error);
@@ -998,7 +998,7 @@ const LoanDetails: React.FC = () => {
     };
 
     const generateTopUpAgreementPDF = async (newPrincipal: number, newEmi: number, newTenure: number, topUpDate: string, firstEmiDateStr: string, processingFee: number, topUpAmountVal: number, mode: 'save' | 'preview' = 'save') => {
-        if (!loan) return;
+        if (!record) return;
         setIsGeneratingAgreement(true);
         try {
             const pdfDoc = new jsPDF();
@@ -1016,9 +1016,9 @@ const LoanDetails: React.FC = () => {
 
             pdfDoc.text(`Agreement Date: ${safeFormatDate(topUpDate, 'PPP')}`, 14, y);
             y += 8;
-            pdfDoc.text(`Loan ID: ${loan.id}`, 14, y);
+            pdfDoc.text(`Record ID: ${record.id}`, 14, y);
             y += 8;
-            pdfDoc.text(`Customer Name: ${loan.customerName}`, 14, y);
+            pdfDoc.text(`Customer Name: ${record.customerName}`, 14, y);
             y += 15;
 
             // --- 1. PREVIOUS LOAN DETAILS (Crossed Out) ---
@@ -1030,9 +1030,9 @@ const LoanDetails: React.FC = () => {
 
             const oldDetailsBody = [
                 ["Item", "Details"],
-                ["Old EMI", formatCurrency(loan.emi)], // Current EMI before update
+                ["Old EMI", formatCurrency(record.emi)], // Current EMI before update
                 ["Outstanding Principal (Before Top-Up)", formatCurrency(outstandingPrincipal)],
-                ["Remaining Tenure (Approx)", `${loan.tenure - paidEmisCount} Months`]
+                ["Remaining Tenure (Approx)", `${record.tenure - paidEmisCount} Months`]
             ];
 
             autoTable(pdfDoc, {
@@ -1109,7 +1109,7 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `TopUp_Agreement_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+                await savePdf(pdfDoc, `TopUp_Agreement_${record.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
             }
         } catch (error) {
             console.error("Failed to generate agreement PDF:", error);
@@ -1119,7 +1119,7 @@ const LoanDetails: React.FC = () => {
     };
 
     const generateLoanCardPDF = async (mode: 'save' | 'preview' = 'save') => {
-        if (!loan) return;
+        if (!record) return;
         try {
             const pdfDoc = new jsPDF();
             const pageWidth = pdfDoc.internal.pageSize.width;
@@ -1137,10 +1137,10 @@ const LoanDetails: React.FC = () => {
             pdfDoc.text(companyDetails.name, pageWidth / 2, y, { align: 'center' });
             y += 8;
             pdfDoc.setFontSize(12);
-            pdfDoc.text('Loan Summary Card', pageWidth / 2, y, { align: 'center' });
+            pdfDoc.text('Record Summary Card', pageWidth / 2, y, { align: 'center' });
 
             // Show Top-Up Status (Same as LoanDetails)
-            if (loan.topUpHistory && loan.topUpHistory.length > 0) {
+            if (record.topUpHistory && record.topUpHistory.length > 0) {
                 pdfDoc.setFillColor(220, 38, 38); // Red
                 pdfDoc.rect(pageWidth - 70, y - 5, 25, 6, 'F');
                 pdfDoc.setTextColor(255, 255, 255);
@@ -1158,9 +1158,9 @@ const LoanDetails: React.FC = () => {
             pdfDoc.setFontSize(10);
 
             const details = [
-                [{ label: "Customer Name", value: loan.customerName }, { label: "Loan ID", value: loan.id }],
-                [{ label: "Loan Amount", value: formatCurrency(loan.amount) }, { label: "Tenure", value: `${loan.tenure} Months` }],
-                [{ label: "Monthly EMI", value: formatCurrency(loan.emi) }, { label: "Disbursal Date", value: safeFormatDate(loan.disbursalDate) }],
+                [{ label: "Customer Name", value: record.customerName }, { label: "Record ID", value: record.id }],
+                [{ label: "Record Amount", value: formatCurrency(record.amount) }, { label: "Tenure", value: `${record.tenure} Months` }],
+                [{ label: "Monthly EMI", value: formatCurrency(record.emi) }, { label: "Finalization Date", value: safeFormatDate(record.disbursalDate) }],
             ];
 
             details.forEach(row => {
@@ -1190,8 +1190,8 @@ const LoanDetails: React.FC = () => {
                         emi.type === 'OLD EMI' ? '-' : formatCurrency(emi.balance)
                     ]);
                 });
-            } else if (loan.amortizationSchedule) {
-                loan.amortizationSchedule.forEach(row => {
+            } else if (record.amortizationSchedule) {
+                record.amortizationSchedule.forEach(row => {
                     body.push([
                         row.emiNo,
                         safeFormatDate(row.dueDate),
@@ -1208,15 +1208,15 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `LoanCard_${loan.id}.pdf`);
+                await savePdf(pdfDoc, `LoanCard_${record.id}.pdf`);
             }
         } catch (error) {
-            console.error("Failed to generate loan card:", error);
+            console.error("Failed to generate record card:", error);
         }
     };
 
     const generateUpdatedLoanCardPDF = async (newAmount: number, newEmi: number, newTenure: number, mode: 'save' | 'preview' = 'save') => {
-        if (!loan) return;
+        if (!record) return;
         try {
             const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
 
@@ -1233,15 +1233,15 @@ const LoanDetails: React.FC = () => {
             pdfDoc.setTextColor(0, 0, 0);
             pdfDoc.setFontSize(8);
             pdfDoc.setFont("helvetica", "bold");
-            pdfDoc.text(loan.customerName, 5, 28);
+            pdfDoc.text(record.customerName, 5, 28);
 
             pdfDoc.setFontSize(6);
             pdfDoc.setFont("helvetica", "normal");
-            pdfDoc.text(`Loan ID: ${loan.id}`, 5, 34);
+            pdfDoc.text(`Record ID: ${record.id}`, 5, 34);
             pdfDoc.text(`Amount: ${formatCurrency(newAmount)}`, 5, 39);
             pdfDoc.text(`EMI: ${formatCurrency(newEmi)}`, 5, 44);
             pdfDoc.text(`Tenure: ${newTenure} months`, 45, 39);
-            pdfDoc.text(`Rate: ${loan.interestRate}% p.a.`, 45, 44);
+            pdfDoc.text(`Rate: ${record.interestRate}% p.a.`, 45, 44);
 
             pdfDoc.setFontSize(5);
             pdfDoc.setTextColor(100);
@@ -1250,15 +1250,15 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `LoanCard_TopUp_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+                await savePdf(pdfDoc, `LoanCard_TopUp_${record.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
             }
         } catch (error) {
-            console.error("Failed to generate updated loan card:", error);
+            console.error("Failed to generate updated record card:", error);
         }
     };
 
     const handleDownloadSchedule = async () => {
-        if (!loan) return;
+        if (!record) return;
         setIsDownloadingSchedule(true);
         try {
             const pdfDoc = new jsPDF();
@@ -1267,13 +1267,13 @@ const LoanDetails: React.FC = () => {
             pdfDoc.setFont("helvetica", "bold");
             pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
             pdfDoc.setFontSize(14);
-            pdfDoc.text('Loan Repayment Schedule', pdfDoc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+            pdfDoc.text('Record Repayment Schedule', pdfDoc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
 
             pdfDoc.setFontSize(10);
             let contentStartY = 40;
-            pdfDoc.text(`Customer: ${loan.customerName}`, 15, contentStartY);
+            pdfDoc.text(`Customer: ${record.customerName}`, 15, contentStartY);
             contentStartY += 7;
-            pdfDoc.text(`Loan ID: ${loan.id}`, 15, contentStartY);
+            pdfDoc.text(`Record ID: ${record.id}`, 15, contentStartY);
             contentStartY += 8;
 
             const tableColumn = ["EMI No.", "Due Date", "Principal", "Interest", "Total EMI", "Balance", "Paid Date", "Status", "Type"];
@@ -1281,7 +1281,7 @@ const LoanDetails: React.FC = () => {
 
             detailedRepaymentSchedule.forEach(emi => {
                 const emiData = [
-                    `${emi.month}/${loan.tenure}`,
+                    `${emi.month}/${record.tenure}`,
                     safeFormatDate(emi.dueDate),
                     emi.type === 'OLD EMI' ? '-' : formatCurrency(emi.principal),
                     emi.type === 'OLD EMI' ? '-' : formatCurrency(emi.interest),
@@ -1295,10 +1295,10 @@ const LoanDetails: React.FC = () => {
             });
 
             // Add Top-Up Summary at the top of PDF content
-            if (loan.topUpHistory && loan.topUpHistory.length > 0) {
+            if (record.topUpHistory && record.topUpHistory.length > 0) {
                 pdfDoc.setFontSize(10);
                 pdfDoc.setTextColor(192, 57, 43); // Red color
-                const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
+                const lastTopUp = record.topUpHistory[record.topUpHistory.length - 1];
                 pdfDoc.text(`*** LOAN TOP-UP ACTIVE ***`, 150, 30);
                 pdfDoc.setFontSize(8);
                 pdfDoc.setTextColor(0);
@@ -1324,7 +1324,7 @@ const LoanDetails: React.FC = () => {
                 pdfDoc.text(`Page ${i} of ${pageCount}`, pdfDoc.internal.pageSize.getWidth() - 20, 287);
             }
 
-            await savePdf(pdfDoc, `Payment_Schedule_${loan.id}.pdf`);
+            await savePdf(pdfDoc, `Payment_Schedule_${record.id}.pdf`);
         } catch (error) {
             console.error("Failed to generate PDF:", error);
             alert('Download failed.');
@@ -1334,11 +1334,11 @@ const LoanDetails: React.FC = () => {
     };
 
     const handleDownloadReceipt = async (emi: any) => {
-        if (!loan) return;
+        if (!record) return;
         setIsDownloadingReceipt(emi.month);
         try {
-            const receiptData = loan.repaymentSchedule.find(e => e.emiNumber === emi.month);
-            if (!receiptData || !loan.customerId || !loan.customerName) {
+            const receiptData = record.repaymentSchedule.find(e => e.emiNumber === emi.month);
+            if (!receiptData || !record.customerId || !record.customerName) {
                 alert('Cannot generate receipt: Missing data.');
                 setIsDownloadingReceipt(null);
                 return;
@@ -1346,7 +1346,7 @@ const LoanDetails: React.FC = () => {
 
             const pdfDoc = new jsPDF();
 
-            const customerRef = doc(db, "customers", loan.customerId);
+            const customerRef = doc(db, "customers", record.customerId);
             const customerSnap = await getDoc(customerRef);
             const customerData = customerSnap.exists() ? customerSnap.data() : {};
 
@@ -1376,18 +1376,18 @@ const LoanDetails: React.FC = () => {
             y += 15;
 
             pdfDoc.setFontSize(11);
-            pdfDoc.text(`Receipt ID: RCPT-${loan.id}-${emi.month}`, 14, y);
+            pdfDoc.text(`Receipt ID: RCPT-${record.id}-${emi.month}`, 14, y);
             y += 7;
             pdfDoc.text(`Payment Date: ${safeFormatDate(receiptData.paymentDate, 'PPP')}`, 14, y);
             y += 8;
             pdfDoc.line(14, y, 196, y);
             y += 10;
 
-            pdfDoc.text(`Customer Name: ${loan.customerName}`, 14, y);
+            pdfDoc.text(`Customer Name: ${record.customerName}`, 14, y);
             if (customerData?.phone) { y += 7; pdfDoc.text(`Mobile: ${customerData.phone}`, 14, y); }
             if (customerData?.address) { y += 7; pdfDoc.text(`Address: ${customerData.address}`, 14, y); }
             y += 7;
-            pdfDoc.text(`Loan ID: ${loan.id}`, 14, y);
+            pdfDoc.text(`Record ID: ${record.id}`, 14, y);
             y += 8;
             pdfDoc.line(14, y, 196, y);
             y += 7;
@@ -1397,15 +1397,15 @@ const LoanDetails: React.FC = () => {
             pdfDoc.text("Amount", 180, y, { align: 'right' });
             y += 8;
             pdfDoc.setFont("helvetica", "normal");
-            pdfDoc.text(`EMI Payment (No. ${emi.month}/${loan.tenure})`, 14, y);
-            pdfDoc.text(formatCurrency(loan.emi), 180, y, { align: 'right' });
+            pdfDoc.text(`EMI Payment (No. ${emi.month}/${record.tenure})`, 14, y);
+            pdfDoc.text(formatCurrency(record.emi), 180, y, { align: 'right' });
             y += 10;
 
             pdfDoc.line(14, y, 196, y);
             y += 7;
             pdfDoc.setFont("helvetica", "bold");
             pdfDoc.text("Total Paid:", 130, y);
-            pdfDoc.text(formatCurrency(receiptData?.amountPaid || loan.emi), 180, y, { align: 'right' });
+            pdfDoc.text(formatCurrency(receiptData?.amountPaid || record.emi), 180, y, { align: 'right' });
             y += 13;
 
             const paymentMethod = receiptData?.paymentMethod || 'N/A';
@@ -1420,7 +1420,7 @@ const LoanDetails: React.FC = () => {
                 pdfDoc.text(`Page ${i} of ${pageCount}`, pdfDoc.internal.pageSize.getWidth() - 20, 287);
             }
 
-            await savePdf(pdfDoc, `Receipt_${loan.id}_EMI_${emi.month}.pdf`);
+            await savePdf(pdfDoc, `Receipt_${record.id}_EMI_${emi.month}.pdf`);
         } catch (error: any) {
             console.error("Failed to generate PDF:", error);
             alert('Receipt download failed.');
@@ -1431,17 +1431,17 @@ const LoanDetails: React.FC = () => {
 
     const StatusBadge = ({ status }: { status: string }) => {
         let classes = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset ";
-        if (status === 'Approved') classes += "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-400";
-        else if (status === 'Disbursed' || status === 'Active') classes += "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-900/30 dark:text-indigo-400";
+        if (status === 'Confirmed') classes += "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-400";
+        else if (status === 'Finalized' || status === 'Active') classes += "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-900/30 dark:text-indigo-400";
         else if (status === 'Completed') classes += "bg-purple-50 text-purple-700 ring-purple-600/20 dark:bg-purple-900/30 dark:text-purple-400";
-        else if (status === 'Rejected' || status === 'Overdue') classes += "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-400";
+        else if (status === 'Declined' || status === 'Overdue') classes += "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-400";
         else classes += "bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400";
 
         return <span className={classes}>{status}</span>;
     };
 
     const downloadAmortizationPDF = async () => {
-        if (!loan || !loan.amortizationSchedule) {
+        if (!record || !record.amortizationSchedule) {
             alert("Amortization data not found");
             return;
         }
@@ -1454,19 +1454,19 @@ const LoanDetails: React.FC = () => {
         pdf.text(companyDetails.name, 105, 15, { align: "center" });
 
         pdf.setFontSize(12);
-        pdf.text("Loan Amortization Schedule", 105, 25, { align: "center" });
+        pdf.text("Record Amortization Schedule", 105, 25, { align: "center" });
 
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "normal");
 
         let y = 40;
-        pdf.text(`Customer: ${loan.customerName}`, 14, y);
+        pdf.text(`Customer: ${record.customerName}`, 14, y);
         y += 6;
-        pdf.text(`Loan ID: ${loan.id}`, 14, y);
+        pdf.text(`Record ID: ${record.id}`, 14, y);
         y += 6;
-        pdf.text(`Interest Rate: ${loan.interestRate}%`, 14, y);
+        pdf.text(`Interest Rate: ${record.interestRate}%`, 14, y);
         y += 6;
-        pdf.text(`EMI: ${formatCurrency(loan.topUpEmi || loan.emi)}`, 14, y);
+        pdf.text(`EMI: ${formatCurrency(record.topUpEmi || record.emi)}`, 14, y);
         y += 10;
 
         // ===== TABLE =====
@@ -1474,7 +1474,7 @@ const LoanDetails: React.FC = () => {
             ["EMI#", "Opening", "EMI", "Interest", "Principal", "Closing", "Due Date"]
         ];
 
-        const tableBody = loan.amortizationSchedule.map(row => ([
+        const tableBody = record.amortizationSchedule.map(row => ([
             row.emiNo,
             formatCurrency(row.openingBalance),
             formatCurrency(row.emi),
@@ -1507,11 +1507,11 @@ const LoanDetails: React.FC = () => {
             );
         }
 
-        savePdf(pdf, `Amortization_${loan.id}.pdf`);
+        savePdf(pdf, `Amortization_${record.id}.pdf`);
     };
 
     const undoLastTopUp = async () => {
-        if (!loan || !loan.topUpHistory || loan.topUpHistory.length === 0) {
+        if (!record || !record.topUpHistory || record.topUpHistory.length === 0) {
             alert("No top-up to undo");
             return;
         }
@@ -1519,7 +1519,7 @@ const LoanDetails: React.FC = () => {
         if (!confirm("Are you sure you want to undo the last top-up?")) return;
 
         try {
-            const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
+            const lastTopUp = record.topUpHistory[record.topUpHistory.length - 1];
 
             // =========================
             // 1️⃣ RESTORE OLD VALUES
@@ -1527,9 +1527,9 @@ const LoanDetails: React.FC = () => {
             const restoredAmount = lastTopUp.outstandingBefore;
             // If historical original EMI is not preserved, we assume current 'emi' was the top-up emi,
             // so we fallback to originalEmi field.
-            const restoredEmi = loan.originalEmi || loan.emi;
+            const restoredEmi = record.originalEmi || record.emi;
 
-            const paidEmis = loan.repaymentSchedule.filter(e => e.status === "Paid");
+            const paidEmis = record.repaymentSchedule.filter(e => e.status === "Paid");
 
             // =========================
             // 2️⃣ REBUILD OLD SCHEDULE
@@ -1537,7 +1537,7 @@ const LoanDetails: React.FC = () => {
 
             // Determine the start date for the restored schedule
             let nextDueDate = new Date();
-            const emiDueDay = loan.emiDueDay || 1;
+            const emiDueDay = record.emiDueDay || 1;
 
             if (paidEmis.length > 0) {
                 // If EMIs were paid, the next one is 1 month after the last paid/due date
@@ -1553,14 +1553,14 @@ const LoanDetails: React.FC = () => {
                 // If no EMIs paid, fallback to simple logic (next month from now? Or original start?)
                 // Since we don't have original start date stored easily if it was long ago, 
                 // we'll assume 'next month' from today is a safe fallback for a blank slate,
-                // OR better: derive from Disbursal Date if close?
+                // OR better: derive from Finalization Date if close?
                 // Let's stick to "Next Month from Today" if completely fresh, 
                 // BUT better: check 'lastTopUp.date'. The schedule should resume from *that* point if we undo immediately?
-                // Actually, if zero paid, it means it's a fresh loan. 
+                // Actually, if zero paid, it means it's a fresh record. 
                 // We should probably just use the current 'Pending' date?
                 // Let's use the Date of the First Pending EMI in the *current* schedule as a proxy if available, 
                 // assuming Undo happens quickly.
-                const firstPendingCurrent = loan.repaymentSchedule.find(e => e.status === 'Pending');
+                const firstPendingCurrent = record.repaymentSchedule.find(e => e.status === 'Pending');
                 if (firstPendingCurrent) {
                     nextDueDate = new Date(firstPendingCurrent.dueDate);
                 } else {
@@ -1570,7 +1570,7 @@ const LoanDetails: React.FC = () => {
             }
 
             // Calculate remaining tenure for restored amount
-            const monthlyRate = (loan.interestRate || 18) / 12 / 100;
+            const monthlyRate = (record.interestRate || 18) / 12 / 100;
             // Robust calculation:
             // If restoredEmi is 0 or invalid, this crashes. Ensure restoredEmi > 0.
             const validEmi = restoredEmi > 0 ? restoredEmi : (restoredAmount * 0.02); // Fallback
@@ -1599,7 +1599,7 @@ const LoanDetails: React.FC = () => {
             // =========================
             // 3️⃣ UPDATE FIRESTORE
             // =========================
-            await updateDoc(doc(db, "loans", loan.id), {
+            await updateDoc(doc(db, "records", record.id), {
                 amount: restoredAmount,
                 emi: restoredEmi,
                 topUpEmi: deleteField(),
@@ -1607,7 +1607,7 @@ const LoanDetails: React.FC = () => {
                 repaymentSchedule: restoredSchedule,
                 amortizationSchedule: deleteField(),
                 lastTopUpDate: deleteField(),
-                topUpHistory: loan.topUpHistory.slice(0, -1)
+                topUpHistory: record.topUpHistory.slice(0, -1)
             });
 
             // =========================
@@ -1616,13 +1616,13 @@ const LoanDetails: React.FC = () => {
             await addDoc(collection(db, "ledger"), {
                 date: new Date().toISOString(),
                 companyId: currentCompany?.id,
-                loanId: loan.id,
-                customerId: loan.customerId,
-                narration: `Top-up rollback for Loan ${loan.id}`,
+                loanId: record.id,
+                customerId: record.customerId,
+                narration: `Top-up rollback for Record ${record.id}`,
                 entries: [
                     {
                         type: "Credit",
-                        account: "Loan Outstanding",
+                        account: "Record Outstanding",
                         amount: lastTopUp.topUpAmount || lastTopUp.amount || 0
                     },
                     {
@@ -1651,11 +1651,11 @@ const LoanDetails: React.FC = () => {
         return <div className="flex justify-center items-center h-screen"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>;
     }
 
-    if (!loan) {
+    if (!record) {
         return (
             <div className="flex flex-col items-center justify-center h-screen p-4">
-                <h2 className="text-xl font-bold mb-2">Loan Not Found</h2>
-                <button onClick={() => navigate('/loans')} className="px-4 py-2 bg-primary text-white rounded-lg">Back to Loans</button>
+                <h2 className="text-xl font-bold mb-2">Record Not Found</h2>
+                <button onClick={() => navigate('/records')} className="px-4 py-2 bg-primary text-white rounded-lg">Back to Records</button>
             </div>
         );
     }
@@ -1676,15 +1676,15 @@ const LoanDetails: React.FC = () => {
                     <span className="material-symbols-outlined transition-transform group-hover:-translate-x-1">arrow_back</span>
                     <span className="font-bold text-sm hidden sm:inline">Back</span>
                 </button>
-                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">Loan Details</h1>
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">Record Details</h1>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate(`/loans/edit/${loanId}`)} className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all hover:shadow-lg hover:shadow-indigo-500/10 active:scale-95" title="Edit Loan">
+                    <button onClick={() => navigate(`/records/edit/${loanId}`)} className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all hover:shadow-lg hover:shadow-indigo-500/10 active:scale-95" title="Edit Record">
                         <span className="material-symbols-outlined">edit</span>
                     </button>
                     <button onClick={handleDownloadSchedule} disabled={isDownloadingSchedule} className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all hover:shadow-lg hover:shadow-indigo-500/10 active:scale-95" title="Download Schedule">
                         {isDownloadingSchedule ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"></div> : <span className="material-symbols-outlined">calendar_month</span>}
                     </button>
-                    <button onClick={() => generateLoanCardPDF('save')} className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all hover:shadow-lg hover:shadow-indigo-500/10 active:scale-95" title="Download Loan Card">
+                    <button onClick={() => generateLoanCardPDF('save')} className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all hover:shadow-lg hover:shadow-indigo-500/10 active:scale-95" title="Download Record Card">
                         <span className="material-symbols-outlined">id_card</span>
                     </button>
                     <button onClick={() => generateLoanAgreementPDF('save')} disabled={isGeneratingAgreement} className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all hover:shadow-lg hover:shadow-indigo-500/10 active:scale-95" title="Download Agreement">
@@ -1699,26 +1699,26 @@ const LoanDetails: React.FC = () => {
             <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
 
                 {/* Actions Bar */}
-                {loan.status === 'Disbursed' && (
+                {record.status === 'Finalized' && (
                     <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar print:hidden">
                         <button
                             onClick={() => setIsPrecloseModalOpen(true)}
                             className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 font-bold text-sm hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
                         >
-                            <span className="material-symbols-outlined text-[18px]">cancel</span> Pre-close Loan
+                            <span className="material-symbols-outlined text-[18px]">cancel</span> Pre-close Record
                         </button>
                         <button
                             onClick={() => setIsTopUpModalOpen(true)}
                             className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-bold text-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-colors"
                         >
-                            <span className="material-symbols-outlined text-[18px]">trending_up</span> Top-up Loan
+                            <span className="material-symbols-outlined text-[18px]">trending_up</span> Top-up Record
                         </button>
 
                     </div>
                 )}
 
                 {/* Undo Top-Up Button (Only if Top-Up History exists) */}
-                {loan && loan.topUpHistory && loan.topUpHistory.length > 0 && (
+                {record && record.topUpHistory && record.topUpHistory.length > 0 && (
                     <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar print:hidden mt-2">
                         <button
                             onClick={undoLastTopUp}
@@ -1729,8 +1729,8 @@ const LoanDetails: React.FC = () => {
                     </div>
                 )}
 
-                {/* Undo Foreclosure for Completed Loans */}
-                {loan.status === 'Completed' && (loan as any).foreclosureDetails && (
+                {/* Undo Foreclosure for Completed Records */}
+                {record.status === 'Completed' && (record as any).foreclosureDetails && (
                     <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar print:hidden">
                         <button
                             onClick={handleUndoForeclosure}
@@ -1754,62 +1754,62 @@ const LoanDetails: React.FC = () => {
                             <div className="relative group">
                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
                                 <LazyImage
-                                    src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
-                                    alt={loan.customerName}
+                                    src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(record.customerName)}&background=random`}
+                                    alt={record.customerName}
                                     className="relative h-16 w-16 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-md group-hover:scale-105 transition-transform duration-300"
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight mb-1">{loan.customerName}</h2>
+                                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight mb-1">{record.customerName}</h2>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
                                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0"></span>
-                                    <span>ID: <span className="font-semibold">{loan.id}</span></span>
+                                    <span>ID: <span className="font-semibold">{record.id}</span></span>
                                 </p>
                             </div>
                         </div>
                         <div className="shrink-0 ml-2">
-                            <StatusBadge status={loan.status} />
+                            <StatusBadge status={record.status} />
                         </div>
                     </div>
                     <div className="p-6 grid grid-cols-2 sm:grid-cols-4 gap-y-8 gap-x-6">
                         <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Loan Amount</span>
+                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Record Amount</span>
                             <div className="text-xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
-                                {formatCurrency(loan.amount)}
+                                {formatCurrency(record.amount)}
                             </div>
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Monthly EMI</span>
                             <div className="text-xl font-bold text-slate-900 dark:text-white">
-                                {formatCurrency(loan.emi)}
+                                {formatCurrency(record.emi)}
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Disbursed Date</span>
+                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Finalized Date</span>
                             <div className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-                                {safeFormatDate(loan.disbursalDate)}
+                                {safeFormatDate(record.disbursalDate)}
                             </div>
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Interest Rate</span>
                             <div className="text-lg font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50 inline-block px-2 py-0.5 rounded-md">
-                                {loan.interestRate}% <span className="text-xs font-normal opacity-70">p.a.</span>
+                                {record.interestRate}% <span className="text-xs font-normal opacity-70">p.a.</span>
                             </div>
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Tenure</span>
                             <div className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-                                {loan.tenure} <span className="text-sm font-normal text-slate-400">Months</span>
+                                {record.tenure} <span className="text-sm font-normal text-slate-400">Months</span>
                             </div>
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Progress</span>
                             <div className="relative pt-1">
                                 <div className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                    {paidEmisCount} <span className="text-slate-400">/ {loan.tenure}</span>
+                                    {paidEmisCount} <span className="text-slate-400">/ {record.tenure}</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${(paidEmisCount / loan.tenure) * 100}%` }}></div>
+                                    <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${(paidEmisCount / record.tenure) * 100}%` }}></div>
                                 </div>
                             </div>
                         </div>
@@ -1854,7 +1854,7 @@ const LoanDetails: React.FC = () => {
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{safeFormatDate(emi.dueDate)}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(emi.principal)}</td>
                                         <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(emi.interest)}</td>
-                                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{formatCurrency(getEmiAmountForDisplay(emi, loan))}</td>
+                                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{formatCurrency(getEmiAmountForDisplay(emi, record))}</td>
                                         <td>
                                             {emi.status === "Paid" ? (
                                                 <span className="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 rounded">
@@ -1902,7 +1902,7 @@ const LoanDetails: React.FC = () => {
                 </div>
 
                 {/* Amortization Schedule (Optional - Visible if data exists) */}
-                {loan.amortizationSchedule && loan.amortizationSchedule.length > 0 && (
+                {record.amortizationSchedule && record.amortizationSchedule.length > 0 && (
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden mt-6">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                             <h3 className="font-bold text-lg">Amortization Schedule (New Principal)</h3>
@@ -1920,7 +1920,7 @@ const LoanDetails: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {loan.amortizationSchedule.map(row => (
+                                    {record.amortizationSchedule.map(row => (
                                         <tr key={row.emiNo} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
                                             <td className="px-4 py-2">{row.emiNo}</td>
                                             <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{formatCurrency(row.openingBalance)}</td>
@@ -1950,8 +1950,8 @@ const LoanDetails: React.FC = () => {
                 isPrecloseModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                         <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
-                            <h3 className="text-lg font-bold mb-1">Pre-close Loan</h3>
-                            <p className="text-sm text-slate-500 mb-4">Calculate foreclosure amount and close loan.</p>
+                            <h3 className="text-lg font-bold mb-1">Pre-close Record</h3>
+                            <p className="text-sm text-slate-500 mb-4">Calculate foreclosure amount and close record.</p>
 
                             <div className="space-y-4 mb-6">
                                 <div>
@@ -2017,7 +2017,7 @@ const LoanDetails: React.FC = () => {
                 isTopUpModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                         <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl p-6">
-                            <h3 className="text-lg font-bold mb-1">Top-up Loan</h3>
+                            <h3 className="text-lg font-bold mb-1">Top-up Record</h3>
                             <p className="text-sm text-slate-500 mb-4">Add amount and set new duration. New agreement will be generated.</p>
 
                             <div className="space-y-4 mb-6">
@@ -2048,7 +2048,7 @@ const LoanDetails: React.FC = () => {
                                         placeholder="Enter new tenure"
                                         className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
                                     />
-                                    <p className="text-xs text-slate-400 mt-1">This will be the new loan duration from today</p>
+                                    <p className="text-xs text-slate-400 mt-1">This will be the new record duration from today</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -2077,13 +2077,13 @@ const LoanDetails: React.FC = () => {
                                         <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New Principal</span>
                                         <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{formatCurrency(outstandingPrincipal + topUpAmount)}</span>
                                     </div>
-                                    {topUpAmount > 0 && topUpTenure > 0 && loan && (
+                                    {topUpAmount > 0 && topUpTenure > 0 && record && (
                                         <div className="flex justify-between items-center border-t border-blue-200 dark:border-blue-800 pt-2">
                                             <span className="text-sm font-bold text-blue-800 dark:text-blue-300">New EMI (approx)</span>
                                             <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">
                                                 {formatCurrency(Math.round(
-                                                    ((outstandingPrincipal + topUpAmount) * (loan.interestRate / 12 / 100) * Math.pow(1 + (loan.interestRate / 12 / 100), topUpTenure)) /
-                                                    (Math.pow(1 + (loan.interestRate / 12 / 100), topUpTenure) - 1)
+                                                    ((outstandingPrincipal + topUpAmount) * (record.interestRate / 12 / 100) * Math.pow(1 + (record.interestRate / 12 / 100), topUpTenure)) /
+                                                    (Math.pow(1 + (record.interestRate / 12 / 100), topUpTenure) - 1)
                                                 ))}
                                             </span>
                                         </div>
@@ -2091,7 +2091,7 @@ const LoanDetails: React.FC = () => {
                                 </div>
                                 <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                                     <p className="text-xs text-green-700 dark:text-green-400">
-                                        <span className="font-bold">Note:</span> New Loan Agreement and Loan Card will be automatically generated after top-up.
+                                        <span className="font-bold">Note:</span> New Record Agreement and Record Card will be automatically generated after top-up.
                                     </p>
                                 </div>
                             </div>
@@ -2100,7 +2100,7 @@ const LoanDetails: React.FC = () => {
                                 <button onClick={() => setIsTopUpModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">Cancel</button>
                                 <button
                                     onClick={handlePreviewUpdatedLoanCard}
-                                    disabled={!loan || topUpAmount <= 0}
+                                    disabled={!record || topUpAmount <= 0}
                                     className="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-bold hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[16px]">visibility</span>
@@ -2108,7 +2108,7 @@ const LoanDetails: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handlePreviewTopUpAgreement}
-                                    disabled={!loan || topUpAmount <= 0}
+                                    disabled={!record || topUpAmount <= 0}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[16px]">description</span>

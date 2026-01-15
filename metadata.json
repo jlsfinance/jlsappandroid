@@ -1,5 +1,5 @@
 {
-  "name": "JLS FINANCE SUITE",
-  "description": "A comprehensive microfinance management application featuring customer profiles, loan tracking, finance dashboards, and tools like EMI calculators, integrated with Firebase.",
+  "name": "BillBook Suite",
+  "description": "A comprehensive record management application featuring customer profiles, record tracking, finance dashboards, and tools like EMI calculators, integrated with Firebase.",
   "requestFramePermissions": []
 }

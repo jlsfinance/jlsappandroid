@@ -133,7 +133,7 @@ Complete the content rating questionnaire to get a rating for your app.
 
 Declare what data your app collects:
 - Phone number (for login)
-- Financial information (loan details)
+- Financial information (record details)
 - Usage data
 
 ## Step 8: Release the App

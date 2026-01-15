@@ -55,10 +55,10 @@ const NewLoan: React.FC = () => {
         } as Customer));
         setCustomers(customersData);
 
-        // Fetch active loans to prevent duplicates (also filter by company)
+        // Fetch active records to prevent duplicates (also filter by company)
         const activeLoansQuery = query(
           collection(db, "loans"),
-          where("status", "==", "Disbursed"),
+          where("status", "==", "Finalized"),
           where("companyId", "==", currentCompany.id)
         );
         const activeLoansSnap = await getDocs(activeLoansQuery);
@@ -98,7 +98,7 @@ const NewLoan: React.FC = () => {
 
   const handleCustomerSelect = (customerId: string) => {
     if (customersWithActiveLoans.has(customerId)) {
-      alert("This customer already has an active loan.");
+      alert("This customer already has an active record.");
       return;
     }
     setSelectedCustomerId(customerId);
@@ -123,7 +123,7 @@ const NewLoan: React.FC = () => {
     if (!selectedCustomer || !auth.currentUser) return;
 
     // Validation
-    if (form.amount < 1000) return alert("Minimum loan amount is 1000");
+    if (form.amount < 1000) return alert("Minimum record amount is 1000");
     if (form.tenure < 1) return alert("Minimum tenure is 1 month");
 
     setIsSubmitting(true);
@@ -131,7 +131,7 @@ const NewLoan: React.FC = () => {
     try {
       const applicationDate = new Date().toISOString();
 
-      // Transaction: Get new ID -> Save Loan -> Update Counter
+      // Transaction: Get new ID -> Save Record -> Update Counter
       const newLoanId = await runTransaction(db, async (transaction) => {
         const counterRef = doc(db, 'counters', 'loanId_counter');
         const counterDoc = await transaction.get(counterRef);
@@ -142,9 +142,9 @@ const NewLoan: React.FC = () => {
           nextId = typeof lastId === 'number' ? lastId + 10 : 10110;
         }
 
-        const newLoanRef = doc(db, 'loans', nextId.toString());
+        const newLoanRef = doc(db, 'records', nextId.toString());
 
-        // Construct Loan Object
+        // Construct Record Object
         const loanData = {
           id: nextId.toString(),
           customerId: selectedCustomer.id,
@@ -171,12 +171,12 @@ const NewLoan: React.FC = () => {
         return nextId;
       });
 
-      alert(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
-      navigate('/loans');
+      alert(`New Record Submitted Successfully! Record ID: ${newLoanId}`);
+      navigate('/records');
 
     } catch (error) {
       console.error("Submission failed:", error);
-      alert("Failed to submit loan application. Please try again.");
+      alert("Failed to add record. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -195,7 +195,7 @@ const NewLoan: React.FC = () => {
           <span className="material-symbols-outlined">arrow_back</span>
           <span className="font-bold text-sm hidden sm:inline">Back</span>
         </button>
-        <h1 className="text-lg font-bold">New Application</h1>
+        <h1 className="text-lg font-bold">New Record</h1>
         <div className="w-10"></div> {/* Spacer */}
       </div>
 
@@ -288,13 +288,13 @@ const NewLoan: React.FC = () => {
           )}
         </div>
 
-        {/* Step 2: Loan Details Form */}
+        {/* Step 2: Record Details Form */}
         {selectedCustomer && (
           <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
               <h2 className="font-bold text-base flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">edit_document</span>
-                Loan Configuration
+                Record Configuration
               </h2>
             </div>
 
@@ -302,7 +302,7 @@ const NewLoan: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Amount */}
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Loan Amount (₹)</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Record Amount (₹)</label>
                   <input
                     type="number"
                     name="amount"
@@ -389,7 +389,7 @@ const NewLoan: React.FC = () => {
                 {isSubmitting ? (
                   <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div> Processing...</>
                 ) : (
-                  <>Submit Application <span className="material-symbols-outlined material-symbols-fill">arrow_forward</span></>
+                  <>Add Record <span className="material-symbols-outlined material-symbols-fill">arrow_forward</span></>
                 )}
               </button>
             </form>

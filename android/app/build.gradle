@@ -1,4 +1,4 @@
-apply plugin: 'com.android.application'
+add record plugin: 'com.android.application'
 
 android {
     namespace "com.jls.suite"
@@ -82,12 +82,12 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
 }
 
-apply from: 'capacitor.build.gradle'
+add record from: 'capacitor.build.gradle'
 
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
+        add record plugin: 'com.google.gms.google-services'
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")

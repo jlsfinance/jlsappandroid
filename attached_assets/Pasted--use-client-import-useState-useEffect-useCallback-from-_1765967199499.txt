@@ -49,7 +49,7 @@ interface LoanData {
     disbursalDate?: string;
     notes?: string;
     customerId: string;
-    status: 'Pending' | 'Approved' | 'Disbursed' | 'Completed' | 'Rejected';
+    status: 'Pending' | 'Confirmed' | 'Finalized' | 'Completed' | 'Declined';
 }
 
 export default function EditLoanPage() {
@@ -59,7 +59,7 @@ export default function EditLoanPage() {
   const { toast } = useToast();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loan, setLoan] = useState<LoanData | null>(null);
+  const [record, setLoan] = useState<LoanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -70,12 +70,12 @@ export default function EditLoanPage() {
   const fetchLoanAndCustomer = useCallback(async (id: string) => {
     setLoading(true);
     try {
-        const loanRef = doc(db, "loans", id);
+        const loanRef = doc(db, "records", id);
         const loanSnap = await getDoc(loanRef);
 
         if (!loanSnap.exists()) {
-            toast({ variant: "destructive", title: "Loan Not Found", description: "This loan application does not exist." });
-            router.push('/loans');
+            toast({ variant: "destructive", title: "Record Not Found", description: "This record application does not exist." });
+            router.push('/records');
             return;
         }
 
@@ -99,8 +99,8 @@ export default function EditLoanPage() {
 
     } catch(err) {
       console.error(err)
-      toast({ variant: "destructive", title: "Failed to load loan data." });
-      router.push('/loans');
+      toast({ variant: "destructive", title: "Failed to load record data." });
+      router.push('/records');
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ export default function EditLoanPage() {
 
   const onSubmit = async (data: LoanEditFormValues) => {
     if (!loanId || !customer) {
-        toast({ variant: "destructive", title: "Error", description: "Loan or customer information is missing."});
+        toast({ variant: "destructive", title: "Error", description: "Record or customer information is missing."});
         return;
     }
 
@@ -127,7 +127,7 @@ export default function EditLoanPage() {
           (Math.pow(1 + monthlyRate, data.tenure) - 1)
       );
 
-      const loanRef = doc(db, "loans", loanId);
+      const loanRef = doc(db, "records", loanId);
       await updateDoc(loanRef, {
         amount: data.amount,
         interestRate: data.interestRate,
@@ -141,16 +141,16 @@ export default function EditLoanPage() {
       });
 
       toast({
-        title: "✅ Loan Application Updated",
+        title: "✅ New Record Updated",
         description: "The application details have been saved.",
       });
 
-      router.push("/loans");
+      router.push("/records");
     } catch (e: any) {
       toast({
         variant: "destructive",
         title: "Update Error",
-        description: e.message || "Could not update the loan.",
+        description: e.message || "Could not update the record.",
       });
     } finally {
       setIsSubmitting(false);
@@ -169,13 +169,13 @@ export default function EditLoanPage() {
     <div className="space-y-6">
        <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
-            <h1 className="text-2xl font-headline font-semibold">Edit Loan Application</h1>
+            <h1 className="text-2xl font-headline font-semibold">Edit New Record</h1>
        </div>
       <Card className="max-w-4xl mx-auto shadow-lg">
         <CardHeader>
-          <CardTitle>Update Loan Details</CardTitle>
+          <CardTitle>Update Record Details</CardTitle>
            <CardDescription>
-            You are editing loan ID: {loanId}
+            You are editing record ID: {loanId}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,12 +206,12 @@ export default function EditLoanPage() {
                 </>
               )}
 
-            {loan && loan.status !== 'Pending' && (
+            {record && record.status !== 'Pending' && (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Warning: Editing an Active Loan</AlertTitle>
+                    <AlertTitle>Warning: Editing an Active Record</AlertTitle>
                     <AlertDescription>
-                        This loan has already been {loan.status.toLowerCase()}. Any changes made here may impact the existing EMI schedule and financial records. Please proceed with caution. This action will not automatically regenerate the payment schedule.
+                        This record has already been {record.status.toLowerCase()}. Any changes made here may impact the existing EMI schedule and financial records. Please proceed with caution. This action will not automatically regenerate the payment schedule.
                     </AlertDescription>
                 </Alert>
             )}
@@ -219,10 +219,10 @@ export default function EditLoanPage() {
             <Separator />
                 
               <div className="space-y-4">
-                <h3 className="text-lg font-medium text-primary">Loan Details</h3>
+                <h3 className="text-lg font-medium text-primary">Record Details</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <FormField control={form.control} name="amount" render={({ field }) => (
-                    <FormItem><FormLabel>Loan Amount (₹)</FormLabel><FormControl><Input {...field} type="number" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Record Amount (₹)</FormLabel><FormControl><Input {...field} type="number" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="tenure" render={({ field }) => (
                     <FormItem><FormLabel>Tenure (Months)</FormLabel><FormControl><Input {...field} type="number" /></FormControl><FormMessage /></FormItem>
@@ -237,7 +237,7 @@ export default function EditLoanPage() {
                     <FormItem className="lg:col-span-1"><FormLabel>Application Date</FormLabel><FormControl><Input {...field} type="date" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="disbursalDate" render={({ field }) => (
-                    <FormItem className="lg:col-span-1"><FormLabel>Disbursal Date</FormLabel><FormControl><Input {...field} type="date" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="lg:col-span-1"><FormLabel>Finalization Date</FormLabel><FormControl><Input {...field} type="date" /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
                 <FormField control={form.control} name="notes" render={({ field }) => (
@@ -249,7 +249,7 @@ export default function EditLoanPage() {
                   {isSubmitting ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</>
                   ) : (
-                    'Update Loan'
+                    'Update Record'
                   )}
                 </Button>
               </div>

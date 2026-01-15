@@ -8,7 +8,7 @@ import Customers from './pages/Customers';
 import CustomerProfile from './pages/CustomerProfile';
 import NewCustomer from './pages/NewCustomer';
 import EditCustomer from './pages/EditCustomer';
-import Loans from './pages/Loans';
+import Records from './pages/Records';
 import LoanDetails from './pages/LoanDetails';
 import NewLoan from './pages/NewLoan';
 import EditLoan from './pages/EditLoan';
@@ -18,7 +18,7 @@ import Settings from './pages/Settings';
 import FinanceOverview from './pages/FinanceOverview';
 import Receipts from './pages/Receipts';
 import Approvals from './pages/Approvals';
-import Disbursal from './pages/Disbursal';
+import Finalization from './pages/Finalization';
 import DueList from './pages/DueList';
 import Partners from './pages/Partners';
 import UserManagement from './pages/UserManagement';
@@ -197,16 +197,16 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/loans" element={
+                <Route path="/records" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <Loans />
+                      <Records />
                       <BottomNav />
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
 
-                <Route path="/loans/new" element={
+                <Route path="/records/new" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <NewLoan />
@@ -214,7 +214,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/loans/:id" element={
+                <Route path="/records/:id" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <LoanDetails />
@@ -222,7 +222,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/loans/edit/:id" element={
+                <Route path="/records/edit/:id" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <EditLoan />
@@ -296,10 +296,10 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 } />
 
-                <Route path="/disbursal" element={
+                <Route path="/finalization" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <Disbursal />
+                      <Finalization />
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />

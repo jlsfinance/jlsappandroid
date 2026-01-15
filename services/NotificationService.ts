@@ -1,5 +1,5 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Loan } from '../types';
+import { Record } from '../types';
 import { parseISO, isFuture, isToday, setHours, setMinutes, setSeconds, isPast } from 'date-fns';
 
 export const NotificationService = {
@@ -161,7 +161,7 @@ export const NotificationService = {
         return localStorage.getItem('fcm_token');
     },
 
-    async scheduleLoanNotifications(loans: Loan[]) {
+    async scheduleLoanNotifications(records: Record[]) {
         const hasPermission = await this.requestPermissions();
         if (!hasPermission) return;
 
@@ -174,12 +174,12 @@ export const NotificationService = {
         const notifications: any[] = [];
         let idCounter = 1;
 
-        for (const loan of loans) {
-            // Only consider active loans
-            if (['Active', 'Disbursed', 'Overdue'].includes(loan.status) && loan.repaymentSchedule) {
+        for (const record of records) {
+            // Only consider active records
+            if (['Active', 'Finalized', 'Overdue'].includes(record.status) && record.repaymentSchedule) {
 
                 // Find the NEXT unpaid installment
-                const nextInstallment = loan.repaymentSchedule.find(inst => inst.status === 'Pending');
+                const nextInstallment = record.repaymentSchedule.find(inst => inst.status === 'Pending');
 
                 if (nextInstallment) {
                     const dueDate = parseISO(nextInstallment.date);
@@ -193,7 +193,7 @@ export const NotificationService = {
                     // If "isPast" (and not today), it's Overdue. 
 
                     let trigger: any = { at: scheduleDate };
-                    let body = `EMI of Rs. ${nextInstallment.amount} is due today for ${loan.customerName}`;
+                    let body = `EMI of Rs. ${nextInstallment.amount} is due today for ${record.customerName}`;
                     let title = 'EMI Due Today';
 
                     if (isToday(dueDate)) {
@@ -206,17 +206,17 @@ export const NotificationService = {
                     } else if (isPast(dueDate)) {
                         // It is OVERDUE.
                         title = 'EMI Overdue';
-                        body = `EMI of Rs. ${nextInstallment.amount} from ${loan.customerName} was due on ${nextInstallment.date}`;
+                        body = `EMI of Rs. ${nextInstallment.amount} from ${record.customerName} was due on ${nextInstallment.date}`;
                         // Trigger immediately (5 sec delay)
                         trigger = { at: new Date(Date.now() + 1000 * 5) };
                     }
 
                     // If it is in the future, 'trigger' remains set to 9 AM on that day.
 
-                    // Construct ID based on loan ID hash or simple counter? 
+                    // Construct ID based on record ID hash or simple counter? 
                     // Using counter for batch.
 
-                    // We only schedule ONE notification per loan (the next one) to save slots.
+                    // We only schedule ONE notification per record (the next one) to save slots.
                     notifications.push({
                         title: title,
                         body: body,
@@ -228,8 +228,8 @@ export const NotificationService = {
                         smallIcon: "ic_launcher",
                         channelId: 'default',
                         extra: {
-                            loanId: loan.id,
-                            customerId: loan.customerId
+                            loanId: record.id,
+                            customerId: record.customerId
                         }
                     });
                 }
@@ -239,7 +239,7 @@ export const NotificationService = {
         // Always schedule a "Sync Complete" immediate notification to confirm logic ran
         notifications.push({
             title: 'Reminders Synced',
-            body: `Processed active loans. Alerts set for upcoming due dates.`,
+            body: `Processed active records. Alerts set for upcoming due dates.`,
             id: 999999,
             schedule: { at: new Date(Date.now() + 2000) },
             sound: 'beep.wav',

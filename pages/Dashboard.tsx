@@ -9,7 +9,7 @@ import LazyImage from '../components/LazyImage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO } from 'date-fns';
-import { Loan } from '../types';
+import { Record } from '../types';
 
 // Type definitions for the dashboard
 
@@ -26,7 +26,7 @@ const Dashboard: React.FC = () => {
     const [activeCard, setActiveCard] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const [loans, setLoans] = useState<any[]>([]);
+    const [records, setLoans] = useState<any[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [partnerTransactions, setPartnerTransactions] = useState<any[]>([]);
     const [expenses, setExpenses] = useState<any[]>([]);
@@ -114,7 +114,7 @@ const Dashboard: React.FC = () => {
                 setExpenses(expensesData);
 
                 // Schedule notifications
-                NotificationService.scheduleLoanNotifications(loansData as unknown as Loan[]);
+                NotificationService.scheduleLoanNotifications(loansData as unknown as Record[]);
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
             } finally {
@@ -171,14 +171,14 @@ const Dashboard: React.FC = () => {
             calculatedBalance -= Number(exp.amount || 0);
         });
 
-        loans.forEach(loan => {
-            const amount = Number(loan.amount) || 0;
-            const emi = Number(loan.emi) || 0;
-            const tenure = Number(loan.tenure) || 0;
-            const processingFee = Number(loan.processingFee) || 0;
-            const status = loan.status;
+        records.forEach(record => {
+            const amount = Number(record.amount) || 0;
+            const emi = Number(record.emi) || 0;
+            const tenure = Number(record.tenure) || 0;
+            const processingFee = Number(record.processingFee) || 0;
+            const status = record.status;
 
-            if (['Disbursed', 'Active', 'Completed', 'Overdue'].includes(status)) {
+            if (['Finalized', 'Active', 'Completed', 'Overdue'].includes(status)) {
                 totalDisbursedCount++;
                 totalDisbursedPrincipal += amount;
                 calculatedBalance -= amount;
@@ -186,8 +186,8 @@ const Dashboard: React.FC = () => {
             }
 
             let paidAmount = 0;
-            if (loan.repaymentSchedule && Array.isArray(loan.repaymentSchedule)) {
-                loan.repaymentSchedule.forEach((e: any) => {
+            if (record.repaymentSchedule && Array.isArray(record.repaymentSchedule)) {
+                record.repaymentSchedule.forEach((e: any) => {
                     if (e.status === 'Paid') {
                         const collected = Number(e.amount) || 0;
                         paidAmount += collected;
@@ -197,12 +197,12 @@ const Dashboard: React.FC = () => {
             }
 
             // Add foreclosure payment if amountReceived is true
-            const foreclosureDetails = (loan as any).foreclosureDetails;
+            const foreclosureDetails = (record as any).foreclosureDetails;
             if (foreclosureDetails && foreclosureDetails.amountReceived) {
                 calculatedBalance += Number(foreclosureDetails.totalPaid) || 0;
             }
 
-            if (['Disbursed', 'Active', 'Overdue'].includes(status)) {
+            if (['Finalized', 'Active', 'Overdue'].includes(status)) {
                 activeLoansCount++;
                 activeLoansPrincipal += amount;
                 const totalPayablePI = emi * tenure;
@@ -214,20 +214,20 @@ const Dashboard: React.FC = () => {
         let totalCollections = 0;
         let totalProcessingFees = 0;
 
-        loans.forEach(loan => {
-            const processingFee = Number(loan.processingFee) || 0;
-            const status = loan.status;
-            if (['Disbursed', 'Active', 'Completed', 'Overdue'].includes(status)) {
+        records.forEach(record => {
+            const processingFee = Number(record.processingFee) || 0;
+            const status = record.status;
+            if (['Finalized', 'Active', 'Completed', 'Overdue'].includes(status)) {
                 totalProcessingFees += processingFee;
             }
-            if (loan.repaymentSchedule && Array.isArray(loan.repaymentSchedule)) {
-                loan.repaymentSchedule.forEach((e: any) => {
+            if (record.repaymentSchedule && Array.isArray(record.repaymentSchedule)) {
+                record.repaymentSchedule.forEach((e: any) => {
                     if (e.status === 'Paid') {
                         totalCollections += Number(e.amount) || 0;
                     }
                 });
             }
-            const foreclosureDetails = (loan as any).foreclosureDetails;
+            const foreclosureDetails = (record as any).foreclosureDetails;
             if (foreclosureDetails && foreclosureDetails.amountReceived) {
                 totalCollections += Number(foreclosureDetails.totalPaid) || 0;
             }
@@ -247,7 +247,7 @@ const Dashboard: React.FC = () => {
             totalCollections,
             totalProcessingFees
         };
-    }, [loans, customers, partnerTransactions, expenses]);
+    }, [records, customers, partnerTransactions, expenses]);
 
     const getModalContent = () => {
         let modalData: any[] = [];
@@ -255,9 +255,9 @@ const Dashboard: React.FC = () => {
         let renderRow: (row: any, index: number) => React.ReactNode = () => null;
 
         switch (activeCard) {
-            case 'Total Disbursed Loans':
-                modalData = loans.filter(l => ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status));
-                columns = ['Customer', 'Loan ID', 'Amount', 'Disbursal', 'EMI', 'Status'];
+            case 'Total Finalized Records':
+                modalData = records.filter(l => ['Finalized', 'Active', 'Completed', 'Overdue'].includes(l.status));
+                columns = ['Customer', 'Record ID', 'Amount', 'Finalization', 'EMI', 'Status'];
                 renderRow = (row, index) => (
                     <tr key={index} className="hover:bg-surface-variant-light/30 dark:hover:bg-surface-variant-dark/30 transition-colors border-b border-outline-light/20 dark:border-outline-dark/20">
                         <td className="px-4 py-4 font-medium">{row.customerName}</td>
@@ -271,8 +271,8 @@ const Dashboard: React.FC = () => {
                     </tr>
                 );
                 break;
-            case 'Active Loans':
-                modalData = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status)).map(l => {
+            case 'Active Records':
+                modalData = records.filter(l => ['Finalized', 'Active', 'Overdue'].includes(l.status)).map(l => {
                     const totalPI = (Number(l.emi) || 0) * (Number(l.tenure) || 0);
                     const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
                     const paidAmount = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
@@ -290,8 +290,8 @@ const Dashboard: React.FC = () => {
                     </tr>
                 );
                 break;
-            case 'Active Loan Value':
-                modalData = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status)).map(l => {
+            case 'Active Record Value':
+                modalData = records.filter(l => ['Finalized', 'Active', 'Overdue'].includes(l.status)).map(l => {
                     const principal = Number(l.amount) || 0;
                     const emi = Number(l.emi) || 0;
                     const tenure = Number(l.tenure) || 0;
@@ -319,13 +319,13 @@ const Dashboard: React.FC = () => {
                     </tr>
                 );
                 break;
-            case 'Net Disbursed':
-                modalData = loans.filter(l => ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status)).map(l => ({
+            case 'Net Finalized':
+                modalData = records.filter(l => ['Finalized', 'Active', 'Completed', 'Overdue'].includes(l.status)).map(l => ({
                     ...l,
                     processingFee: Number(l.processingFee) || 0,
                     netAmount: (Number(l.amount) || 0) - (Number(l.processingFee) || 0)
                 }));
-                columns = ['Customer', 'Loan Amount', 'Processing Fee', 'Net Disbursed', 'Status'];
+                columns = ['Customer', 'Record Amount', 'Processing Fee', 'Net Finalized', 'Status'];
                 renderRow = (row, index) => (
                     <tr key={index} className="hover:bg-surface-variant-light/30 border-b border-outline-light/20">
                         <td className="px-4 py-4 font-medium">{row.customerName}</td>
@@ -337,7 +337,7 @@ const Dashboard: React.FC = () => {
                 );
                 break;
             case 'Portfolio Outstanding':
-                modalData = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status)).map(l => {
+                modalData = records.filter(l => ['Finalized', 'Active', 'Overdue'].includes(l.status)).map(l => {
                     const principal = Number(l.amount) || 0;
                     const emi = Number(l.emi) || 0;
                     const tenure = Number(l.tenure) || 0;
@@ -359,7 +359,7 @@ const Dashboard: React.FC = () => {
                 );
                 break;
             case 'Total Collections':
-                modalData = loans.filter(l => ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status)).map(l => {
+                modalData = records.filter(l => ['Finalized', 'Active', 'Completed', 'Overdue'].includes(l.status)).map(l => {
                     const paidEmis = (l.repaymentSchedule || []).filter((e: any) => e.status === 'Paid');
                     const emiCollected = paidEmis.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
                     const foreclosureDetails = (l as any).foreclosureDetails;
@@ -394,7 +394,7 @@ const Dashboard: React.FC = () => {
 
         let tableRows: any[] = [];
 
-        if (activeCard === 'Total Disbursed Loans') {
+        if (activeCard === 'Total Finalized Records') {
             tableRows = data.map((row: any) => [
                 row.customerName || '-',
                 row.id || '-',
@@ -403,7 +403,7 @@ const Dashboard: React.FC = () => {
                 formatCurrency(row.emi),
                 row.status || '-'
             ]);
-        } else if (activeCard === 'Active Loans') {
+        } else if (activeCard === 'Active Records') {
             tableRows = data.map((row: any) => [
                 row.customerName || '-',
                 formatCurrency(row.loanAmountPI),
@@ -411,7 +411,7 @@ const Dashboard: React.FC = () => {
                 row.emisPaidCount || '-',
                 formatCurrency(row.amountPendingPI)
             ]);
-        } else if (activeCard === 'Active Loan Value') {
+        } else if (activeCard === 'Active Record Value') {
             tableRows = data.map((row: any) => [
                 row.customerName || '-',
                 formatCurrency(row.principal),
@@ -423,7 +423,7 @@ const Dashboard: React.FC = () => {
                 formatCurrency(row.totalReceivedPI),
                 formatCurrency(row.balancePI)
             ]);
-        } else if (activeCard === 'Net Disbursed') {
+        } else if (activeCard === 'Net Finalized') {
             tableRows = data.map((row: any) => [
                 row.customerName || '-',
                 formatCurrency(row.amount),
@@ -567,7 +567,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {[
-                            { link: "/loans/new", icon: "add", isKadak: true, label: "New Loan" },
+                            { link: "/records/new", icon: "add", isKadak: true, label: "New Record" },
                             { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Collect EMI" },
                             { link: "/customers/new", icon: "person_add", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", label: "Add Client" },
                             { link: "/finance", icon: "bar_chart", color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", label: "Reports" }
@@ -620,7 +620,7 @@ const Dashboard: React.FC = () => {
                     <div className="flex flex-col gap-4">
                         {/* Feature Card */}
                         <div
-                            onClick={() => setActiveCard('Total Disbursed Loans')}
+                            onClick={() => setActiveCard('Total Finalized Records')}
                             className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-slate-100 dark:border-slate-800"
                         >
                             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
@@ -631,10 +631,10 @@ const Dashboard: React.FC = () => {
                                         <div className="p-2 rounded-lg bg-indigo-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400">
                                             <span className="material-symbols-outlined text-xl">account_balance</span>
                                         </div>
-                                        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Disbursed</h3>
+                                        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Finalized</h3>
                                     </div>
                                     <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{loading ? '...' : formatCurrency(metrics.totalDisbursedPrincipal)}</h2>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{metrics.totalDisbursedCount} Loans in total</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{metrics.totalDisbursedCount} Records in total</p>
                                 </div>
                                 <div className="p-2 rounded-full border border-slate-100 dark:border-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
                                     <span className="material-symbols-outlined text-slate-400">arrow_forward</span>
@@ -644,18 +644,18 @@ const Dashboard: React.FC = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div
-                                onClick={() => setActiveCard('Active Loans')}
+                                onClick={() => setActiveCard('Active Records')}
                                 className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
                                 <div className="p-2.5 w-fit rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-3 group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-lg">trending_up</span>
                                 </div>
                                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.activeLoansCount}</h2>
-                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Active Loans</p>
+                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Active Records</p>
                             </div>
 
                             <div
-                                onClick={() => setActiveCard('Active Loan Value')}
+                                onClick={() => setActiveCard('Active Record Value')}
                                 className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
                                 <div className="p-2.5 w-fit rounded-xl bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 mb-3 group-hover:scale-110 transition-transform">
@@ -667,7 +667,7 @@ const Dashboard: React.FC = () => {
                         </div>
 
                         <div
-                            onClick={() => setActiveCard('Net Disbursed')}
+                            onClick={() => setActiveCard('Net Finalized')}
                             className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                         >
                             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/20 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
@@ -676,7 +676,7 @@ const Dashboard: React.FC = () => {
                                     <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
                                         <span className="material-symbols-outlined text-lg">payments</span>
                                     </span>
-                                    <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Disbursed</h3>
+                                    <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Finalized</h3>
                                 </div>
                                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.netDisbursed)}</h2>
                                 <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">Earnings: {formatCurrency(metrics.totalProcessingFees)}</p>
@@ -715,45 +715,45 @@ const Dashboard: React.FC = () => {
                             <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
                             Recent Activity
                         </h3>
-                        <Link to="/loans" className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <Link to="/records" className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                             <span className="material-symbols-outlined text-slate-400">arrow_forward</span>
                         </Link>
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        {loans.length === 0 && !loading && (
+                        {records.length === 0 && !loading && (
                             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 border-dashed">
                                 <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700 mb-2">receipt_long</span>
                                 <p className="text-sm font-medium text-slate-500 dark:text-slate-500">No activity yet</p>
                             </div>
                         )}
-                        {loans.slice(0, 5).map((loan: any, i) => {
-                            const customer = customers.find(c => c.id === loan.customerId);
-                            const loanDate = loan.date?.toDate?.() || (loan.date ? new Date(loan.date) : new Date());
+                        {records.slice(0, 5).map((record: any, i) => {
+                            const customer = customers.find(c => c.id === record.customerId);
+                            const loanDate = record.date?.toDate?.() || (record.date ? new Date(record.date) : new Date());
                             return (
-                                <Link key={loan.id} to={`/loans/${loan.id}`} className="group relative flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5">
+                                <Link key={record.id} to={`/records/${record.id}`} className="group relative flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5">
                                     <div className="flex items-center gap-4">
                                         <div className="h-12 w-12 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 p-0.5 overflow-hidden ring-1 ring-slate-100 dark:ring-slate-700">
                                             <LazyImage
-                                                src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
-                                                alt={loan.customerName}
+                                                src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(record.customerName)}&background=random`}
+                                                alt={record.customerName}
                                                 className="h-full w-full object-cover rounded-[14px]"
                                             />
                                         </div>
                                         <div>
-                                            <h4 className="text-[15px] font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors capitalize">{loan.customerName.toLowerCase()}</h4>
+                                            <h4 className="text-[15px] font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors capitalize">{record.customerName.toLowerCase()}</h4>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${loan.status === 'Active' || loan.status === 'Disbursed' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
-                                                    : loan.status === 'Completed' ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/30'
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${record.status === 'Active' || record.status === 'Finalized' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
+                                                    : record.status === 'Completed' ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/30'
                                                         : 'bg-amber-50 text-amber-600 dark:bg-amber-950/30'
-                                                    }`}>{loan.status}</span>
-                                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">#{loan.id?.slice(0, 6).toUpperCase()}</span>
+                                                    }`}>{record.status}</span>
+                                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">#{record.id?.slice(0, 6).toUpperCase()}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">{format(loanDate, 'dd MMM, yy')}</p>
-                                        <span className="text-lg font-black text-slate-900 dark:text-white block tabular-nums leading-none tracking-tight">{formatCurrency(loan.amount)}</span>
+                                        <span className="text-lg font-black text-slate-900 dark:text-white block tabular-nums leading-none tracking-tight">{formatCurrency(record.amount)}</span>
                                     </div>
                                 </Link>
                             );
@@ -828,13 +828,13 @@ const Dashboard: React.FC = () => {
                         <div className="p-8 space-y-8">
                             {/* Fast Action: Auto Sync */}
                             <div onClick={() => {
-                                if (loans.length > 0) {
-                                    if (confirm("Send automated reminders to all active loan customers?")) {
-                                        NotificationService.scheduleLoanNotifications(loans as any);
+                                if (records.length > 0) {
+                                    if (confirm("Send automated reminders to all active record customers?")) {
+                                        NotificationService.scheduleLoanNotifications(records as any);
                                         alert("One-Click Sync Activated!");
                                     }
                                 } else {
-                                    alert("No active loans.");
+                                    alert("No active records.");
                                 }
                             }}
                                 className="group p-5 rounded-3xl text-white cursor-pointer active:scale-[0.98] transition-all shadow-xl shadow-indigo-500/20 flex items-center justify-between border border-white/20"
@@ -876,7 +876,7 @@ const Dashboard: React.FC = () => {
                                     {[
                                         { l: 'Reminder', t: 'Just a Reminder 🎗️', b: 'Your EMI is due soon. Please keep sufficient balance.' },
                                         { l: 'Urgent', t: 'Action Required ⚠️', b: 'Your payment is Overdue. Please pay immediately.' },
-                                        { l: 'Offer', t: 'Special Offer 🎉', b: 'Get a Top-Up loan today with 0% processing fee!' }
+                                        { l: 'Offer', t: 'Special Offer 🎉', b: 'Get a Top-Up record today with 0% processing fee!' }
                                     ].map((tmpl, i) => (
                                         <button key={i} onClick={() => { setNotifTitle(tmpl.t); setNotifBody(tmpl.b) }} className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 dark:border-indigo-500/20">
                                             {tmpl.l}

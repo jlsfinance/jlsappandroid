@@ -11,7 +11,7 @@ import { useCompany } from '../context/CompanyContext';
 import { DownloadService } from '../services/DownloadService';
 
 // --- Types ---
-interface Loan {
+interface Record {
     id: string;
     customerId: string;
     customerName: string;
@@ -117,11 +117,11 @@ async function toBase64(url: string, maxWidth: number = 200, quality: number = 0
     }
 }
 
-const Loans: React.FC = () => {
+const Records: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
     const [searchTerm, setSearchTerm] = useState('');
-    const [loans, setLoans] = useState<Loan[]>([]);
+    const [records, setLoans] = useState<Record[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -129,7 +129,7 @@ const Loans: React.FC = () => {
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
+    const [loanToDelete, setLoanToDelete] = useState<Record | null>(null);
 
     // PDF Generation State
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -155,7 +155,7 @@ const Loans: React.FC = () => {
             const loansData = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            })) as Loan[];
+            })) as Record[];
             loansData.sort((a: any, b: any) => {
                 const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
                 const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
@@ -163,7 +163,7 @@ const Loans: React.FC = () => {
             });
             setLoans(loansData);
         } catch (error) {
-            console.error("Error fetching loans:", error);
+            console.error("Error fetching records:", error);
         } finally {
             setLoading(false);
         }
@@ -188,17 +188,17 @@ const Loans: React.FC = () => {
 
     // Filtering
     const filteredLoans = useMemo(() => {
-        if (!searchTerm) return loans;
+        if (!searchTerm) return records;
         const lowercasedFilter = searchTerm.toLowerCase();
-        return loans.filter(loan =>
-            (loan.customerName && loan.customerName.toLowerCase().includes(lowercasedFilter)) ||
-            (loan.id && loan.id.toLowerCase().includes(lowercasedFilter))
+        return records.filter(record =>
+            (record.customerName && record.customerName.toLowerCase().includes(lowercasedFilter)) ||
+            (record.id && record.id.toLowerCase().includes(lowercasedFilter))
         );
-    }, [searchTerm, loans]);
+    }, [searchTerm, records]);
 
     // Handlers
-    const confirmDelete = (loan: Loan) => {
-        setLoanToDelete(loan);
+    const confirmDelete = (record: Record) => {
+        setLoanToDelete(record);
         setShowDeleteConfirm(true);
         setActiveMenuId(null);
     };
@@ -215,15 +215,15 @@ const Loans: React.FC = () => {
             const deletePromises = ledgerSnapshot.docs.map(doc => deleteDoc(doc.ref));
             await Promise.all(deletePromises);
 
-            // 2. Delete the Loan document
-            await deleteDoc(doc(db, "loans", loanToDelete.id));
+            // 2. Delete the Record document
+            await deleteDoc(doc(db, "records", loanToDelete.id));
 
             fetchLoans();
             setShowDeleteConfirm(false);
-            alert("Loan and associated records deleted permanently.");
+            alert("Record and associated data deleted permanently.");
         } catch (error) {
-            console.error("Failed to delete loan:", error);
-            alert("Failed to delete loan. Please try again.");
+            console.error("Failed to delete record:", error);
+            alert("Failed to delete record. Please try again.");
         } finally {
             setDeletingId(null);
             setLoanToDelete(null);
@@ -232,13 +232,13 @@ const Loans: React.FC = () => {
 
     // --- PDF GENERATORS ---
 
-    const generateLoanAgreement = async (loan: Loan) => {
+    const generateLoanAgreement = async (record: Record) => {
         setShowPdfModal(true);
         setPdfStatus('generating');
-        setCurrentPdfName(`Loan_Agreement_${loan.id}.pdf`);
+        setCurrentPdfName(`Loan_Agreement_${record.id}.pdf`);
 
         try {
-            const customerRef = doc(db, "customers", loan.customerId);
+            const customerRef = doc(db, "customers", record.customerId);
             const customerSnap = await getDoc(customerRef);
             if (!customerSnap.exists()) throw new Error("Customer details not found.");
 
@@ -255,13 +255,13 @@ const Loans: React.FC = () => {
             pdfDoc.setFontSize(18);
             pdfDoc.text(companyDetails.name, pdfDoc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
             pdfDoc.setFontSize(14);
-            pdfDoc.text("LOAN AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
+            pdfDoc.text("RECORD AGREEMENT", pdfDoc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
 
-            const agreementDate = loan.disbursalDate ? format(new Date(loan.disbursalDate), 'do MMMM yyyy') : format(new Date(), 'do MMMM yyyy');
+            const agreementDate = record.disbursalDate ? format(new Date(record.disbursalDate), 'do MMMM yyyy') : format(new Date(), 'do MMMM yyyy');
             pdfDoc.setFontSize(10);
             pdfDoc.setFont("helvetica", "normal");
             pdfDoc.text(`Date: ${agreementDate} `, pdfDoc.internal.pageSize.getWidth() - 15, 20, { align: 'right' });
-            pdfDoc.text(`Loan ID: ${loan.id} `, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
+            pdfDoc.text(`Record ID: ${record.id} `, pdfDoc.internal.pageSize.getWidth() - 15, 26, { align: 'right' });
 
             let startY = 40;
             const partiesBody = [[`This agreement is made between: \n\nTHE LENDER: \n${companyDetails.name} \n${companyDetails.address || '[Company Address]'} \n\nAND\n\nTHE BORROWER: \n${customer.name} \n${customer.address || 'Address not provided'} \nMobile: ${customer.phone} `]];
@@ -285,25 +285,25 @@ const Loans: React.FC = () => {
 
             pdfDoc.setFontSize(12);
             pdfDoc.setFont("helvetica", "bold");
-            const agreementTitle = loan.topUpHistory && loan.topUpHistory.length > 0 ? "LOAN SUMMARY (TOP-UP UPDATED)" : "LOAN SUMMARY";
+            const agreementTitle = record.topUpHistory && record.topUpHistory.length > 0 ? "LOAN SUMMARY (TOP-UP UPDATED)" : "LOAN SUMMARY";
             pdfDoc.text(agreementTitle, 14, startY);
             startY += 4;
 
-            const totalRepayment = loan.emi * loan.tenure;
-            const totalInterest = totalRepayment - loan.amount;
+            const totalRepayment = record.emi * record.tenure;
+            const totalInterest = totalRepayment - record.amount;
 
             const summaryBody = [
-                [{ content: 'Loan Amount (Principal)', styles: { fontStyle: 'bold' } }, `${formatCurrency(loan.amount)} (${toWords(loan.amount)} Only)`],
-                [{ content: 'Loan Tenure', styles: { fontStyle: 'bold' } }, `${loan.tenure} Months`],
-                [{ content: 'EMI', styles: { fontStyle: 'bold' } }, formatCurrency(loan.emi)],
-                [{ content: 'Processing Fee', styles: { fontStyle: 'bold' } }, formatCurrency(loan.processingFee || 0)],
+                [{ content: 'Record Amount (Principal)', styles: { fontStyle: 'bold' } }, `${formatCurrency(record.amount)} (${toWords(record.amount)} Only)`],
+                [{ content: 'Record Tenure', styles: { fontStyle: 'bold' } }, `${record.tenure} Months`],
+                [{ content: 'EMI', styles: { fontStyle: 'bold' } }, formatCurrency(record.emi)],
+                [{ content: 'Processing Fee', styles: { fontStyle: 'bold' } }, formatCurrency(record.processingFee || 0)],
                 [{ content: 'Total Interest Payable', styles: { fontStyle: 'bold' } }, formatCurrency(totalInterest)],
                 [{ content: 'Total Amount Repayable', styles: { fontStyle: 'bold' } }, formatCurrency(totalRepayment)],
-                [{ content: 'Disbursal Date', styles: { fontStyle: 'bold' } }, loan.disbursalDate ? format(new Date(loan.disbursalDate), 'do MMMM yyyy') : 'N/A'],
+                [{ content: 'Finalization Date', styles: { fontStyle: 'bold' } }, record.disbursalDate ? format(new Date(record.disbursalDate), 'do MMMM yyyy') : 'N/A'],
             ];
 
-            if (loan.topUpHistory && loan.topUpHistory.length > 0) {
-                const lastTopUp = loan.topUpHistory[loan.topUpHistory.length - 1];
+            if (record.topUpHistory && record.topUpHistory.length > 0) {
+                const lastTopUp = record.topUpHistory[record.topUpHistory.length - 1];
                 summaryBody.push(
                     [{ content: 'Last Top-Up Amount', styles: { fontStyle: 'bold' as 'bold' } }, formatCurrency(lastTopUp.topUpAmount || lastTopUp.amount)],
                     [{ content: 'Last Top-Up Date', styles: { fontStyle: 'bold' as 'bold' } }, safeFormatDate(lastTopUp.date)]
@@ -349,12 +349,12 @@ const Loans: React.FC = () => {
             pdfDoc.setFont("helvetica", "normal");
 
             const clauses = [
-                "The Borrower agrees to repay the loan amount along with interest in the form of EMIs as specified in the loan summary.",
+                "The Borrower agrees to repay the record amount along with interest in the form of EMIs as specified in the record summary.",
                 "All payments shall be made on or before the due date of each month.",
                 "In case of a delay in payment of EMI, a penal interest/late fee as per the company's prevailing policy will be charged.",
-                "Default in repayment of three or more consecutive EMIs shall entitle the Lender to recall the entire loan amount and initiate legal proceedings for recovery.",
-                "The Borrower confirms that all information provided in the loan application is true and correct.",
-                "This loan is unsecured. No collateral has been provided by the Borrower.",
+                "Default in repayment of three or more consecutive EMIs shall entitle the Lender to recall the entire record amount and initiate legal proceedings for recovery.",
+                "The Borrower confirms that all information provided in the record application is true and correct.",
+                "This record is unsecured. No collateral has been provided by the Borrower.",
                 "Any disputes arising out of this agreement shall be subject to the jurisdiction of the courts.",
             ];
 
@@ -373,7 +373,7 @@ const Loans: React.FC = () => {
                 if (photoY + photoSize < pdfDoc.internal.pageSize.getHeight() - 70) {
                     pdfDoc.addImage(customerPhotoBase64, 'JPEG', photoX, photoY, photoSize, photoSize);
                     pdfDoc.setFontSize(9);
-                    pdfDoc.text(loan.customerName, pageWidth / 2, photoY + photoSize + 7, { align: 'center' });
+                    pdfDoc.text(record.customerName, pageWidth / 2, photoY + photoSize + 7, { align: 'center' });
                 }
             }
 
@@ -398,17 +398,17 @@ const Loans: React.FC = () => {
         }
     };
 
-    const generateLoanCard = async (loan: Loan) => {
+    const generateLoanCard = async (record: Record) => {
         setShowPdfModal(true);
         setPdfStatus('generating');
-        setCurrentPdfName(`Loan_Card_${loan.id}.pdf`);
+        setCurrentPdfName(`Loan_Card_${record.id}.pdf`);
 
         try {
-            if (!loan.amount || !loan.interestRate || !loan.tenure) {
-                throw new Error("Incomplete loan details.");
+            if (!record.amount || !record.interestRate || !record.tenure) {
+                throw new Error("Incomplete record details.");
             }
 
-            const customerRef = doc(db, "customers", loan.customerId);
+            const customerRef = doc(db, "customers", record.customerId);
             const customerSnap = await getDoc(customerRef);
             if (!customerSnap.exists()) throw new Error("Customer details not found.");
             const customer = customerSnap.data();
@@ -427,10 +427,10 @@ const Loans: React.FC = () => {
             pdfDoc.text(companyDetails.name, pageWidth / 2, y, { align: 'center' });
             y += 8;
             pdfDoc.setFontSize(12);
-            pdfDoc.text('Loan Summary Card', pageWidth / 2, y, { align: 'center' });
+            pdfDoc.text('Record Summary Card', pageWidth / 2, y, { align: 'center' });
 
             // Show Top-Up Status (Same as LoanDetails)
-            if (loan.topUpHistory && loan.topUpHistory.length > 0) {
+            if (record.topUpHistory && record.topUpHistory.length > 0) {
                 pdfDoc.setFillColor(220, 38, 38); // Red
                 pdfDoc.rect(pageWidth - 70, y - 5, 25, 6, 'F');
                 pdfDoc.setTextColor(255, 255, 255);
@@ -448,9 +448,9 @@ const Loans: React.FC = () => {
             pdfDoc.setFontSize(10);
 
             const details = [
-                [{ label: "Customer Name", value: loan.customerName }, { label: "Loan ID", value: loan.id }],
-                [{ label: "Loan Amount", value: formatCurrency(loan.amount) }, { label: "Tenure", value: `${loan.tenure} Months` }],
-                [{ label: "Monthly EMI", value: formatCurrency(loan.emi) }, { label: "Disbursal Date", value: loan.disbursalDate ? format(parseISO(loan.disbursalDate), 'dd-MMM-yyyy') : 'N/A' }],
+                [{ label: "Customer Name", value: record.customerName }, { label: "Record ID", value: record.id }],
+                [{ label: "Record Amount", value: formatCurrency(record.amount) }, { label: "Tenure", value: `${record.tenure} Months` }],
+                [{ label: "Monthly EMI", value: formatCurrency(record.emi) }, { label: "Finalization Date", value: record.disbursalDate ? format(parseISO(record.disbursalDate), 'dd-MMM-yyyy') : 'N/A' }],
             ];
 
             details.forEach(row => {
@@ -468,16 +468,16 @@ const Loans: React.FC = () => {
             const head = [["No", "Due Date", "Amount", "Principal", "Interest", "Balance"]];
             const body: any[] = [];
 
-            if (loan.repaymentSchedule && loan.repaymentSchedule.length > 0) {
+            if (record.repaymentSchedule && record.repaymentSchedule.length > 0) {
                 // Use ACTUAL schedule from DB
 
                 // We need to reconstruct the running balance for display if it's not explicitly stored in simple Emi objects
-                // However, the Loan Card usually shows the Plan. 
+                // However, the Record Card usually shows the Plan. 
                 // For Top-Up, 'repaymentSchedule' contains the mixed history.
                 // Let's try to calculate balance dynamically or use a simplified view.
 
-                let balance = loan.amount; // Start with current total amount? No, that's wrong for history.
-                // Actually, for the Loan Card, we want to show the schedule matching the current tenure.
+                let balance = record.amount; // Start with current total amount? No, that's wrong for history.
+                // Actually, for the Record Card, we want to show the schedule matching the current tenure.
                 // The 'repaymentSchedule' in DB has the correct dates and statuses.
 
                 // Re-calculating Principal/Interest split for display is complex with mixed history without 'amortizationSchedule'.
@@ -485,7 +485,7 @@ const Loans: React.FC = () => {
 
                 // Fallback: If no amortization schedule, we just list the EMIs without detailed P/I split for old ones if missing.
 
-                loan.repaymentSchedule.forEach((emi: any, index: number) => {
+                record.repaymentSchedule.forEach((emi: any, index: number) => {
                     body.push([
                         emi.emiNumber,
                         emi.dueDate ? format(new Date(emi.dueDate), 'dd-MMM-yy') : 'N/A',
@@ -496,10 +496,10 @@ const Loans: React.FC = () => {
                     ]);
                 });
                 // IF we have the detailed amortization schedule (new system), use that instead!
-                if ((loan as any).amortizationSchedule) {
+                if ((record as any).amortizationSchedule) {
                     // clear body
                     body.length = 0;
-                    (loan as any).amortizationSchedule.forEach((row: any) => {
+                    (record as any).amortizationSchedule.forEach((row: any) => {
                         body.push([
                             row.emiNo,
                             format(new Date(row.dueDate), 'dd-MMM-yy'),
@@ -512,19 +512,19 @@ const Loans: React.FC = () => {
                 }
 
             } else {
-                // Legacy/Fallback Calculation (Only for loans without schedule)
-                let balance = loan.amount;
-                const monthlyInterestRate = loan.interestRate / 12 / 100;
+                // Legacy/Fallback Calculation (Only for records without schedule)
+                let balance = record.amount;
+                const monthlyInterestRate = record.interestRate / 12 / 100;
 
-                for (let i = 1; i <= loan.tenure; i++) {
+                for (let i = 1; i <= record.tenure; i++) {
                     const interestPayment = balance * monthlyInterestRate;
-                    const principalPayment = loan.emi - interestPayment;
+                    const principalPayment = record.emi - interestPayment;
                     balance -= principalPayment;
                     if (balance < 0) balance = 0;
 
                     let dateStr = '';
-                    if (loan.disbursalDate) {
-                        const d = new Date(loan.disbursalDate);
+                    if (record.disbursalDate) {
+                        const d = new Date(record.disbursalDate);
                         d.setMonth(d.getMonth() + i);
                         dateStr = format(d, 'dd-MMM-yy');
                     }
@@ -532,7 +532,7 @@ const Loans: React.FC = () => {
                     body.push([
                         i,
                         dateStr,
-                        formatCurrency(loan.emi),
+                        formatCurrency(record.emi),
                         formatCurrency(principalPayment),
                         formatCurrency(interestPayment),
                         formatCurrency(balance)
@@ -564,14 +564,14 @@ const Loans: React.FC = () => {
         }
     };
 
-    const isActionable = (status: string) => ['Approved', 'Disbursed', 'Completed', 'Active'].includes(status);
+    const isActionable = (status: string) => ['Confirmed', 'Finalized', 'Completed', 'Active'].includes(status);
 
     // Status Badge Component
     const StatusBadge = ({ status }: { status: string }) => {
         let classes = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset ";
-        if (status === 'Approved') classes += "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-400";
-        else if (status === 'Disbursed' || status === 'Active') classes += "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/30 dark:text-blue-400";
-        else if (status === 'Rejected') classes += "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-400";
+        if (status === 'Confirmed') classes += "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-400";
+        else if (status === 'Finalized' || status === 'Active') classes += "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/30 dark:text-blue-400";
+        else if (status === 'Declined') classes += "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-400";
         else classes += "bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400";
 
         return <span className={classes}>{status}</span>;
@@ -594,7 +594,7 @@ const Loans: React.FC = () => {
                         <Link to="/" className="group flex h-10 w-10 items-center justify-center rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm">
                             <span className="material-symbols-outlined transition-transform group-hover:-translate-x-1">arrow_back</span>
                         </Link>
-                        <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">Loans</h1>
+                        <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">Records</h1>
                     </div>
                 </div>
                 {/* Search & Actions */}
@@ -609,9 +609,9 @@ const Loans: React.FC = () => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Link to="/loans/new" className="h-11 px-5 rounded-xl btn-kadak flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all">
+                    <Link to="/records/new" className="h-11 px-5 rounded-xl btn-kadak flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all">
                         <span className="material-symbols-outlined text-[20px] material-symbols-fill">add_circle</span>
-                        <span className="hidden sm:inline">New Loan</span>
+                        <span className="hidden sm:inline">New Record</span>
                     </Link>
                 </div>
             </header>
@@ -623,44 +623,44 @@ const Loans: React.FC = () => {
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
                     </div>
                 ) : filteredLoans.length > 0 ? (
-                    filteredLoans.map((loan) => (
-                        <div key={loan.id}>
+                    filteredLoans.map((record) => (
+                        <div key={record.id}>
                             <div
-                                onClick={() => navigate(`/ loans / ${loan.id} `)}
+                                onClick={() => navigate(`/ records / ${record.id} `)}
                                 className="glass-card relative rounded-2xl p-5 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer transition-all duration-300 group border border-white/40 dark:border-slate-700/40"
                             >
                                 <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4 pl-2 flex-1 min-w-0">
                                         {(() => {
-                                            const customer = customers.find(c => c.id === loan.customerId);
+                                            const customer = customers.find(c => c.id === record.customerId);
                                             return (
                                                 <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
                                                     <LazyImage
-                                                        src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
-                                                        alt={loan.customerName}
+                                                        src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(record.customerName)}&background=random`}
+                                                        alt={record.customerName}
                                                         className="h-full w-full object-cover"
                                                     />
                                                 </div >
                                             );
                                         })()}
                                         <div className="space-y-1 min-w-0 flex-1">
-                                            <h3 className="font-bold text-lg truncate text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors capitalize">{loan.customerName.toLowerCase()}</h3>
+                                            <h3 className="font-bold text-lg truncate text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors capitalize">{record.customerName.toLowerCase()}</h3>
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-[11px] font-mono bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md text-slate-500 border border-slate-200 dark:border-slate-700">#{loan.id?.slice(0, 8)}</span>
-                                                <StatusBadge status={loan.status} />
+                                                <span className="text-[11px] font-mono bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md text-slate-500 border border-slate-200 dark:border-slate-700">#{record.id?.slice(0, 8)}</span>
+                                                <StatusBadge status={record.status} />
                                             </div>
-                                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{formatCurrency(loan.amount)}</p>
+                                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{formatCurrency(record.amount)}</p>
                                         </div>
                                     </div >
                                     <div className="text-right flex flex-col items-end gap-1 flex-shrink-0">
                                         <span className="text-xs font-medium text-slate-400 bg-white/50 dark:bg-slate-800/50 px-2 py-1 rounded-lg whitespace-nowrap">
-                                            {loan.date ? format(parseISO(loan.date), 'dd MMM, yy') : 'N/A'}
+                                            {record.date ? format(parseISO(record.date), 'dd MMM, yy') : 'N/A'}
                                         </span>
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setActiveMenuId(activeMenuId === loan.id ? null : loan.id);
+                                                setActiveMenuId(activeMenuId === record.id ? null : record.id);
                                             }}
                                             className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-400 hover:text-indigo-600 transition-colors flex-shrink-0"
                                         >
@@ -678,7 +678,7 @@ const Loans: React.FC = () => {
                         <div className="h-20 w-20 bg-slate-100 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
                             <span className="material-symbols-outlined text-4xl opacity-50">search_off</span>
                         </div>
-                        <p className="font-medium">No loans found</p>
+                        <p className="font-medium">No records found</p>
                         <p className="text-sm opacity-60">Try adjusting your search</p>
                     </div>
                 )}
@@ -687,7 +687,7 @@ const Loans: React.FC = () => {
             {/* Bottom Sheet / Modal Action Menu */}
             {
                 activeMenuId && (() => {
-                    const selectedLoan = loans.find(l => l.id === activeMenuId);
+                    const selectedLoan = records.find(l => l.id === activeMenuId);
                     if (!selectedLoan) return null;
 
                     return (
@@ -712,7 +712,7 @@ const Loans: React.FC = () => {
                                             </div>
                                             <div className="min-w-0">
                                                 <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{selectedLoan.customerName}</h3>
-                                                <p className="text-sm text-slate-500 truncate">Loan ID: #{selectedLoan.id.slice(0, 8)}</p>
+                                                <p className="text-sm text-slate-500 truncate">Record ID: #{selectedLoan.id.slice(0, 8)}</p>
                                             </div>
                                             <button
                                                 onClick={() => setActiveMenuId(null)}
@@ -724,7 +724,7 @@ const Loans: React.FC = () => {
 
                                         <div className="space-y-2">
                                             <Link
-                                                to={`/loans/${selectedLoan.id}`}
+                                                to={`/records/${selectedLoan.id}`}
                                                 className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                             >
                                                 <div className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center shrink-0">
@@ -746,7 +746,7 @@ const Loans: React.FC = () => {
                                                     <span className="material-symbols-outlined">credit_card</span>
                                                 </div>
                                                 <div className="flex-1 text-left min-w-0">
-                                                    <p className="font-semibold text-slate-900 dark:text-white truncate">Loan Card</p>
+                                                    <p className="font-semibold text-slate-900 dark:text-white truncate">Record Card</p>
                                                     <p className="text-xs text-slate-500 truncate">Download customer ID card</p>
                                                 </div>
                                                 <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
@@ -762,7 +762,7 @@ const Loans: React.FC = () => {
                                                 </div>
                                                 <div className="flex-1 text-left min-w-0">
                                                     <p className="font-semibold text-slate-900 dark:text-white truncate">Agreement</p>
-                                                    <p className="text-xs text-slate-500 truncate">Download loan agreement</p>
+                                                    <p className="text-xs text-slate-500 truncate">Download record agreement</p>
                                                 </div>
                                                 <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
                                             </button>
@@ -775,7 +775,7 @@ const Loans: React.FC = () => {
                                                     <span className="material-symbols-outlined">delete</span>
                                                 </div>
                                                 <div className="flex-1 text-left min-w-0">
-                                                    <p className="font-semibold text-red-600 dark:text-red-400 truncate">Delete Loan</p>
+                                                    <p className="font-semibold text-red-600 dark:text-red-400 truncate">Delete Record</p>
                                                     <p className="text-xs text-red-400/70 truncate">Permanently remove record</p>
                                                 </div>
                                             </button>
@@ -794,9 +794,9 @@ const Loans: React.FC = () => {
                 showDeleteConfirm && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                         <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
-                            <h3 className="text-lg font-bold mb-2">Delete Loan?</h3>
+                            <h3 className="text-lg font-bold mb-2">Delete Record?</h3>
                             <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
-                                Are you sure you want to delete the loan for <strong>{loanToDelete?.customerName}</strong>? This action cannot be undone.
+                                Are you sure you want to delete the record for <strong>{loanToDelete?.customerName}</strong>? This action cannot be undone.
                             </p>
                             <div className="flex gap-3 justify-end">
                                 <button
@@ -872,4 +872,4 @@ const Loans: React.FC = () => {
     );
 };
 
-export default Loans;
+export default Records;

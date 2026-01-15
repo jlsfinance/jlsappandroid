@@ -1,6 +1,6 @@
 import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Customer, Loan } from '../types';
+import { Customer, Record } from '../types';
 
 export const fetchCustomers = async (companyId?: string): Promise<Customer[]> => {
   try {
@@ -35,27 +35,27 @@ export const fetchCustomerById = async (id: string): Promise<Customer | null> =>
   }
 };
 
-export const fetchLoansByCustomerId = async (customerId: string): Promise<Loan[]> => {
+export const fetchLoansByCustomerId = async (customerId: string): Promise<Record[]> => {
   try {
     const loansQuery = query(
       collection(db, "loans"), 
       where("customerId", "==", customerId)
     );
     const querySnapshot = await getDocs(loansQuery);
-    const loans = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
-    loans.sort((a: any, b: any) => {
+    const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Record));
+    records.sort((a: any, b: any) => {
       const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
       const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
       return dateB.getTime() - dateA.getTime();
     });
-    return loans;
+    return records;
   } catch (error) {
-    console.error("Error fetching loans:", error);
+    console.error("Error fetching records:", error);
     return [];
   }
 };
 
-export const fetchLoans = async (companyId?: string): Promise<Loan[]> => {
+export const fetchLoans = async (companyId?: string): Promise<Record[]> => {
   try {
     let q;
     if (companyId) {
@@ -64,9 +64,9 @@ export const fetchLoans = async (companyId?: string): Promise<Loan[]> => {
       q = collection(db, "loans");
     }
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Record));
   } catch (error) {
-    console.error("Error fetching loans from Firebase:", error);
+    console.error("Error fetching records from Firebase:", error);
     return [];
   }
 };

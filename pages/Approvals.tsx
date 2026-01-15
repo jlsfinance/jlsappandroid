@@ -42,7 +42,7 @@ const Approvals: React.FC = () => {
                 const pendingApps = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LoanApplication[];
                 setApplications(pendingApps);
             } catch (error) {
-                console.error("Failed to load loans:", error);
+                console.error("Failed to load records:", error);
             } finally {
                 setLoading(false);
             }
@@ -66,17 +66,17 @@ const Approvals: React.FC = () => {
         if (!selectedApp || !modalType) return;
         setProcessing(true);
 
-        const newStatus = modalType === 'approve' ? 'Approved' : 'Rejected';
+        const newStatus = modalType === 'approve' ? 'Confirmed' : 'Declined';
 
         try {
-            const loanRef = doc(db, "loans", selectedApp.id);
+            const loanRef = doc(db, "records", selectedApp.id);
 
             const updateData: any = {
                 status: newStatus,
                 adminComment: comment,
             };
 
-            if (newStatus === 'Approved') {
+            if (newStatus === 'Confirmed') {
                 updateData.approvalDate = new Date().toISOString();
             }
 
@@ -88,7 +88,7 @@ const Approvals: React.FC = () => {
 
         } catch (error) {
             console.error(`Failed to update application:`, error);
-            alert("An error occurred while updating the loan.");
+            alert("An error occurred while updating the record.");
         } finally {
             setProcessing(false);
         }
@@ -102,23 +102,23 @@ const Approvals: React.FC = () => {
                     <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
-                    <h1 className="text-2xl font-bold tracking-tight">Approvals Queue</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">Confirmation Queue</h1>
                 </div>
             </div>
 
             <div className="max-w-4xl mx-auto p-4 space-y-6">
                 <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                        <h2 className="font-bold text-lg">Pending Applications</h2>
-                        <p className="text-sm text-slate-500">Review and process new loan requests.</p>
+                        <h2 className="font-bold text-lg">Pending Records</h2>
+                        <p className="text-sm text-slate-500">Review and process new record requests.</p>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-4 py-3 whitespace-nowrap">App ID</th>
-                                    <th className="px-4 py-3 whitespace-nowrap">Applicant</th>
+                                    <th className="px-4 py-3 whitespace-nowrap">Record ID</th>
+                                    <th className="px-4 py-3 whitespace-nowrap">Customer</th>
                                     <th className="px-4 py-3 whitespace-nowrap">Amount</th>
                                     <th className="px-4 py-3 whitespace-nowrap">Date</th>
                                     <th className="px-4 py-3 text-center">Actions</th>
@@ -143,13 +143,13 @@ const Approvals: React.FC = () => {
                                                     onClick={() => openModal('approve', app)}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-sm border border-green-700 active:scale-95 transition-all text-xs font-black uppercase tracking-wider"
                                                 >
-                                                    <span className="material-symbols-outlined text-[16px] material-symbols-fill">check_circle</span> Approve
+                                                    <span className="material-symbols-outlined text-[16px] material-symbols-fill">check_circle</span> Confirm
                                                 </button>
                                                 <button
                                                     onClick={() => openModal('reject', app)}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 shadow-sm border border-red-700 active:scale-95 transition-all text-xs font-black uppercase tracking-wider"
                                                 >
-                                                    <span className="material-symbols-outlined text-[16px] material-symbols-fill">cancel</span> Reject
+                                                    <span className="material-symbols-outlined text-[16px] material-symbols-fill">cancel</span> Decline
                                                 </button>
                                             </td>
                                         </tr>
@@ -158,7 +158,7 @@ const Approvals: React.FC = () => {
                                     <tr>
                                         <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
                                             <span className="material-symbols-outlined text-4xl mb-2">assignment_turned_in</span>
-                                            <p>No pending applications.</p>
+                                            <p>No pending records.</p>
                                         </td>
                                     </tr>
                                 )}
@@ -173,18 +173,18 @@ const Approvals: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
                         <h3 className="text-lg font-bold mb-1">
-                            {modalType === 'approve' ? 'Approve Loan?' : 'Reject Loan?'}
+                            {modalType === 'approve' ? 'Confirm Record?' : 'Decline Record?'}
                         </h3>
                         <p className="text-sm text-slate-500 mb-4">
                             {modalType === 'approve'
-                                ? `You are approving a loan of Rs. ${selectedApp.amount.toLocaleString('en-IN')} for ${selectedApp.customerName}.`
-                                : `You are rejecting the application for ${selectedApp.customerName}.`}
+                                ? `You are confirming a record of Rs. ${selectedApp.amount.toLocaleString('en-IN')} for ${selectedApp.customerName}.`
+                                : `You are declining the record for ${selectedApp.customerName}.`}
                         </p>
 
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                                    {modalType === 'approve' ? 'Comments (Optional)' : 'Reason for Rejection'}
+                                    {modalType === 'approve' ? 'Comments (Optional)' : 'Reason for Decline'}
                                 </label>
                                 <textarea
                                     value={comment}

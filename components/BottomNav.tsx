@@ -38,7 +38,7 @@ const BottomNav: React.FC = () => {
       <div className="flex justify-around items-end h-16 max-w-md mx-auto px-2 pb-2">
         <NavItem path="/" icon="dashboard" label="Home" />
         <NavItem path="/customers" icon="group" label="Clients" />
-        <NavItem path="/loans" icon="credit_score" isFab />
+        <NavItem path="/records" icon="credit_score" isFab />
         <NavItem path="/finance" icon="account_balance_wallet" label="Finance" />
         <NavItem path="/tools" icon="grid_view" label="Tools" />
       </div>

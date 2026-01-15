@@ -9,13 +9,13 @@ import autoTable from 'jspdf-autotable';
 
 // Interfaces
 interface PartnerTransaction { id: string; date: string; partnerName: string; type: 'investment' | 'withdrawal'; amount: number; }
-interface Loan { id: string; customerName: string; amount: number; disbursalDate: string; repaymentSchedule: any[]; processingFeePercentage: number }
+interface Record { id: string; customerName: string; amount: number; disbursalDate: string; repaymentSchedule: any[]; processingFeePercentage: number }
 interface Expense { id: string; date: string; narration: string; amount: number; }
 interface LedgerEntry {
     date: Date;
     particulars: string;
     type: 'credit' | 'debit';
-    category: 'loan' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure';
+    category: 'record' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure';
     amount: number;
     customerId?: string;
 }
@@ -60,13 +60,13 @@ const FinanceOverview: React.FC = () => {
             const companyId = currentCompany.id;
             const [partnerTxSnap, loansSnap, expensesSnap, customersSnap] = await Promise.all([
                 getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
+                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Finalized", "Active", "Completed", "Overdue"]))),
                 getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId))),
                 getDocs(query(collection(db, "customers"), where("companyId", "==", companyId)))
             ]);
 
             const partnerTxs = partnerTxSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerTransaction));
-            const loans = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+            const records = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Record));
             const expenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
             const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setCustomers(customersData);
@@ -121,7 +121,7 @@ const FinanceOverview: React.FC = () => {
                                 date: parseISO(entry.date),
                                 particulars: entry.narration || sub.account,
                                 type: sub.type === 'Credit' ? 'debit' : 'credit',
-                                category: 'loan',
+                                category: 'record',
                                 amount: Number(sub.amount),
                                 customerId: entry.customerId
                             });
@@ -130,12 +130,12 @@ const FinanceOverview: React.FC = () => {
                 }
             });
 
-            loans.forEach(loan => {
+            records.forEach(record => {
                 // HANDLE LOAN DISBURSAL 
                 // Logic: Check top-up history to subtract from the "base" amount shown at original date.
 
-                let amountToShowAtDisbursal = Number(loan.amount);
-                const topUps = (loan as any).topUpHistory || [];
+                let amountToShowAtDisbursal = Number(record.amount);
+                const topUps = (record as any).topUpHistory || [];
                 let totalTopUpAmount = 0;
 
                 // Subtract Top-Ups
@@ -145,16 +145,16 @@ const FinanceOverview: React.FC = () => {
 
                 amountToShowAtDisbursal = Math.max(0, amountToShowAtDisbursal - totalTopUpAmount);
 
-                if (loan.disbursalDate && amountToShowAtDisbursal > 0) {
-                    const disbursalDate = parseISO(loan.disbursalDate);
-                    // Debit: Loan Amount Out (Original / Base)
+                if (record.disbursalDate && amountToShowAtDisbursal > 0) {
+                    const disbursalDate = parseISO(record.disbursalDate);
+                    // Debit: Record Amount Out (Original / Base)
                     flatLedgerEntries.push({
                         date: disbursalDate,
-                        particulars: `Loan to ${loan.customerName}`,
+                        particulars: `Record to ${record.customerName}`,
                         type: 'debit',
-                        category: 'loan',
+                        category: 'record',
                         amount: amountToShowAtDisbursal,
-                        customerId: (loan as any).customerId
+                        customerId: (record as any).customerId
                     });
 
                     // Note: Top-Ups are now handled via the 'manualLedger' processing above 
@@ -167,39 +167,39 @@ const FinanceOverview: React.FC = () => {
                     topUps.forEach((t: any) => {
                         const tDateParts = t.date.split("T")[0]; // YYYY-MM-DD
                         const hasLedgerEntry = manualLedger.some(le =>
-                            le.loanId === loan.id &&
+                            le.loanId === record.id &&
                             le.date.startsWith(tDateParts)
                         );
 
                         if (!hasLedgerEntry) {
                             flatLedgerEntries.push({
                                 date: parseISO(t.date),
-                                particulars: `Top-Up to ${loan.customerName}`,
+                                particulars: `Top-Up to ${record.customerName}`,
                                 type: 'debit',
-                                category: 'loan',
+                                category: 'record',
                                 amount: Number(t.topUpAmount || t.amount),
-                                customerId: (loan as any).customerId
+                                customerId: (record as any).customerId
                             });
                             // Handle Fee for legacy too?
                             if (t.processingFee) {
                                 flatLedgerEntries.push({
                                     date: parseISO(t.date),
-                                    particulars: `Proc. Fee Top-Up (${loan.customerName})`,
+                                    particulars: `Proc. Fee Top-Up (${record.customerName})`,
                                     type: 'credit',
                                     category: 'fee',
                                     amount: Number(t.processingFee),
-                                    customerId: (loan as any).customerId
+                                    customerId: (record as any).customerId
                                 });
                             }
                         }
                     });
 
                     // Credit: Processing Fee In (Original)
-                    // Need to use Disbursed Amount (approx) to calc fee? 
-                    // Or loan.processingFee is total?
+                    // Need to use Finalized Amount (approx) to calc fee? 
+                    // Or record.processingFee is total?
                     // Usually processingFee is fixed or % of amount.
                     // Let's assume the 'fee' entry in standard logic covers the original fee.
-                    const feePercentage = loan.processingFeePercentage || 0;
+                    const feePercentage = record.processingFeePercentage || 0;
                     // Use amountToShowAtDisbursal for Fee calc to avoid inflating fee?
                     // Or if fee was stored.. 
                     // Standard logic:
@@ -207,42 +207,42 @@ const FinanceOverview: React.FC = () => {
                     if (processingFee > 0) {
                         flatLedgerEntries.push({
                             date: disbursalDate,
-                            particulars: `Proc. Fee (${loan.customerName})`,
+                            particulars: `Proc. Fee (${record.customerName})`,
                             type: 'credit',
                             category: 'fee',
                             amount: processingFee,
-                            customerId: (loan as any).customerId
+                            customerId: (record as any).customerId
                         });
                     }
                 }
 
                 // Credit: EMI Payments
-                if (loan.repaymentSchedule) {
-                    loan.repaymentSchedule.forEach((emi: any) => {
+                if (record.repaymentSchedule) {
+                    record.repaymentSchedule.forEach((emi: any) => {
                         // Only record ACTUAL cash received (Status = Paid)
                         if (emi.status === 'Paid' && emi.paymentDate) {
                             flatLedgerEntries.push({
                                 date: parseISO(emi.paymentDate),
-                                particulars: `EMI Recd: ${loan.customerName}`,
+                                particulars: `EMI Recd: ${record.customerName}`,
                                 type: 'credit',
                                 category: 'emi',
                                 amount: Number(emi.amount),
-                                customerId: (loan as any).customerId
+                                customerId: (record as any).customerId
                             });
                         }
                     });
                 }
 
                 // Credit: Foreclosure Payment (if amountReceived is true)
-                const foreclosureDetails = (loan as any).foreclosureDetails;
+                const foreclosureDetails = (record as any).foreclosureDetails;
                 if (foreclosureDetails && foreclosureDetails.amountReceived && foreclosureDetails.date) {
                     flatLedgerEntries.push({
                         date: parseISO(foreclosureDetails.date),
-                        particulars: `Foreclosure Recd: ${loan.customerName}`,
+                        particulars: `Foreclosure Recd: ${record.customerName}`,
                         type: 'credit',
                         category: 'foreclosure',
                         amount: Number(foreclosureDetails.totalPaid),
-                        customerId: (loan as any).customerId
+                        customerId: (record as any).customerId
                     });
                 }
             });
@@ -399,7 +399,7 @@ const FinanceOverview: React.FC = () => {
     };
 
     const getIconForCategory = (category: string, type: 'credit' | 'debit') => {
-        if (category === 'loan') return 'payments';
+        if (category === 'record') return 'payments';
         if (category === 'emi') return 'account_balance_wallet';
         if (category === 'fee') return 'percent';
         if (category === 'partner') return 'handshake';

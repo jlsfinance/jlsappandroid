@@ -18,7 +18,7 @@ interface Emi {
   paidDate?: string;
 }
 
-interface Loan {
+interface Record {
   id: string;
   customerId: string;
   amount: number;
@@ -48,13 +48,13 @@ const UPI_ID = "9413821007@superyes";
 const CustomerPortal: React.FC = () => {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);
+  const [records, setLoans] = useState<Record[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<'home' | 'loans' | 'history' | 'profile'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'records' | 'history' | 'profile'>('home');
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [selectedLoan, setSelectedLoan] = useState<Record | null>(null);
   const [selectedEmi, setSelectedEmi] = useState<Emi | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -91,24 +91,24 @@ const CustomerPortal: React.FC = () => {
         if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() } as Company);
       }
       const lSnap = await getDocs(query(collection(db, "loans"), where("customerId", "==", cid)));
-      setLoans(lSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setLoans(lSnap.docs.map(d => ({ id: d.id, ...d.data() } as Record)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [navigate]);
 
   useEffect(() => {
-    if (loans.length > 0) {
+    if (records.length > 0) {
       // Schedule local notifications for upcoming EMIs automatically
       // This ensures notifications work even if the app is closed/offline later
-      NotificationService.scheduleLoanNotifications(loans);
+      NotificationService.scheduleLoanNotifications(records);
     }
-  }, [loans]);
+  }, [records]);
 
   useEffect(() => {
     if (isAuthReady) fetchData();
   }, [fetchData, isAuthReady]);
 
-  const activeLoans = useMemo(() => loans.filter(l => l.status === 'Active' || l.status === 'Disbursed'), [loans]);
-  const getNextEmi = (loan: Loan) => loan.repaymentSchedule?.find(e => e.status === 'Pending' || e.status === 'Overdue');
+  const activeLoans = useMemo(() => records.filter(l => l.status === 'Active' || l.status === 'Finalized'), [records]);
+  const getNextEmi = (record: Record) => record.repaymentSchedule?.find(e => e.status === 'Pending' || e.status === 'Overdue');
 
   const primaryLoan = activeLoans[0];
   const nextEmi = primaryLoan ? getNextEmi(primaryLoan) : null;
@@ -118,10 +118,10 @@ const CustomerPortal: React.FC = () => {
   const historyLogs = useMemo(() => {
     try {
       const logs: any[] = [];
-      loans?.forEach(l => {
+      records?.forEach(l => {
         const loanDate = l.date ? new Date(l.date) : null;
         if (loanDate && !isNaN(loanDate.getTime())) {
-          logs.push({ type: 'loan', date: loanDate, amount: l.amount, id: l.id });
+          logs.push({ type: 'record', date: loanDate, amount: l.amount, id: l.id });
         }
         if (!l || !l.repaymentSchedule) return;
         l.repaymentSchedule.filter(e => e && e.status?.toLowerCase() === 'paid').forEach(e => {
@@ -148,7 +148,7 @@ const CustomerPortal: React.FC = () => {
       console.error("History Log generation error:", e);
       return [];
     }
-  }, [loans]);
+  }, [records]);
 
   const handleLogout = () => {
     if (confirm("Are you sure you want to logout?")) {
@@ -242,26 +242,26 @@ const CustomerPortal: React.FC = () => {
 
             <div className="flex justify-between items-center mb-5">
               <h2 className="font-black text-xl text-gray-800 dark:text-white flex items-center gap-3"><span className="w-2 h-7 bg-[#6366f1] rounded-full"></span> Active Records</h2>
-              <button onClick={() => setCurrentTab('loans')} className="text-[#6366f1] font-bold text-xs uppercase tracking-widest bg-[#6366f1]/10 px-3 py-1.5 rounded-full hover:bg-[#6366f1]/20 transition">View All</button>
+              <button onClick={() => setCurrentTab('records')} className="text-[#6366f1] font-bold text-xs uppercase tracking-widest bg-[#6366f1]/10 px-3 py-1.5 rounded-full hover:bg-[#6366f1]/20 transition">View All</button>
             </div>
 
             <div className="space-y-5">
               {activeLoans.length === 0 ? (
                 <div className="p-12 text-center text-gray-400 font-bold bg-white dark:bg-gray-800 rounded-3xl border-4 border-dashed border-gray-100 dark:border-gray-700">
                   <span className="material-symbols-outlined text-6xl mb-3 opacity-20">contract_edit</span>
-                  <p>No active loans found at the moment.</p>
+                  <p>No active records found at the moment.</p>
                 </div>
-              ) : activeLoans.map(loan => (
-                <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.03)] border border-gray-100 dark:border-gray-700 relative overflow-hidden group active:scale-[0.98] transition-all">
-                  <div className="absolute top-0 right-0 p-4"><span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">{loan.status}</span></div>
+              ) : activeLoans.map(record => (
+                <div key={record.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.03)] border border-gray-100 dark:border-gray-700 relative overflow-hidden group active:scale-[0.98] transition-all">
+                  <div className="absolute top-0 right-0 p-4"><span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">{record.status}</span></div>
                   <h3 className="font-bold text-gray-500 uppercase text-[10px] tracking-widest mb-1">Account Identity</h3>
-                  <p className="font-black text-lg text-gray-900 dark:text-white mb-5 flex items-center gap-2">#{loan.id}</p>
+                  <p className="font-black text-lg text-gray-900 dark:text-white mb-5 flex items-center gap-2">#{record.id}</p>
 
                   <div className="flex items-center justify-between mt-4 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-2xl border border-black/5">
-                    <div><p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Sanctioned Amt</p><p className="font-black text-2xl text-indigo-600 leading-none">{formatCurrency(loan.amount)}</p></div>
-                    <div className="text-right"><p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Next Due</p><p className="font-black text-sm text-gray-700 dark:text-gray-200 leading-none">{formatDate(getNextEmi(loan)?.dueDate || '-')}</p></div>
+                    <div><p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Sanctioned Amt</p><p className="font-black text-2xl text-indigo-600 leading-none">{formatCurrency(record.amount)}</p></div>
+                    <div className="text-right"><p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1.5">Next Due</p><p className="font-black text-sm text-gray-700 dark:text-gray-200 leading-none">{formatDate(getNextEmi(record)?.dueDate || '-')}</p></div>
                   </div>
-                  <button onClick={() => { setSelectedLoan(loan); setShowDetailsModal(true); }} className="w-full mt-6 py-4 btn-kadak text-sm rounded-2xl hover:brightness-110 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                  <button onClick={() => { setSelectedLoan(record); setShowDetailsModal(true); }} className="w-full mt-6 py-4 btn-kadak text-sm rounded-2xl hover:brightness-110 transition-all uppercase tracking-widest flex items-center justify-center gap-2">
                     <span className="material-symbols-outlined text-xl material-symbols-fill">list_alt</span>
                     View Schedule & Pay
                   </button>
@@ -271,20 +271,20 @@ const CustomerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* Loans Tab */}
-        {currentTab === 'loans' && (
+        {/* Records Tab */}
+        {currentTab === 'records' && (
           <div className="px-6 py-6 animate-in slide-in-from-bottom-5 duration-500">
             <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Account Ledger</h2>
             <div className="space-y-5">
-              {loans.map(loan => (
-                <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.97] transition-all">
+              {records.map(record => (
+                <div key={record.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.97] transition-all">
                   <div className="flex justify-between items-start mb-4">
-                    <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">ID: #{loan.id}</p><p className="font-black text-2xl text-gray-900 dark:text-white">{formatCurrency(loan.amount)}</p></div>
-                    <span className={`text-[10px] font-black px-3 py-1 rounded-full ${loan.status === 'Active' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-100 text-gray-500 border-gray-200'} border uppercase`}>{loan.status}</span>
+                    <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">ID: #{record.id}</p><p className="font-black text-2xl text-gray-900 dark:text-white">{formatCurrency(record.amount)}</p></div>
+                    <span className={`text-[10px] font-black px-3 py-1 rounded-full ${record.status === 'Active' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-100 text-gray-500 border-gray-200'} border uppercase`}>{record.status}</span>
                   </div>
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
-                    <div><p className="text-[9px] text-gray-400 font-black tracking-widest uppercase">Disbursement Date</p><p className="font-bold text-sm">{formatDate(loan.date)}</p></div>
-                    <button onClick={() => { setSelectedLoan(loan); setShowDetailsModal(true); }} className="px-5 py-2.5 bg-white dark:bg-gray-700 text-blue-600 font-black text-[10px] rounded-lg border border-blue-100 shadow-sm uppercase">Manage</button>
+                    <div><p className="text-[9px] text-gray-400 font-black tracking-widest uppercase">Finalization Date</p><p className="font-bold text-sm">{formatDate(record.date)}</p></div>
+                    <button onClick={() => { setSelectedLoan(record); setShowDetailsModal(true); }} className="px-5 py-2.5 bg-white dark:bg-gray-700 text-blue-600 font-black text-[10px] rounded-lg border border-blue-100 shadow-sm uppercase">Manage</button>
                   </div>
                 </div>
               ))}
@@ -303,11 +303,11 @@ const CustomerPortal: React.FC = () => {
                   onClick={async () => {
                     try {
                       if (!customer || !company) return alert("Please wait for data to load.");
-                      if (log.type === 'loan') {
-                        const lData = loans.find(l => l.id === log.id);
+                      if (log.type === 'record') {
+                        const lData = records.find(l => l.id === log.id);
                         if (lData) await PdfGenerator.generateLoanAgreement(lData as any, customer as any, company as any);
                       } else {
-                        const tLoan = loans.find(l => l.id === log.loanId);
+                        const tLoan = records.find(l => l.id === log.loanId);
                         const tEmi = tLoan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
                         if (tLoan && tEmi) await PdfGenerator.generateReceipt(tLoan as any, tEmi as any, customer as any, company as any);
                       }
@@ -316,21 +316,21 @@ const CustomerPortal: React.FC = () => {
                   className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group active:bg-gray-50 dark:active:bg-gray-700 transition-all cursor-pointer"
                 >
                   <div className="flex items-center gap-5">
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center border shadow-sm group-hover:scale-105 transition-all ${log.type === 'loan' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
-                      <span className="material-symbols-outlined text-3xl font-variation-FILL">{log.type === 'loan' ? 'account_balance' : 'verified_user'}</span>
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center border shadow-sm group-hover:scale-105 transition-all ${log.type === 'record' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                      <span className="material-symbols-outlined text-3xl font-variation-FILL">{log.type === 'record' ? 'account_balance' : 'verified_user'}</span>
                     </div>
                     <div>
-                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'loan' ? 'Record Created' : `EMI #${log.emiNo} Payment`}</p>
+                      <p className="font-black text-sm text-gray-900 dark:text-white leading-tight">{log.type === 'record' ? 'Record Created' : `EMI #${log.emiNo} Payment`}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Ref: #{log.id || log.loanId}</p>
                       <div className="flex items-center gap-3 mt-1.5">
                         <div className="flex items-center gap-1.5 opacity-60"><span className="material-symbols-outlined text-[14px]">calendar_month</span><span className="text-[10px] font-bold">{log.date instanceof Date ? log.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '---'}</span></div>
-                        {log.type === 'loan' ? 'Agreement' : 'Receipt'}
+                        {log.type === 'record' ? 'Agreement' : 'Receipt'}
                         <span className="material-symbols-outlined text-[12px] opacity-70">arrow_right_alt</span>
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-black text-xl leading-none ${log.type === 'loan' ? 'text-indigo-600' : 'text-emerald-600'}`}>{log.type === 'loan' ? '+' : '-'}{formatCurrency(log.amount)}</p>
+                    <p className={`font-black text-xl leading-none ${log.type === 'record' ? 'text-indigo-600' : 'text-emerald-600'}`}>{log.type === 'record' ? '+' : '-'}{formatCurrency(log.amount)}</p>
                     <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Entry</span>
                   </div>
                 </div>
@@ -363,17 +363,17 @@ const CustomerPortal: React.FC = () => {
                     action: async () => {
                       if (!customer || !company) return alert("Please wait, data is still loading...");
                       try {
-                        await PdfGenerator.generateAccountStatement(loans as any, customer as any, company as any);
+                        await PdfGenerator.generateAccountStatement(records as any, customer as any, company as any);
                       } catch (err) { alert("Download failed. Try again."); }
                     }
                   },
                   {
-                    label: 'Loan Clearance Certificate',
+                    label: 'Record Clearance Certificate',
                     icon: 'workspace_premium',
                     action: async () => {
                       if (!customer || !company) return alert("Please wait, data is still loading...");
                       try {
-                        const closedLoan = loans.find(l => l.status === 'Closed' || l.status === 'Paid');
+                        const closedLoan = records.find(l => l.status === 'Closed' || l.status === 'Paid');
                         if (closedLoan) {
                           await PdfGenerator.generateNoDuesCertificate(closedLoan as any, customer as any, company as any);
                         } else {
@@ -434,7 +434,7 @@ const CustomerPortal: React.FC = () => {
       <nav className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 pt-4 px-2 flex justify-between items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[3rem]" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
         {[
           { id: 'home', icon: 'home', label: 'Home' },
-          { id: 'loans', icon: 'account_balance_wallet', label: 'Loans' },
+          { id: 'records', icon: 'account_balance_wallet', label: 'Records' },
           { id: 'qr', icon: 'qr_code_scanner', label: 'Pay Now' },
           { id: 'history', icon: 'history', label: 'History' },
           { id: 'profile', icon: 'person', label: 'Account' },
@@ -544,12 +544,12 @@ const CustomerPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Detailed Loan Schedule Modal */}
+      {/* Detailed Record Schedule Modal */}
       {showDetailsModal && selectedLoan && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in slide-in-from-bottom-full duration-500">
           <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-[3.5rem] p-10 max-h-[88vh] overflow-y-auto shadow-[0_-20px_50px_rgba(0,0,0,0.2)]">
             <div className="flex justify-between items-center mb-8">
-              <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Schedule for</p><h3 className="font-black text-2xl text-gray-900 dark:text-white">Loan #{selectedLoan.id}</h3></div>
+              <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Schedule for</p><h3 className="font-black text-2xl text-gray-900 dark:text-white">Record #{selectedLoan.id}</h3></div>
               <button onClick={() => setShowDetailsModal(false)} className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-full active:scale-90 transition-all border border-black/5"><span className="material-symbols-outlined text-xl">close</span></button>
             </div>
 

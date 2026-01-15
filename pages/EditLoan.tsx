@@ -24,7 +24,7 @@ interface LoanData {
   notes?: string;
   customerId: string;
   customerName: string;
-  status: 'Pending' | 'Approved' | 'Disbursed' | 'Completed' | 'Rejected' | 'Active' | 'Overdue';
+  status: 'Pending' | 'Confirmed' | 'Finalized' | 'Completed' | 'Declined' | 'Active' | 'Overdue';
   companyId?: string;
 }
 
@@ -43,7 +43,7 @@ const EditLoan: React.FC = () => {
   const { id: loanId } = useParams<{ id: string }>();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loan, setLoan] = useState<LoanData | null>(null);
+  const [record, setLoan] = useState<LoanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,12 +60,12 @@ const EditLoan: React.FC = () => {
   const fetchLoanAndCustomer = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const loanRef = doc(db, "loans", id);
+      const loanRef = doc(db, "records", id);
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
-        alert("Loan not found");
-        navigate('/loans');
+        alert("Record not found");
+        navigate('/records');
         return;
       }
 
@@ -90,9 +90,9 @@ const EditLoan: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Error loading loan:", err);
-      alert("Failed to load loan data");
-      navigate('/loans');
+      console.error("Error loading record:", err);
+      alert("Failed to load record data");
+      navigate('/records');
     } finally {
       setLoading(false);
     }
@@ -129,19 +129,19 @@ const EditLoan: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!loanId || !loan) {
-      alert("Loan information is missing");
+    if (!loanId || !record) {
+      alert("Record information is missing");
       return;
     }
 
     if (form.amount < 1000) {
-      alert("Minimum loan amount is ₹1,000");
+      alert("Minimum record amount is ₹1,000");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const loanRef = doc(db, "loans", loanId);
+      const loanRef = doc(db, "records", loanId);
       await updateDoc(loanRef, {
         amount: form.amount,
         interestRate: form.interestRate,
@@ -154,11 +154,11 @@ const EditLoan: React.FC = () => {
         notes: form.notes || null,
       });
 
-      alert("Loan updated successfully!");
-      navigate(`/loans/${loanId}`);
+      alert("Record updated successfully!");
+      navigate(`/records/${loanId}`);
     } catch (err) {
       console.error("Update failed:", err);
-      alert("Failed to update loan. Please try again.");
+      alert("Failed to update record. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -179,7 +179,7 @@ const EditLoan: React.FC = () => {
           <span className="material-symbols-outlined">arrow_back</span>
           <span className="font-bold text-sm hidden sm:inline">Back</span>
         </button>
-        <h1 className="text-lg font-bold">Edit Loan</h1>
+        <h1 className="text-lg font-bold">Edit Record</h1>
         <div className="w-10"></div>
       </div>
 
@@ -224,14 +224,14 @@ const EditLoan: React.FC = () => {
             </div>
           )}
 
-          {loan && loan.status !== 'Pending' && (
+          {record && record.status !== 'Pending' && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">warning</span>
                 <div>
-                  <h4 className="font-bold text-amber-800 dark:text-amber-300">Warning: Editing an Active Loan</h4>
+                  <h4 className="font-bold text-amber-800 dark:text-amber-300">Warning: Editing an Active Record</h4>
                   <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                    This loan has already been {loan.status.toLowerCase()}. Any changes made here may impact the existing EMI schedule and financial records. Please proceed with caution. This action will not automatically regenerate the payment schedule.
+                    This record has already been {record.status.toLowerCase()}. Any changes made here may impact the existing EMI schedule and financial records. Please proceed with caution. This action will not automatically regenerate the payment schedule.
                   </p>
                 </div>
               </div>
@@ -242,13 +242,13 @@ const EditLoan: React.FC = () => {
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
               <h2 className="font-bold text-base flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">account_balance</span>
-                Loan Details
+                Record Details
               </h2>
-              <p className="text-xs text-slate-500 mt-1">Loan ID: {loanId}</p>
+              <p className="text-xs text-slate-500 mt-1">Record ID: {loanId}</p>
             </div>
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Loan Amount (₹) *</label>
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Record Amount (₹) *</label>
                 <input
                   type="number"
                   name="amount"
@@ -309,7 +309,7 @@ const EditLoan: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Disbursal Date</label>
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Finalization Date</label>
                 <input
                   type="date"
                   name="disbursalDate"
@@ -324,7 +324,7 @@ const EditLoan: React.FC = () => {
                   name="notes"
                   value={form.notes}
                   onChange={handleInputChange}
-                  placeholder="Add any internal notes about this loan..."
+                  placeholder="Add any internal notes about this record..."
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a2230] focus:ring-2 focus:ring-primary outline-none resize-none h-24"
                 />
               </div>
@@ -360,7 +360,7 @@ const EditLoan: React.FC = () => {
             {isSubmitting ? (
               <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div> Updating...</>
             ) : (
-              <>Update Loan <span className="material-symbols-outlined material-symbols-fill">check_circle</span></>
+              <>Update Record <span className="material-symbols-outlined material-symbols-fill">check_circle</span></>
             )}
           </button>
         </form>

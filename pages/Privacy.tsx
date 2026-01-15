@@ -22,7 +22,7 @@ const Privacy: React.FC = () => {
                         <div>
                             <h3 className="font-bold text-blue-800 dark:text-blue-300 text-sm">Non-Lending Entity Declaration</h3>
                             <p className="text-blue-700 dark:text-blue-400 text-xs mt-1 leading-relaxed">
-                                {APP_NAME} is purely a management tool for personal record-keeping. We are <strong>NOT</strong> a lender, bank, or NBFC. We do not provide loans, process payments, or connect users with lenders. Your data remains yours.
+                                {APP_NAME} is purely a management tool for personal record-keeping. We are <strong>NOT</strong> a lender, bank, or NBFC. We do not provide records, process payments, or connect users with lenders. Your data remains yours.
                             </p>
                         </div>
                     </div>
@@ -80,9 +80,9 @@ const Privacy: React.FC = () => {
                     </p>
                     <ul className="list-disc pl-5 mt-2 space-y-1 text-slate-600 dark:text-slate-400 text-sm">
                         <li>Create and manage your account.</li>
-                        <li>Process loan records and calculate repayments.</li>
+                        <li>Process record records and calculate repayments.</li>
                         <li>Generate reports and receipts you request.</li>
-                        <li>Notify you of updates or loan maturity.</li>
+                        <li>Notify you of updates or record maturity.</li>
                     </ul>
                 </section>
 

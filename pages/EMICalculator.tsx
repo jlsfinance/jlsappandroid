@@ -50,7 +50,7 @@ const EMICalculator: React.FC = () => {
         <div className="bg-white dark:bg-[#1a2233] rounded-2xl p-5 shadow-sm space-y-8">
           <div className="space-y-4">
             <div className="flex justify-between items-end">
-              <label className="font-semibold text-base">Loan Amount</label>
+              <label className="font-semibold text-base">Record Amount</label>
               <div className="flex items-center bg-background-light dark:bg-background-dark rounded-lg px-3 py-2 w-32 border border-transparent focus-within:border-primary transition-all">
                 <span className="text-slate-500 font-medium mr-1">₹</span>
                 <input className="bg-transparent border-none p-0 w-full text-right font-bold focus:ring-0" type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />

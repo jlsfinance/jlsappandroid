@@ -108,7 +108,7 @@ const Receipts: React.FC = () => {
 
         pdfDoc.text(`Customer Name: ${receipt.customerName}`, 14, y);
         y += 7;
-        pdfDoc.text(`Loan ID: ${receipt.loanId}`, 14, y);
+        pdfDoc.text(`Record ID: ${receipt.loanId}`, 14, y);
         y += 8;
 
         pdfDoc.line(14, y, 196, y);
@@ -177,7 +177,7 @@ const Receipts: React.FC = () => {
                         <tr>
                             <th className="px-4 py-3 whitespace-nowrap">Receipt ID</th>
                             <th className="px-4 py-3 whitespace-nowrap">Customer</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Loan ID</th>
+                            <th className="px-4 py-3 whitespace-nowrap">Record ID</th>
                             <th className="px-4 py-3 whitespace-nowrap">Amount</th>
                             <th className="px-4 py-3 whitespace-nowrap">Payment Date</th>
                             <th className="px-4 py-3 whitespace-nowrap">Method</th>

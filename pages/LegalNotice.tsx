@@ -24,7 +24,7 @@ interface Customer {
     avatar?: string;
 }
 
-interface Loan {
+interface Record {
     id: string;
     customerId: string;
     disbursalDate: string;
@@ -64,7 +64,7 @@ const LegalNotice: React.FC = () => {
 
     // Data State
     const [customers, setCustomers] = useState<Customer[]>([]);
-    const [loans, setLoans] = useState<Loan[]>([]);
+    const [records, setLoans] = useState<Record[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -106,22 +106,22 @@ const LegalNotice: React.FC = () => {
                 )),
                 getDocs(query(
                     collection(db, "loans"),
-                    where("status", "in", ["Disbursed", "Active", "Overdue"]),
+                    where("status", "in", ["Finalized", "Active", "Overdue"]),
                     where("companyId", "==", currentCompany.id)
                 ))
             ]);
 
             const allCustomers = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Customer[];
-            const allLoans = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Loan[];
+            const allLoans = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Record[];
 
             // Filter for customers who have at least one overdue pending EMI
             const overdueCustomerIds = new Set<string>();
-            allLoans.forEach(loan => {
-                if (loan.repaymentSchedule) {
-                    const hasOverdue = loan.repaymentSchedule.some(emi =>
+            allLoans.forEach(record => {
+                if (record.repaymentSchedule) {
+                    const hasOverdue = record.repaymentSchedule.some(emi =>
                         emi.status === 'Pending' && isPast(parseISO(emi.dueDate))
                     );
-                    if (hasOverdue) overdueCustomerIds.add(loan.customerId);
+                    if (hasOverdue) overdueCustomerIds.add(record.customerId);
                 }
             });
 
@@ -146,19 +146,19 @@ const LegalNotice: React.FC = () => {
     // Handle Customer Selection & Auto-fill
     const handleCustomerSelect = (customer: Customer) => {
         setSelectedCustomer(customer);
-        const customerLoans = loans.filter(l => l.customerId === customer.id);
+        const customerLoans = records.filter(l => l.customerId === customer.id);
 
         // Find the oldest overdue EMI
-        let targetLoan: Loan | undefined;
+        let targetLoan: Record | undefined;
         let targetEmi: any;
 
-        for (const loan of customerLoans) {
-            if (!loan.repaymentSchedule) continue;
-            const overdueEmi = loan.repaymentSchedule.find(emi =>
+        for (const record of customerLoans) {
+            if (!record.repaymentSchedule) continue;
+            const overdueEmi = record.repaymentSchedule.find(emi =>
                 emi.status === 'Pending' && isPast(parseISO(emi.dueDate))
             );
             if (overdueEmi) {
-                targetLoan = loan;
+                targetLoan = record;
                 targetEmi = overdueEmi;
                 break;
             }
@@ -214,11 +214,11 @@ const LegalNotice: React.FC = () => {
         return `To:
 Mr./Ms. ${form.customerName}
 ${form.customerAddress}
-Loan Account: ${form.loanAccountNumber}
+Record Account: ${form.loanAccountNumber}
 
 Subject: IMMEDIATE PAYMENT DEMAND for Overdue Equated Monthly Installment (EMI)
 
-This notice serves as a FINAL WARNING regarding your outstanding loan from ${companyDetails.name}.
+This notice serves as a FINAL WARNING regarding your outstanding record from ${companyDetails.name}.
 
 Your EMI (Installment No. ${form.emiNumber}), which was due on ${calculatedDueDate ? format(parseISO(calculatedDueDate), 'dd MMMM, yyyy') : '---'}, remains unpaid. This payment is now overdue by ${daysOverdue} days.
 
@@ -404,7 +404,7 @@ For ${companyDetails.name}`;
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-500">Loan Account No.</label>
+                                <label className="text-xs font-bold text-slate-500">Record Account No.</label>
                                 <input type="text" value={form.loanAccountNumber} onChange={e => setForm({ ...form, loanAccountNumber: e.target.value })} className="w-full mt-1 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm" />
                             </div>
                             <div>

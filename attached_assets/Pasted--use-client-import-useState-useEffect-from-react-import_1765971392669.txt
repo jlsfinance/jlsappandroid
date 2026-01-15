@@ -36,16 +36,16 @@ export default function DisbursalPage() {
         const fetchApprovedLoans = async () => {
             setLoading(true);
             try {
-                const q = query(collection(db, "loans"), where("status", "==", "Approved"));
+                const q = query(collection(db, "loans"), where("status", "==", "Confirmed"));
                 const querySnapshot = await getDocs(q);
                 const approved = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ApprovedLoan[];
                 setApprovedLoans(approved);
             } catch (error) {
-                console.error("Failed to load approved loans from Firestore:", error)
+                console.error("Failed to load approved records from Firestore:", error)
                 toast({
                     variant: "destructive",
                     title: "Load Failed",
-                    description: "Could not load approved loans for disbursal.",
+                    description: "Could not load approved records for finalization.",
                 })
             } finally {
                 setLoading(false);
@@ -78,33 +78,33 @@ export default function DisbursalPage() {
         }
     };
 
-    const handleDisburse = async (appId: string, loan: ApprovedLoan) => {
+    const handleDisburse = async (appId: string, record: ApprovedLoan) => {
         if (!selectedDisbursalDate) {
             toast({
                 variant: "destructive",
                 title: "Validation Error",
-                description: "Please select a valid disbursal date.",
+                description: "Please select a valid finalization date.",
             })
             return;
         }
 
         try {
-            const loanRef = doc(db, "loans", appId);
+            const loanRef = doc(db, "records", appId);
 
             // Generate EMI schedule
             const repaymentSchedule = [];
             const firstEmiDate = startOfMonth(addMonths(selectedDisbursalDate, 1));
-            for (let i = 0; i < loan.tenure; i++) {
+            for (let i = 0; i < record.tenure; i++) {
                 repaymentSchedule.push({
                     emiNumber: i + 1,
                     dueDate: format(addMonths(firstEmiDate, i), 'yyyy-MM-dd'),
-                    amount: loan.emi,
+                    amount: record.emi,
                     status: 'Pending'
                 });
             }
             
             await updateDoc(loanRef, {
-                status: 'Disbursed',
+                status: 'Finalized',
                 disbursalDate: format(selectedDisbursalDate, 'yyyy-MM-dd'),
                 repaymentSchedule: repaymentSchedule
             });
@@ -112,35 +112,35 @@ export default function DisbursalPage() {
             setApprovedLoans(prev => prev.filter(app => app.id !== appId))
 
             toast({
-                title: "Loan Disbursed",
-                description: `The loan for ${loan.customerName} has been disbursed.`,
+                title: "Record Finalized",
+                description: `The record for ${record.customerName} has been finalized.`,
             })
         } catch (error) {
-            console.error("Failed to disburse loan:", error)
+            console.error("Failed to finalize record:", error)
             toast({
                 variant: "destructive",
                 title: "Update Failed",
-                description: "Could not disburse the loan.",
+                description: "Could not finalize the record.",
             })
         }
     }
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-headline font-semibold">Loan Disbursal Queue</h1>
+            <h1 className="text-2xl font-headline font-semibold">Record Finalization Queue</h1>
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle>Approved Loans</CardTitle>
-                    <CardDescription>Review and disburse approved loan applications from Firestore.</CardDescription>
+                    <CardTitle>Confirmed Records</CardTitle>
+                    <CardDescription>Review and finalize approved record applications from Firestore.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Application ID</TableHead>
-                                <TableHead>Applicant Name</TableHead>
+                                <TableHead>Customer Name</TableHead>
                                 <TableHead>Amount (₹)</TableHead>
-                                <TableHead>Approved On</TableHead>
+                                <TableHead>Confirmed On</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-center">Actions</TableHead>
                             </TableRow>
@@ -159,7 +159,7 @@ export default function DisbursalPage() {
                                     <TableCell>₹{app.amount.toLocaleString('en-IN')}</TableCell>
                                     <TableCell>{app.approvalDate}</TableCell>
                                     <TableCell>
-                                        <Badge variant="secondary">Approved</Badge>
+                                        <Badge variant="secondary">Confirmed</Badge>
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <Dialog onOpenChange={(isOpen) => {
@@ -171,22 +171,22 @@ export default function DisbursalPage() {
                                         }}>
                                             <DialogTrigger asChild>
                                                 <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                                                    <Banknote className="h-4 w-4 mr-2" />Disburse
+                                                    <Banknote className="h-4 w-4 mr-2" />Finalize
                                                 </Button>
                                             </DialogTrigger>
                                             <DialogContent>
                                                 <DialogHeader>
-                                                    <DialogTitle>Disburse Loan to {app.customerName}?</DialogTitle>
+                                                    <DialogTitle>Finalize Record to {app.customerName}?</DialogTitle>
                                                     <DialogDescription>
-                                                        Select a disbursal date. The first EMI will be due on the 1st of the following month. This cannot be undone.
+                                                        Select a finalization date. The first EMI will be due on the 1st of the following month. This cannot be undone.
                                                     </DialogDescription>
                                                 </DialogHeader>
                                                 <div className="py-4 space-y-2">
-                                                    <Label htmlFor="disbursal-date">Disbursal Date</Label>
+                                                    <Label htmlFor="finalization-date">Finalization Date</Label>
                                                     <Popover>
                                                         <div className="relative">
                                                             <Input
-                                                                id="disbursal-date"
+                                                                id="finalization-date"
                                                                 placeholder="DD/MM/YYYY"
                                                                 value={disbursalDateString}
                                                                 onChange={handleDisbursalDateChange}
@@ -228,7 +228,7 @@ export default function DisbursalPage() {
                                                             onClick={() => handleDisburse(app.id, app)}
                                                             disabled={!selectedDisbursalDate}
                                                         >
-                                                            Confirm Disbursal
+                                                            Confirm Finalization
                                                         </Button>
                                                     </DialogClose>
                                                 </DialogFooter>
@@ -238,7 +238,7 @@ export default function DisbursalPage() {
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">No loans awaiting disbursal.</TableCell>
+                                    <TableCell colSpan={6} className="text-center h-24">No records awaiting finalization.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>

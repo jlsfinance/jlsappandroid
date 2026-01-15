@@ -22,7 +22,7 @@ const CompanySelector: React.FC = () => {
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [orphanedData, setOrphanedData] = useState<{ customers: number, loans: number, partners: number, expenses: number }>({ customers: 0, loans: 0, partners: 0, expenses: 0 });
+  const [orphanedData, setOrphanedData] = useState<{ customers: number, records: number, partners: number, expenses: number }>({ customers: 0, records: 0, partners: 0, expenses: 0 });
   const [showMigrateModal, setShowMigrateModal] = useState(false);
   const [selectedCompanyForMigration, setSelectedCompanyForMigration] = useState<Company | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -64,7 +64,7 @@ const CompanySelector: React.FC = () => {
 
         setOrphanedData({
           customers: orphanCustomers,
-          loans: orphanLoans,
+          records: orphanLoans,
           partners: orphanPartners,
           expenses: orphanExpenses
         });
@@ -99,7 +99,7 @@ const CompanySelector: React.FC = () => {
 
       loansSnap.docs.forEach(docSnap => {
         if (!docSnap.data().companyId) {
-          batch.update(doc(db, "loans", docSnap.id), { companyId });
+          batch.update(doc(db, "records", docSnap.id), { companyId });
         }
       });
 
@@ -117,7 +117,7 @@ const CompanySelector: React.FC = () => {
 
       await batch.commit();
 
-      setOrphanedData({ customers: 0, loans: 0, partners: 0, expenses: 0 });
+      setOrphanedData({ customers: 0, records: 0, partners: 0, expenses: 0 });
       setShowMigrateModal(false);
       alert("Data successfully migrated to " + selectedCompanyForMigration.name);
 
@@ -131,7 +131,7 @@ const CompanySelector: React.FC = () => {
     }
   };
 
-  const hasOrphanedData = orphanedData.customers > 0 || orphanedData.loans > 0 || orphanedData.partners > 0 || orphanedData.expenses > 0;
+  const hasOrphanedData = orphanedData.customers > 0 || orphanedData.records > 0 || orphanedData.partners > 0 || orphanedData.expenses > 0;
 
   const handleSelectCompany = (company: Company) => {
     setCurrentCompany(company);
@@ -352,7 +352,7 @@ const CompanySelector: React.FC = () => {
                 </p>
                 <ul className="text-sm text-amber-600 dark:text-amber-400 mt-2 space-y-1">
                   {orphanedData.customers > 0 && <li>{orphanedData.customers} Customers</li>}
-                  {orphanedData.loans > 0 && <li>{orphanedData.loans} Loans</li>}
+                  {orphanedData.records > 0 && <li>{orphanedData.records} Records</li>}
                   {orphanedData.partners > 0 && <li>{orphanedData.partners} Partner Transactions</li>}
                   {orphanedData.expenses > 0 && <li>{orphanedData.expenses} Expenses</li>}
                 </ul>

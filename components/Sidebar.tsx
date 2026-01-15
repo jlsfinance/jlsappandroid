@@ -20,7 +20,7 @@ const Sidebar: React.FC = () => {
     const { currentCompany } = useCompany();
     const location = useLocation();
     const navigate = useNavigate();
-    const [expandedMenus, setExpandedMenus] = useState<string[]>(['Loans', 'Finance']); // Default expanded
+    const [expandedMenus, setExpandedMenus] = useState<string[]>(['Records', 'Finance']); // Default expanded
     const [showAbout, setShowAbout] = useState(false);
 
     const handleLogout = async () => {
@@ -46,11 +46,11 @@ const Sidebar: React.FC = () => {
     const menuItems: MenuItem[] = [
         { title: 'Dashboard', path: '/', icon: 'dashboard' },
         {
-            title: 'Loans',
+            title: 'Records',
             icon: 'account_balance',
             submenu: [
-                { title: 'All Loans', path: '/loans', icon: 'list_alt' },
-                { title: 'New Loan', path: '/loans/new', icon: 'add_circle' },
+                { title: 'All Records', path: '/records', icon: 'list_alt' },
+                { title: 'New Record', path: '/records/new', icon: 'add_circle' },
                 { title: 'EMI Calculator', path: '/tools/emi', icon: 'calculate' },
             ]
         },
@@ -61,7 +61,7 @@ const Sidebar: React.FC = () => {
                 { title: 'Overview', path: '/finance', icon: 'finance' },
                 { title: 'Receipts', path: '/receipts', icon: 'receipt_long' },
                 { title: 'Approvals', path: '/approvals', icon: 'verified' },
-                { title: 'Disbursal', path: '/disbursal', icon: 'monetization_on' },
+                { title: 'Finalization', path: '/finalization', icon: 'monetization_on' },
                 { title: 'Due List', path: '/due-list', icon: 'pending_actions' },
             ]
         },

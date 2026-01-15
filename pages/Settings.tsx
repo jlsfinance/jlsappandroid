@@ -174,7 +174,7 @@ const Settings: React.FC = () => {
             </div>
             <div className="flex-1">
               <p className="text-base font-medium leading-normal">Terms & Conditions</p>
-              <p className="text-xs text-slate-400">Loan Terms & Disclosure</p>
+              <p className="text-xs text-slate-400">Record Terms & Disclosure</p>
             </div>
             <span className="material-symbols-outlined text-gray-400 dark:text-gray-600 text-[20px]">chevron_right</span>
           </Link>

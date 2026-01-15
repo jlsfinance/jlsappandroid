@@ -133,7 +133,7 @@ const CustomerLogin: React.FC = () => {
             <span className="material-symbols-outlined text-3xl">storefront</span>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Customer Portal</h1>
-          <p className="text-white/80 text-xs">View your loans and pay EMI</p>
+          <p className="text-white/80 text-xs">View your records and pay EMI</p>
         </div>
 
         <div className="bg-white dark:bg-[#1e2736] rounded-3xl shadow-2xl p-5 relative">

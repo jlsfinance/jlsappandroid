@@ -9,7 +9,7 @@ import autoTable from 'jspdf-autotable';
 // Interfaces
 interface Partner { id: string; name: string; }
 interface Transaction { id: string; partnerId: string; partnerName?: string; type: 'investment' | 'withdrawal'; amount: number; date: string; }
-interface Loan { id: string; amount: number; processingFee: number; interestRate: number; tenure: number; emi: number; disbursalDate: string; actualDisbursed: number; repaymentSchedule: { dueDate: string, status: 'Paid' | 'Pending' }[] }
+interface Record { id: string; amount: number; processingFee: number; interestRate: number; tenure: number; emi: number; disbursalDate: string; actualDisbursed: number; repaymentSchedule: { dueDate: string, status: 'Paid' | 'Pending' }[] }
 interface Receipt { id: string; loanId: string, amount: number; paymentDate: string; emiNumber: number; }
 interface PartnerLedgerEntry { date: Date; particulars: string; type: 'credit' | 'debit'; amount: number; }
 
@@ -18,7 +18,7 @@ const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat('en-IN').
 const Partners: React.FC = () => {
     const [partners, setPartners] = useState<Partner[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [loans, setLoans] = useState<Loan[]>([]);
+    const [records, setLoans] = useState<Record[]>([]);
     const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [loading, setLoading] = useState(true);
     
@@ -57,8 +57,8 @@ const Partners: React.FC = () => {
             }) as Transaction[];
             setTransactions(transactionsData);
 
-            const loansSnap = await getDocs(query(collection(db, "loans"), where("status", "in", ["Disbursed", "Completed", "Active", "Overdue"])));
-            const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Loan[];
+            const loansSnap = await getDocs(query(collection(db, "loans"), where("status", "in", ["Finalized", "Completed", "Active", "Overdue"])));
+            const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Record[];
             setLoans(loansData);
             
             const receiptsSnap = await getDocs(query(collection(db, "receipts")));
@@ -93,18 +93,18 @@ const Partners: React.FC = () => {
         const monthStart = startOfMonth(parseISO(`${selectedMonth}-01`));
         const monthEnd = endOfMonth(parseISO(`${selectedMonth}-01`));
 
-        const processingFees = loans
+        const processingFees = records
             .filter(l => l.disbursalDate && isWithinInterval(parseISO(l.disbursalDate), { start: monthStart, end: monthEnd }))
             .reduce((sum, l) => sum + (Number(l.processingFee) || 0), 0);
         
         const interestCollected = receipts
             .filter(r => r.paymentDate && isWithinInterval(parseISO(r.paymentDate), { start: monthStart, end: monthEnd }))
             .reduce((sum, receipt) => {
-                const loan = loans.find(l => l.id === receipt.loanId);
-                if (!loan) return sum;
-                const monthlyInterestRate = (loan.interestRate || 0) / 12 / 100;
+                const record = records.find(l => l.id === receipt.loanId);
+                if (!record) return sum;
+                const monthlyInterestRate = (record.interestRate || 0) / 12 / 100;
                 
-                let balance = Number(loan.amount);
+                let balance = Number(record.amount);
                 // Simplified Interest Calculation for Receipts
                 // Ideally this should use the exact principal outstanding at payment time from receipt/schedule
                 // Estimation: Interest portion of this EMI based on schedule logic if available, or simple approximation
@@ -139,7 +139,7 @@ const Partners: React.FC = () => {
         });
 
         return { totalProfit, processingFees, interestCollected, profitSplits };
-    }, [selectedMonth, loans, receipts, partners, partnerCapitals]);
+    }, [selectedMonth, records, receipts, partners, partnerCapitals]);
 
     const prepareLedgerData = useCallback((partnerId: string) => {
         const partnerTransactions = transactions.filter(t => t.partnerId === partnerId);
@@ -244,7 +244,7 @@ const Partners: React.FC = () => {
             .filter(r => r.paymentDate && isWithinInterval(parseISO(r.paymentDate), { start: monthStart, end: monthEnd }))
             .reduce((sum, r) => sum + Number(r.amount), 0);
 
-        const loansDisbursed = loans
+        const loansDisbursed = records
             .filter(l => l.disbursalDate && isWithinInterval(parseISO(l.disbursalDate), { start: monthStart, end: monthEnd }))
             .reduce((sum, l) => sum + (l.actualDisbursed || Number(l.amount)), 0);
         
@@ -254,7 +254,7 @@ const Partners: React.FC = () => {
 
         return { totalInflow, totalOutflow, netFlow };
 
-    }, [selectedMonth, transactions, loans, receipts]);
+    }, [selectedMonth, transactions, records, receipts]);
     
     const onPartnerSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

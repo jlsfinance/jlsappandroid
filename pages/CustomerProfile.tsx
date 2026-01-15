@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { fetchCustomerById, fetchLoansByCustomerId, deleteCustomer } from '../services/dataService';
-import { Customer, Loan } from '../types';
+import { Customer, Record } from '../types';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
@@ -9,7 +9,7 @@ const CustomerProfile: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);
+  const [records, setLoans] = useState<Record[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -31,14 +31,14 @@ const CustomerProfile: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ring-1 ring-inset";
     switch (status) {
-      case 'Approved':
+      case 'Confirmed':
       case 'Active':
-      case 'Disbursed':
+      case 'Finalized':
         return <span className={`${baseClasses} bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 ring-green-600/20`}>{status}</span>;
       case 'Completed':
       case 'Paid Off':
         return <span className={`${baseClasses} bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 ring-blue-600/20`}>{status}</span>;
-      case 'Rejected':
+      case 'Declined':
       case 'Overdue':
         return <span className={`${baseClasses} bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 ring-red-600/20`}>{status}</span>;
       default:
@@ -211,41 +211,41 @@ const CustomerProfile: React.FC = () => {
               </div>
             )}
 
-            {/* Loan History */}
-            {loans.length > 0 && (
+            {/* Record History */}
+            {records.length > 0 && (
               <div className="mt-8">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-primary border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
-                  <span className="material-symbols-outlined">history_edu</span> Loan History
+                  <span className="material-symbols-outlined">history_edu</span> Record History
                 </h3>
                 <div className="space-y-4">
-                  {loans.map((loan) => (
-                    <div key={loan.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-[#1e2736] border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                  {records.map((record) => (
+                    <div key={record.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-[#1e2736] border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="space-y-1 mb-4 sm:mb-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-base">Loan #{loan.id}</span>
-                          {getStatusBadge(loan.status)}
+                          <span className="font-bold text-base">Record #{record.id}</span>
+                          {getStatusBadge(record.status)}
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Applied on: {new Date(loan.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          Applied on: {new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-2 text-sm w-full sm:w-auto">
                         <div>
                           <span className="block text-xs text-slate-500">Amount</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(loan.amount)}</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(record.amount)}</span>
                         </div>
                         <div>
                           <span className="block text-xs text-slate-500">EMI</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(loan.emi)}</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(record.emi)}</span>
                         </div>
                         <div>
                           <span className="block text-xs text-slate-500">Tenure</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{loan.tenure} M</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{record.tenure} M</span>
                         </div>
                         <div>
                           <span className="block text-xs text-slate-500">Rate</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{loan.interestRate}%</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{record.interestRate}%</span>
                         </div>
                       </div>
                     </div>
@@ -294,9 +294,9 @@ const CustomerProfile: React.FC = () => {
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Are you sure you want to delete <strong>{customer?.name}</strong>? This action cannot be undone.
               </p>
-              {loans.length > 0 && (
+              {records.length > 0 && (
                 <p className="text-sm text-red-600 dark:text-red-400 mt-2 font-medium">
-                  Warning: This customer has {loans.length} loan(s) linked to them.
+                  Warning: This customer has {records.length} record(s) linked to them.
                 </p>
               )}
             </div>
