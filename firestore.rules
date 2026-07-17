@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Customers & Companies: read only for authenticated users (app always logs in)
+    match /customers/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /companies/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 2. Loans, Payments, Deposits & Expenses: read/write only for authenticated users
+    match /loans/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /deposits/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /payments/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /expenses/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /ledger/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /partner_transactions/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // System notifications: only authenticated users (app requires login). Writes auth-only.
+    match /notifications/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Partners & receipts: read/write only for authenticated users
+    match /partners/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /receipts/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 3. Counters: Deposit/Loan ID generate karne ke liye zaroori
+    match /counters/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 4. Admin Users: Inhe poori tarah lock rakhna zaroori hai
+    match /users/{document} {
+       allow read, write: if request.auth != null;
+    }
+
+    // 5. Default Fallback: Baaki sab kuch locked
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

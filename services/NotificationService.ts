@@ -182,7 +182,9 @@ export const NotificationService = {
                 const nextInstallment = loan.repaymentSchedule.find(inst => inst.status === 'Pending');
 
                 if (nextInstallment) {
-                    const dueDate = parseISO(nextInstallment.date);
+                    const dueDateStr = nextInstallment.dueDate || nextInstallment.date;
+                    if (!dueDateStr) continue;
+                    const dueDate = parseISO(dueDateStr);
 
                     // Create a schedule date at 9:00 AM on the due date
                     const scheduleDate = setSeconds(setMinutes(setHours(dueDate, 9), 0), 0);

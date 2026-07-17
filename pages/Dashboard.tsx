@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { useSidebar } from '../context/SidebarContext';
 import { NotificationService } from '../services/NotificationService';
+import { WhatsappService } from '../services/whatsappService';
+import { getDocsSmart } from '../services/dataService';
 import LazyImage from '../components/LazyImage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -30,6 +32,8 @@ const Dashboard: React.FC = () => {
     const [customers, setCustomers] = useState<any[]>([]);
     const [partnerTransactions, setPartnerTransactions] = useState<any[]>([]);
     const [expenses, setExpenses] = useState<any[]>([]);
+    const [ledger, setLedger] = useState<any[]>([]);
+    const [deposits, setDeposits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('Admin');
     const [isNotifEnabled, setIsNotifEnabled] = useState(false);
@@ -57,7 +61,7 @@ const Dashboard: React.FC = () => {
                 type: 'admin_push',
                 recipientName: selectedCustomerId === 'all' ? 'All Customers' : (targetCustomer?.name || 'User')
             });
-            alert("Notification Sent Successfully! 🚀");
+            alert("Notification Sent Successfully! ðŸš€");
             setShowReminderModal(false);
             setNotifTitle('');
             setNotifBody('');
@@ -90,17 +94,21 @@ const Dashboard: React.FC = () => {
 
                 const companyId = currentCompany.id;
 
-                const [loansSnap, customersSnap, partnerTxSnap, expensesSnap] = await Promise.all([
-                    getDocs(query(collection(db, "loans"), where("companyId", "==", companyId))),
-                    getDocs(query(collection(db, "customers"), where("companyId", "==", companyId))),
-                    getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                    getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))
+                const [loansSnap, customersSnap, partnerTxSnap, expensesSnap, ledgerSnap, depositsSnap] = await Promise.all([
+                    getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId)))
                 ]);
 
                 const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const partnerData = partnerTxSnap.docs.map(doc => doc.data());
                 const expensesData = expensesSnap.docs.map(doc => doc.data());
+                const ledgerData = ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const depositsData = depositsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 loansData.sort((a: any, b: any) => {
                     const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
@@ -112,9 +120,41 @@ const Dashboard: React.FC = () => {
                 setCustomers(customersData);
                 setPartnerTransactions(partnerData);
                 setExpenses(expensesData);
+                setLedger(ledgerData);
+                setDeposits(depositsData);
 
                 // Schedule notifications
                 NotificationService.scheduleLoanNotifications(loansData as unknown as Loan[]);
+
+                // ponytail: WhatsApp reminders for all items due THIS MONTH (once per item/month, max 30 to save quota)
+                const today = format(new Date(), 'yyyy-MM-dd');
+                const thisMonth = today.slice(0, 7); // yyyy-MM
+                const monthKey = 'wa_month_count_' + thisMonth;
+                const sentMonth = Number(localStorage.getItem(monthKey) || 0);
+                const maxMonth = 30;
+                const dueThisMonth = [
+                    ...loansData.flatMap((l: any) => (l.repaymentSchedule || [])
+                        .filter((e: any) => e.status === 'Pending' && (e.dueDate || '').slice(0, 7) === thisMonth)
+                        .map((e: any) => ({ ...e, customerId: l.customerId, customerName: l.customerName, loanId: l.id }))),
+                    ...depositsData.flatMap((d: any) => (d.depositSchedule || [])
+                        .filter((s: any) => s.status === 'Pending' && (s.dueDate || '').slice(0, 7) === thisMonth)
+                        .map((s: any) => ({ ...s, customerId: d.customerId, customerName: d.customerName, depositId: d.id }))),
+                ];
+                let newSent = sentMonth;
+                for (const t of dueThisMonth) {
+                    if (newSent >= maxMonth) break;
+                    const key = `wa_month_${thisMonth}_${t.loanId || t.depositId}_${(t.emiNumber || t.installmentNumber)}`;
+                    if (localStorage.getItem(key)) continue;
+                    const cust = customersData.find((c: any) => c.id === t.customerId);
+                    const phone = cust?.phone || (t as any).phone;
+                    if (!phone) continue;
+                    const ok = t.loanId
+                        ? await WhatsappService.sendEmiReminder(t.customerName, phone, Number(t.amount) || 0, (t.dueDate || today).slice(0, 10), t.loanId)
+                        : await WhatsappService.sendDepositReminder(t.customerName, phone, Number(t.amount) || 0, (t.dueDate || today).slice(0, 10), t.depositId, t.installmentNumber);
+                    if (ok) { localStorage.setItem(key, '1'); newSent++; }
+                    await new Promise(r => setTimeout(r, 1200));
+                }
+                if (newSent > sentMonth) localStorage.setItem(monthKey, String(newSent));
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
             } finally {
@@ -169,6 +209,16 @@ const Dashboard: React.FC = () => {
 
         expenses.forEach(exp => {
             calculatedBalance -= Number(exp.amount || 0);
+        });
+
+        // ponytail: ledger is the source of truth for deposit cash. Only fold in
+        // deposit entries to avoid double-counting loan emi/disbursal already in metrics.
+        ledger.forEach((entry: any) => {
+            if (!entry.depositId || !Array.isArray(entry.entries)) return;
+            entry.entries.forEach((sub: any) => {
+                if (sub.account !== 'Cash / Bank') return;
+                calculatedBalance += (sub.type === 'Credit' ? Number(sub.amount || 0) : -Number(sub.amount || 0));
+            });
         });
 
         loans.forEach(loan => {
@@ -247,7 +297,7 @@ const Dashboard: React.FC = () => {
             totalCollections,
             totalProcessingFees
         };
-    }, [loans, customers, partnerTransactions, expenses]);
+    }, [loans, customers, partnerTransactions, expenses, ledger]);
 
     const getModalContent = () => {
         let modalData: any[] = [];
@@ -504,7 +554,7 @@ const Dashboard: React.FC = () => {
                             <span className="text-[10px] font-black uppercase tracking-widest text-[#7c3aed] opacity-80 leading-none mb-1">Authenticated Admin</span>
                             <div className="flex items-center gap-1.5">
                                 <h1 className="text-sm font-black text-slate-900 dark:text-white capitalize leading-tight">Hi, {userName}</h1>
-                                <span className="text-[14px]">✨</span>
+                                <span className="text-[14px]">âœ¨</span>
                             </div>
                         </div>
                     </div>
@@ -565,9 +615,10 @@ const Dashboard: React.FC = () => {
                         <div className="h-6 w-1 rounded-full bg-indigo-600"></div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Quick Actions</h3>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                         {[
                             { link: "/loans/new", icon: "add", isKadak: true, label: "New Loan" },
+                            { link: "/deposits/new", icon: "savings", isKadak: true, label: "Create Deposit" },
                             { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Collect EMI" },
                             { link: "/customers/new", icon: "person_add", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", label: "Add Client" },
                             { link: "/finance", icon: "bar_chart", color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", label: "Reports" }
@@ -588,6 +639,13 @@ const Dashboard: React.FC = () => {
                                     }`}>{action.label}</span>
                             </Link>
                         ))}
+                        <Link to="/deposits"
+                            className="group flex flex-col items-center justify-center p-5 transition-all duration-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1">
+                            <div className="flex items-center justify-center transition-transform duration-300 group-hover:scale-110 w-12 h-12 rounded-xl bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600">
+                                <span className="material-symbols-outlined text-[26px] font-variation-FILL">account_balance_wallet</span>
+                            </div>
+                            <span className="font-black uppercase tracking-tight text-xs text-slate-700 dark:text-slate-300 mt-2">Collect Deposit</span>
+                        </Link>
                     </div>
                 </div>
 
@@ -707,6 +765,7 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
 
                 {/* Modern Recent Activity */}
                 <div>
@@ -865,7 +924,7 @@ const Dashboard: React.FC = () => {
                                         onChange={e => setSelectedCustomerId(e.target.value)}
                                         className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-bold shadow-inner focus:ring-2 focus:ring-indigo-500 transition-shadow transition-colors"
                                     >
-                                        <option value="all">📢 Everyone (All Customers)</option>
+                                        <option value="all">ðŸ“¢ Everyone (All Customers)</option>
                                         <optgroup label="Direct Message">
                                             {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
                                         </optgroup>
@@ -874,9 +933,9 @@ const Dashboard: React.FC = () => {
 
                                 <div className="flex flex-wrap gap-2 py-1">
                                     {[
-                                        { l: 'Reminder', t: 'Just a Reminder 🎗️', b: 'Your EMI is due soon. Please keep sufficient balance.' },
-                                        { l: 'Urgent', t: 'Action Required ⚠️', b: 'Your payment is Overdue. Please pay immediately.' },
-                                        { l: 'Offer', t: 'Special Offer 🎉', b: 'Get a Top-Up loan today with 0% processing fee!' }
+                                        { l: 'Reminder', t: 'Just a Reminder ðŸŽ—ï¸', b: 'Your EMI is due soon. Please keep sufficient balance.' },
+                                        { l: 'Urgent', t: 'Action Required âš ï¸', b: 'Your payment is Overdue. Please pay immediately.' },
+                                        { l: 'Offer', t: 'Special Offer ðŸŽ‰', b: 'Get a Top-Up loan today with 0% processing fee!' }
                                     ].map((tmpl, i) => (
                                         <button key={i} onClick={() => { setNotifTitle(tmpl.t); setNotifBody(tmpl.b) }} className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 dark:border-indigo-500/20">
                                             {tmpl.l}

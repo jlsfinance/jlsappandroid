@@ -9,6 +9,7 @@ import { useCompany } from '../context/CompanyContext';
 import { Capacitor } from '@capacitor/core';
 import LazyImage from '../components/LazyImage';
 import { DownloadService } from '../services/DownloadService';
+import { WhatsappService } from '../services/whatsappService';
 
 // Helper function to save/download PDF using the centralized service
 const savePdf = async (pdfDoc: jsPDF, fileName: string) => {
@@ -620,6 +621,14 @@ const LoanDetails: React.FC = () => {
 
             const pdfDoc = await generateForeclosurePDF({ ...loan, repaymentSchedule: updatedSchedule }, foreclosureData);
             await savePdf(pdfDoc, `Foreclosure_Certificate_${loan.id}.pdf`);
+
+            WhatsappService.sendForeclosed(
+                loan.customerName,
+                WhatsappService.phoneOf(customer),
+                Number(foreclosureAmount) || 0,
+                loan.id,
+                new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            );
 
             alert('Loan Pre-closed successfully. Certificate downloaded.');
             setIsPrecloseModalOpen(false);

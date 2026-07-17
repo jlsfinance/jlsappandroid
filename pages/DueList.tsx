@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
+import { WhatsappService } from '../services/whatsappService';
 
 // WhatsApp Icon Component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -127,7 +128,12 @@ const DueList: React.FC = () => {
 
     useEffect(() => {
         const monthKey = format(viewDate, 'yyyy-MM');
-        const filtered = allPendingEmis.filter(emi => format(parseISO(emi.dueDate), 'yyyy-MM') === monthKey);
+        const filtered = allPendingEmis.filter(emi => {
+            const emiMonth = format(parseISO(emi.dueDate), 'yyyy-MM');
+            // Only show EMIs from their due month onwards (current month or earlier).
+            // Future-due EMIs (e.g. April due viewed in March) must NOT appear.
+            return emiMonth <= monthKey;
+        });
         setFilteredEmis(filtered);
         setTotalDue(filtered.reduce((sum, item) => sum + item.amount, 0));
     }, [viewDate, allPendingEmis]);
@@ -418,6 +424,12 @@ const DueList: React.FC = () => {
             setPaymentRemark('');
             setIsNotificationModalOpen(true);
             alert("Collection Successful! Receipt downloaded.");
+            // ponytail: notify customer EMI received
+            WhatsappService.sendEmiReceived(
+                selectedEmi.customerName,
+                selectedEmi.phoneNumber || '',
+                amountToPay, selectedEmi.loanId, format(new Date(), 'yyyy-MM-dd')
+            );
 
         } catch (error: any) {
             console.error("Error collecting EMI:", error);
@@ -531,53 +543,91 @@ const DueList: React.FC = () => {
                 </div>
 
                 {/* List View */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {loading ? (
                         <div className="flex justify-center py-10"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>
                     ) : filteredEmis.length > 0 ? (
-                        filteredEmis.map((emi) => (
-                            <div key={`${emi.loanId}-${emi.emiNumber}`} className="bg-white dark:bg-[#1e2736] rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center group hover:shadow-md transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
-                                        {emi.customerPhoto ? (
-                                            <img src={emi.customerPhoto} alt={emi.customerName} className="h-full w-full object-cover" />
-                                        ) : (
-                                            <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                                                <span className="material-symbols-outlined text-[24px]">person</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <h3 className="font-bold text-base text-slate-900 dark:text-white capitalize">{emi.customerName.toLowerCase()}</h3>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">EMI {emi.emiNumber}/{emi.tenure}</span>
-                                            {isPast(parseISO(emi.dueDate)) ? (
-                                                <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">Overdue</span>
+                        (() => {
+                            const currentMonthKey = format(viewDate, 'yyyy-MM');
+                            const prevOverdue = filteredEmis.filter(e => isPast(parseISO(e.dueDate)) && format(parseISO(e.dueDate), 'yyyy-MM') !== currentMonthKey);
+                            const current = filteredEmis.filter(e => !isPast(parseISO(e.dueDate)) || format(parseISO(e.dueDate), 'yyyy-MM') === currentMonthKey);
+                            const renderCard = (emi: PendingEmi) => {
+                                const overdue = isPast(parseISO(emi.dueDate));
+                                const callNumber = (emi.phoneNumber && emi.phoneNumber.length >= 10) ? `tel:91${emi.phoneNumber.replace(/\D/g, '').slice(-10)}` : null;
+                                return (
+                                <div key={`${emi.loanId}-${emi.emiNumber}`} className={`bg-white dark:bg-[#1e2736] rounded-xl p-4 shadow-sm border flex justify-between items-center group hover:shadow-md transition-all ${overdue ? 'border-red-400 dark:border-red-500/60 ring-1 ring-red-300 dark:ring-red-500/40 bg-red-50/30 dark:bg-red-950/10' : 'border-slate-100 dark:border-slate-800'}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
+                                            {emi.customerPhoto ? (
+                                                <img src={emi.customerPhoto} alt={emi.customerName} className="h-full w-full object-cover" />
                                             ) : (
-                                                <span className="text-[10px] font-bold text-slate-500">{format(parseISO(emi.dueDate), 'dd MMM')}</span>
+                                                <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                                                    <span className="material-symbols-outlined text-[24px]">person</span>
+                                                </div>
                                             )}
                                         </div>
-                                        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300 mt-1">{formatCurrency(emi.amount)}</p>
+                                        <div className="flex flex-col gap-1">
+                                            <h3 className="font-bold text-base text-slate-900 dark:text-white capitalize">{emi.customerName.toLowerCase()}</h3>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">EMI {emi.emiNumber}/{emi.tenure}</span>
+                                                {isPast(parseISO(emi.dueDate)) ? (
+                                                    <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">Overdue</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-500">{format(parseISO(emi.dueDate), 'dd MMM')}</span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300 mt-1">{formatCurrency(emi.amount)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={() => setSelectedEmi(emi)}
+                                            className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/30 active:scale-95 transition-all hover:brightness-110"
+                                        >
+                                            Collect
+                                        </button>
+                                        <div className="flex gap-2">
+                                            {callNumber && (
+                                                <a href={callNumber}
+                                                    className="p-2 bg-green-600 text-white rounded-lg flex items-center justify-center hover:bg-green-700 transition-colors">
+                                                    <span className="material-symbols-outlined text-[18px]">call</span>
+                                                </a>
+                                            )}
+                                            <button
+                                                onClick={() => handleSendReminder(emi)}
+                                                className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg flex items-center justify-center hover:bg-green-100 hover:text-green-600 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">chat</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <button
-                                        onClick={() => setSelectedEmi(emi)}
-                                        className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-lg shadow-primary/30 active:scale-95 transition-all hover:brightness-110"
-                                    >
-                                        Collect
-                                    </button>
-                                    <button
-                                        onClick={() => handleSendReminder(emi)}
-                                        className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg flex items-center justify-center hover:bg-green-100 hover:text-green-600 transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">chat</span>
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                );
+                            };
+                            return (
+                                <>
+                                    {prevOverdue.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 px-1 mb-2">
+                                                <span className="material-symbols-outlined text-red-500 text-[18px]">warning</span>
+                                                <h3 className="text-sm font-bold text-red-500 uppercase tracking-wide">Previous Months Overdue ({prevOverdue.length})</h3>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {prevOverdue.map(renderCard)}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {current.length > 0 && (
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide px-1 mb-2">This Month & Upcoming ({current.length})</h3>
+                                            {current.map(renderCard)}
+                                        </div>
+                                    )}
+                                </>
+                        );
+                    })()
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <span className="material-symbols-outlined text-4xl mb-2">check_circle</span>
                             <p>No pending EMIs for this month.</p>
                         </div>

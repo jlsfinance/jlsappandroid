@@ -12,6 +12,10 @@ import Loans from './pages/Loans';
 import LoanDetails from './pages/LoanDetails';
 import NewLoan from './pages/NewLoan';
 import EditLoan from './pages/EditLoan';
+import Deposits from './pages/Deposits';
+import DepositDetails from './pages/DepositDetails';
+import NewDeposit from './pages/NewDeposit';
+import EditDeposit from './pages/EditDeposit';
 import Tools from './pages/Tools';
 import EMICalculator from './pages/EMICalculator';
 import Settings from './pages/Settings';
@@ -103,8 +107,17 @@ import { Capacitor } from '@capacitor/core';
 import AnimatedSplash from './components/AnimatedSplash';
 import IntroNotice from './components/IntroNotice';
 import BackButtonHandler from './components/BackButtonHandler';
+import ErrorBoundary from './components/ErrorBoundary';
+import { WhatsappService } from './services/whatsappService';
 import PermissionRequestor from './components/PermissionRequestor';
 import NotificationListener from './components/NotificationListener';
+
+// ponytail: keep WhatsApp sender scoped to the active company (only JLS may send)
+const WhatsappCompanySync: React.FC = () => {
+  const { currentCompany } = useCompany();
+  useEffect(() => { WhatsappService.setActiveCompany(currentCompany?.id); }, [currentCompany]);
+  return null;
+};
 
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(Capacitor.getPlatform() !== 'web');
@@ -138,11 +151,13 @@ const App: React.FC = () => {
       <PermissionRequestor />
       <NotificationListener />
       <CompanyProvider>
+        <WhatsappCompanySync />
         <SidebarProvider>
           <div className="flex h-screen bg-background-light dark:bg-background-dark">
             <Sidebar />
             <div className="flex-1 flex flex-col h-full overflow-y-auto relative">
-              <Routes>
+              <ErrorBoundary>
+                <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -226,6 +241,39 @@ const App: React.FC = () => {
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <EditLoan />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/deposits" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <Deposits />
+                      <BottomNav />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/deposits/new" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <NewDeposit />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/deposits/:id" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <DepositDetails />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/deposits/edit/:id" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <EditDeposit />
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -347,6 +395,7 @@ const App: React.FC = () => {
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
               </Routes>
+              </ErrorBoundary>
             </div>
           </div>
         </SidebarProvider>

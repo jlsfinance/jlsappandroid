@@ -1,0 +1,162 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { format, parseISO, isValid } from 'date-fns';
+import { DownloadService } from './DownloadService';
+import { Deposit } from '../types';
+
+const safeFormatDate = (d?: string, f = 'dd-MMM-yyyy') => {
+  if (!d) return '---';
+  try { const date = parseISO(d); return isValid(date) ? format(date, f) : '---'; } catch { return '---'; }
+};
+const formatCurrency = (v?: number) => `Rs. ${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(v || 0)}`;
+
+const savePdf = async (pdf: jsPDF, fileName: string) => {
+  const base64 = pdf.output('datauristring').split(',')[1];
+  await DownloadService.downloadPDF(fileName, base64);
+};
+
+// Load an image (remote or data URL) into a dataURL so jsPDF can embed it.
+const loadImageDataUrl = (src?: string): Promise<string | null> => {
+  return new Promise(resolve => {
+    if (!src) return resolve(null);
+    if (src.startsWith('data:')) return resolve(src);
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width; canvas.height = img.height;
+          canvas.getContext('2d')?.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        } catch { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    } catch { resolve(null); }
+  });
+};
+
+// Draw a circular-ish photo box; returns nothing. Caller passes x,y,size.
+const drawPhoto = async (pdf: jsPDF, src: string | undefined, x: number, y: number, size: number, label: string) => {
+  pdf.setDrawColor(200);
+  pdf.setFillColor(245, 247, 250);
+  pdf.rect(x, y, size, size, 'FD');
+  const dataUrl = await loadImageDataUrl(src);
+  if (dataUrl) {
+    try { pdf.addImage(dataUrl, 'JPEG', x, y, size, size); } catch { /* keep placeholder */ }
+  } else {
+    pdf.setFontSize(7); pdf.setTextColor(150);
+    pdf.text('PHOTO', x + size / 2, y + size / 2, { align: 'center' });
+    pdf.setTextColor(0);
+  }
+  pdf.setFontSize(8); pdf.setTextColor(120);
+  pdf.text(label, x + size / 2, y + size + 4, { align: 'center' });
+  pdf.setTextColor(0);
+};
+
+const DEPOSIT_TERMS = [
+  "1. The depositor agrees to pay the agreed installment on or before the due date.",
+  "2. The company will pay the agreed interest rate on the deposited amount.",
+  "3. Premature withdrawal may attract penalty as per company policy.",
+  "4. The maturity amount is payable on completion of the tenure.",
+  "5. This agreement is subject to the jurisdiction of the local courts.",
+];
+
+export const generateDepositAgreementPDF = async (deposit: Deposit, customer: any, company: any, customerPhoto?: string) => {
+  const pdf = new jsPDF();
+  pdf.setFontSize(22); pdf.setTextColor(41, 128, 185);
+  pdf.text(company.name || "JLS Finance", 105, 20, { align: 'center' });
+  pdf.setFontSize(10); pdf.setTextColor(100);
+  pdf.text(company.address || "", 105, 26, { align: 'center' });
+  pdf.line(20, 32, 190, 32);
+
+  pdf.setFontSize(16); pdf.setTextColor(0);
+  pdf.text("DEPOSIT AGREEMENT", 105, 45, { align: 'center' });
+
+  pdf.setDrawColor(200); pdf.setFillColor(245, 247, 250); pdf.rect(15, 55, 180, 45, 'FD');
+  pdf.setFontSize(11);
+  pdf.text(`Deposit A/c No: ${deposit.id}`, 20, 66);
+  pdf.text(`Date: ${safeFormatDate(deposit.startDate)}`, 140, 66);
+  pdf.text(`Deposit Type: ${deposit.type?.replace('_', ' ').toUpperCase()}`, 20, 76);
+  pdf.text(`Interest Rate: ${deposit.interestRate}% p.a.`, 140, 76);
+  pdf.text(`Tenure: ${deposit.tenure} Months`, 20, 86);
+  pdf.text(`Maturity: ${formatCurrency(deposit.maturityAmount)}`, 140, 86);
+
+  pdf.setFontSize(12); pdf.text("Depositor Details", 15, 115); pdf.line(15, 117, 60, 117);
+  let y = 125;
+  pdf.setFontSize(10);
+  pdf.text(`Name: ${deposit.customerName}`, 20, y); y += 7;
+  pdf.text(`Phone: ${customer?.phone || 'N/A'}`, 20, y); y += 7;
+  pdf.text(`Address: ${customer?.address || 'N/A'}`, 20, y);
+
+  const nominee = deposit.nominee;
+  if (nominee?.name) {
+    y += 10;
+    pdf.setFontSize(11); pdf.text("Nominee", 15, y); pdf.line(15, y + 2, 45, y + 2);
+    y += 8; pdf.setFontSize(10);
+    pdf.text(`Name: ${nominee.name}`, 20, y); y += 7;
+    if (nominee.relation) { pdf.text(`Relation: ${nominee.relation}`, 20, y); y += 7; }
+    if (nominee.phone) { pdf.text(`Phone: ${nominee.phone}`, 20, y); y += 7; }
+  }
+
+  await drawPhoto(pdf, customerPhoto || customer?.photo_url || customer?.avatar, 150, 112, 35, 'Depositor');
+
+  y += 15;
+  pdf.setFontSize(12); pdf.text("Terms and Conditions", 15, y); pdf.line(15, y + 2, 60, y + 2);
+  y += 10; pdf.setFontSize(9);
+  DEPOSIT_TERMS.forEach(t => { pdf.text(t, 20, y); y += 6; });
+
+  const signY = 270;
+  pdf.line(20, signY, 70, signY); pdf.text("Depositor's Signature", 25, signY + 5);
+  pdf.line(140, signY, 190, signY); pdf.text("Authorized Signatory", 145, signY + 5);
+  pdf.setFontSize(8); pdf.setTextColor(150); pdf.text("Generated by JLS Suite", 105, 290, { align: 'center' });
+
+  await savePdf(pdf, `Deposit_Agreement_${deposit.id}.pdf`);
+};
+
+export const generateDepositSchedulePDF = async (deposit: Deposit, customer: any, company: any, customerPhoto?: string) => {
+  const pdf = new jsPDF();
+  const pageWidth = pdf.internal.pageSize.width;
+  pdf.setFillColor(41, 128, 185); pdf.rect(0, 0, pageWidth, 40, 'F');
+  pdf.setTextColor(255, 255, 255); pdf.setFontSize(22);
+  pdf.text(company.name || "JLS Finance", pageWidth / 2, 15, { align: 'center' });
+  pdf.setFontSize(10); pdf.text("DEPOSIT SCHEDULE", pageWidth / 2, 25, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+  let y = 50; pdf.setFontSize(11);
+  pdf.text(`Customer: ${deposit.customerName}`, 15, y); pdf.text(`Deposit ID: ${deposit.id}`, 120, y); y += 7;
+  pdf.text(`Mobile: ${customer?.phone || 'N/A'}`, 15, y); pdf.text(`Date: ${safeFormatDate(deposit.startDate)}`, 120, y); y += 7;
+  pdf.text(`Type: ${deposit.type?.replace('_', ' ')}`, 15, y); pdf.text(`Interest: ${deposit.interestRate}%`, 120, y); y += 10;
+  pdf.setDrawColor(0); pdf.setFillColor(240, 240, 240); pdf.rect(15, y, pageWidth - 30, 22, 'FD');
+  y += 7; pdf.setFont('helvetica', 'bold');
+  pdf.text("SUMMARY", 20, y); pdf.setFont('helvetica', 'normal'); y += 8;
+  pdf.text(`Principal: ${formatCurrency(deposit.principal)}`, 20, y);
+  pdf.text(`Tenure: ${deposit.tenure}M`, 80, y);
+  pdf.text(`Maturity: ${formatCurrency(deposit.maturityAmount)}`, 130, y);
+  y += 18;
+
+  await drawPhoto(pdf, customerPhoto || customer?.photo_url || customer?.avatar, pageWidth - 50, 45, 30, 'Depositor');
+  if (deposit.nominee?.name) {
+    let ny = y + 6; pdf.setFontSize(10);
+    pdf.text(`Nominee: ${deposit.nominee.name}${deposit.nominee.relation ? ' (' + deposit.nominee.relation + ')' : ''}`, 15, ny);
+  }
+
+  const tableData = (deposit.depositSchedule || []).map(r => [
+    r.installmentNumber.toString(),
+    safeFormatDate(r.dueDate),
+    formatCurrency(r.amount),
+    r.interest ? formatCurrency(r.interest) : '-',
+    r.status,
+    r.paymentDate ? safeFormatDate(r.paymentDate) : '-',
+  ]);
+  autoTable(pdf, {
+    startY: y,
+    head: [['#', 'Due Date', 'Amount', 'Interest', 'Status', 'Paid']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    styles: { fontSize: 9, cellPadding: 3 },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+  await savePdf(pdf, `Deposit_Schedule_${deposit.id}.pdf`);
+};

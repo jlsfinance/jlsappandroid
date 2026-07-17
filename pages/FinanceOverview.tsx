@@ -15,9 +15,11 @@ interface LedgerEntry {
     date: Date;
     particulars: string;
     type: 'credit' | 'debit';
-    category: 'loan' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure';
+    category: 'loan' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure' | 'deposit' | 'maturity';
     amount: number;
     customerId?: string;
+    depositId?: string;
+    loanId?: string;
 }
 interface MonthlyLedger {
     month: Date;
@@ -51,6 +53,11 @@ const FinanceOverview: React.FC = () => {
         narration: ''
     });
     const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+
+    // Filters
+    const [filterCustomer, setFilterCustomer] = useState<string>('all');
+    const [filterCategory, setFilterCategory] = useState<string>('all'); // all | loan | deposit | expense | partner
+    const [filterMonth, setFilterMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
 
     const generateLedger = useCallback(async () => {
         if (!currentCompany) return;
@@ -117,13 +124,17 @@ const FinanceOverview: React.FC = () => {
                         // Credit Cash = Cash OUT (Debit in Ledger View)
 
                         if (sub.account === 'Cash / Bank') {
+                            const isDeposit = !!entry.depositId;
+                            const subType = (sub.type === 'Credit' ? 'credit' : 'debit');
                             flatLedgerEntries.push({
                                 date: parseISO(entry.date),
                                 particulars: entry.narration || sub.account,
-                                type: sub.type === 'Credit' ? 'debit' : 'credit',
-                                category: 'loan',
+                                type: subType,
+                                category: isDeposit ? (subType === 'credit' ? 'deposit' : 'maturity') : 'loan',
                                 amount: Number(sub.amount),
-                                customerId: entry.customerId
+                                customerId: entry.customerId,
+                                depositId: entry.depositId,
+                                loanId: entry.loanId,
                             });
                         }
                     });
@@ -248,15 +259,26 @@ const FinanceOverview: React.FC = () => {
             });
 
             flatLedgerEntries.sort((a, b) => a.date.getTime() - b.date.getTime());
-            setAllEntries(flatLedgerEntries);
 
-            if (flatLedgerEntries.length === 0) {
+            // Apply UI filters
+            const filteredEntries = flatLedgerEntries.filter(e => {
+                if (filterCustomer !== 'all' && (e.customerId || 'none') !== filterCustomer) return false;
+                if (filterMonth && format(e.date, 'yyyy-MM') !== filterMonth) return false;
+                if (filterCategory === 'loan' && !['loan', 'emi', 'fee', 'foreclosure'].includes(e.category)) return false;
+                if (filterCategory === 'deposit' && !['deposit', 'maturity'].includes(e.category)) return false;
+                if (filterCategory === 'expense' && e.category !== 'expense') return false;
+                if (filterCategory === 'partner' && e.category !== 'partner') return false;
+                return true;
+            });
+            setAllEntries(filteredEntries);
+
+            if (filteredEntries.length === 0) {
                 setLoading(false);
                 return;
             }
 
-            const firstDate = flatLedgerEntries[0].date;
-            const lastDate = flatLedgerEntries[flatLedgerEntries.length - 1].date;
+            const firstDate = filteredEntries[0].date;
+            const lastDate = filteredEntries[filteredEntries.length - 1].date;
             const monthsInterval = eachMonthOfInterval({ start: startOfMonth(firstDate), end: endOfMonth(lastDate) });
 
             let ledgers: MonthlyLedger[] = [];
@@ -267,7 +289,7 @@ const FinanceOverview: React.FC = () => {
                 const monthEnd = endOfMonth(monthDate);
                 const openingBalanceForMonth = runningBalance;
 
-                const entriesInMonth = flatLedgerEntries.filter(entry =>
+                const entriesInMonth = filteredEntries.filter(entry =>
                     isWithinInterval(entry.date, { start: monthStart, end: monthEnd })
                 );
 
@@ -404,11 +426,15 @@ const FinanceOverview: React.FC = () => {
         if (category === 'fee') return 'percent';
         if (category === 'partner') return 'handshake';
         if (category === 'expense') return 'receipt_long';
+        if (category === 'deposit') return 'savings';
+        if (category === 'maturity') return 'redeem';
         return type === 'credit' ? 'arrow_downward' : 'arrow_upward';
     };
 
     const getCategoryColorClass = (category: string, type: 'credit' | 'debit') => {
         if (category === 'partner') return 'bg-tertiary-container text-on-tertiary-container';
+        if (category === 'deposit') return 'bg-primary-container text-on-primary-container';
+        if (category === 'maturity') return 'bg-secondary-container text-on-secondary-container';
         if (type === 'credit') return 'bg-primary-container text-on-primary-container';
         return 'bg-error-container text-on-error-container';
     };
@@ -455,6 +481,41 @@ const FinanceOverview: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Filters */}
+            <div className="px-4 pb-2 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                    <select value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-outline-light/20 dark:border-outline-dark/20 bg-surface-light dark:bg-[#1e2736] text-sm focus:ring-2 focus:ring-primary outline-none">
+                        <option value="all">All Customers</option>
+                        {customers.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                    <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-outline-light/20 dark:border-outline-dark/20 bg-surface-light dark:bg-[#1e2736] text-sm focus:ring-2 focus:ring-primary outline-none">
+                        {Array.from(new Set([...allEntries.map(e => format(e.date, 'yyyy-MM')), format(new Date(), 'yyyy-MM')])).sort().reverse().map(m => (
+                            <option key={m} value={m}>{format(parseISO(m + '-01'), 'MMMM yyyy')}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {[
+                        { v: 'all', l: 'All' },
+                        { v: 'loan', l: 'Loan' },
+                        { v: 'deposit', l: 'Deposit' },
+                        { v: 'expense', l: 'Expense' },
+                        { v: 'partner', l: 'Partner' },
+                    ].map(f => (
+                        <button key={f.v} onClick={() => setFilterCategory(f.v)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${filterCategory === f.v
+                                ? 'bg-primary text-on-primary border-primary'
+                                : 'bg-surface-light dark:bg-[#1e2736] text-on-surface-variant-light border-outline-light/20'}`}>
+                            {f.l}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             {/* Ledger List */}
             <div className="px-4 pb-4 space-y-6">

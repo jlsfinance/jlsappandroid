@@ -4,6 +4,7 @@ import { collection, getDocs, query, orderBy, where, doc, runTransaction } from 
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import { WhatsappService } from '../services/whatsappService';
 
 interface LoanFormState {
   amount: number;
@@ -172,6 +173,12 @@ const NewLoan: React.FC = () => {
       });
 
       alert(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
+      // ponytail: notify customer on loan creation
+      WhatsappService.sendLoanCreated(
+        selectedCustomer.name,
+        WhatsappService.phoneOf(selectedCustomer),
+        form.amount, emi, newLoanId.toString()
+      );
       navigate('/loans');
 
     } catch (error) {
