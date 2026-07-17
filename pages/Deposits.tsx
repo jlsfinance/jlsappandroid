@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc, runTransaction, addDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { db } from '../firebaseConfig';
-import { Deposit } from '../types';
+import { Deposit, DepositInstallment } from '../types';
 import { useCompany } from '../context/CompanyContext';
 import { fetchCustomers, clearQueryCache } from '../services/dataService';
+import { WhatsappService } from '../services/whatsappService';
 
 const Deposits: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +18,61 @@ const Deposits: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Matured' | 'Closed'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ponytail: collect deposit straight from list (EMI-style)
+  const [collectDep, setCollectDep] = useState<Deposit | null>(null);
+  const [collectInst, setCollectInst] = useState<DepositInstallment | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [customAmount, setCustomAmount] = useState(0);
+  const [paymentRemark, setPaymentRemark] = useState('');
+  const [isCollecting, setIsCollecting] = useState(false);
+
+  const openCollect = (d: Deposit) => {
+    const next = d.depositSchedule?.find(i => i.status === 'Pending');
+    if (!next) { alert('All installments already collected.'); return; }
+    setCollectDep(d); setCollectInst(next); setCustomAmount(next.amount); setPaymentMethod('cash'); setPaymentRemark('');
+  };
+
+  const handleCollect = async () => {
+    if (!collectInst || !collectDep || isCollecting) return;
+    const amountToPay = customAmount > 0 ? customAmount : collectInst.amount;
+    setIsCollecting(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const depRef = doc(db, "deposits", collectDep.id);
+        const depSnap = await transaction.get(depRef);
+        if (!depSnap.exists()) throw new Error("Deposit not found");
+        const data = depSnap.data();
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const updatedSchedule = (data.depositSchedule || []).map((inst: DepositInstallment) => {
+          if (inst.installmentNumber === collectInst.installmentNumber) {
+            return { ...inst, status: 'Paid', paymentDate: today, paymentMethod, amountPaid: amountToPay, remark: paymentRemark };
+          }
+          return inst;
+        });
+        transaction.update(depRef, { depositSchedule: updatedSchedule });
+        await addDoc(collection(db, "ledger"), {
+          companyId: collectDep.companyId,
+          customerId: collectDep.customerId,
+          depositId: collectDep.id,
+          date: new Date().toISOString(),
+          narration: `Deposit Recd: ${collectDep.customerName} (#${collectDep.id})`,
+          entries: [{ account: 'Cash / Bank', type: 'Credit', amount: amountToPay }],
+          createdAt: new Date().toISOString(),
+        });
+      });
+      WhatsappService.sendDepositReceived(
+        collectDep.customerName, WhatsappService.phoneOf(customerMap[collectDep.customerId]),
+        amountToPay, collectDep.id, collectInst.installmentNumber, format(new Date(), 'yyyy-MM-dd')
+      );
+      setDeposits(prev => prev.map(d => d.id === collectDep.id ? { ...d, depositSchedule: d.depositSchedule?.map(i => i.installmentNumber === collectInst.installmentNumber ? { ...i, status: 'Paid', paymentDate: format(new Date(), 'yyyy-MM-dd'), paymentMethod, amountPaid: amountToPay, remark: paymentRemark } : i) } : d));
+      setCollectDep(null); setCollectInst(null); setCustomAmount(0); setPaymentRemark('');
+      alert("Deposit collected! Cash account updated.");
+    } catch (e: any) {
+      console.error(e);
+      alert("Failed: " + e.message);
+    } finally { setIsCollecting(false); }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -142,6 +199,10 @@ const Deposits: React.FC = () => {
                     <p className="font-extrabold text-primary">₹{(d.principal || 0).toLocaleString('en-IN')}</p>
                     <p className="text-xs text-slate-500">{paid}/{total} paid</p>
                     <div className="flex gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); openCollect(d); }}
+                        className="p-1.5 rounded-lg bg-primary/10 text-primary" title="Collect Deposit">
+                        <span className="material-symbols-outlined text-[16px]">savings</span>
+                      </button>
                       <button onClick={(e) => { e.stopPropagation(); navigate(`/deposits/edit/${d.id}`); }}
                         className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                         <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -168,6 +229,48 @@ const Deposits: React.FC = () => {
                 <button onClick={handleDelete} disabled={isDeleting}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold disabled:opacity-50">
                   {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {collectDep && collectInst && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+              <h3 className="text-lg font-bold mb-1">Collect Deposit</h3>
+              <p className="text-sm text-slate-500 mb-4">#{collectInst.installmentNumber} · {collectDep.customerName}</p>
+              <div className="space-y-4 mb-6">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center">
+                  <span className="text-sm font-bold text-blue-800 dark:text-blue-300">Amount</span>
+                  <span className="text-lg font-extrabold text-blue-600">₹{Number(collectInst.amount).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">Amount Received</label>
+                  <input type="number" value={customAmount || collectInst.amount} onChange={(e) => setCustomAmount(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none text-lg font-bold" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">Payment Method</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['cash', 'upi', 'bank'].map(m => (
+                      <button key={m} onClick={() => setPaymentMethod(m)}
+                        className={`py-2 rounded-lg text-sm font-bold capitalize border ${paymentMethod === m ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-[#1a2230] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}>{m}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">Remark</label>
+                  <input type="text" value={paymentRemark} onChange={(e) => setPaymentRemark(e.target.value)} placeholder="Notes..."
+                    className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button onClick={() => { setCollectDep(null); setCollectInst(null); setCustomAmount(0); setPaymentRemark(''); }} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button>
+                <button onClick={handleCollect} disabled={isCollecting}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2">
+                  {isCollecting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                  Save
                 </button>
               </div>
             </div>

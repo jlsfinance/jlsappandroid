@@ -1,6 +1,6 @@
 const functions = require('firebase-functions');
 const { onSchedule } = require('firebase-functions/scheduler');
-const { onCall } = require('firebase-functions/https');
+const { onRequest } = require('firebase-functions/https');
 const { onDocumentCreated } = require('firebase-functions/firestore');
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -255,12 +255,17 @@ exports.sendNotificationOnCreate = onDocumentCreated('notifications/{notificatio
     });
 
 // ─── WhatsApp send (client calls this; API key stays server-side) ───
-exports.sendWhatsapp = onCall(async (request) => {
-  if (!request.auth) return { success: false, error: 'unauthenticated' };
-  const { phone, text, companyId } = request.data || {};
-  if (!phone || !text) return { success: false, error: 'missing params' };
+exports.sendWhatsapp = onRequest({ cors: true }, async (req, res) => {
+  // CORS preflight
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+  const { phone, text, companyId } = req.body || {};
+  if (!phone || !text) { res.status(400).json({ success: false, error: 'missing params' }); return; }
   // Only the JLS company may send; ignore everything else.
-  if (companyId && companyId !== JLS_COMPANY_ID) return { success: false, error: 'ignored' };
+  if (companyId && companyId !== JLS_COMPANY_ID) { res.json({ success: false, error: 'ignored' }); return; }
   const ok = await sendWhatsApp(phone, text);
-  return { success: ok };
+  res.json({ success: ok });
 });

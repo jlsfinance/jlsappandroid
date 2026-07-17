@@ -1,6 +1,5 @@
-// ponytail: client just asks the cloud function to send; Wasender key stays server-side.
-import { httpsCallable } from 'firebase/functions';
-import { functions as fbFunctions } from '../firebaseConfig';
+// ponytail: client hits the cloud function over HTTP; Wasender key stays server-side.
+const SEND_URL = 'https://us-central1-jls-finance-company.cloudfunctions.net/sendWhatsapp';
 
 // Only the JLS company may send WhatsApp messages; ignore all others.
 const JLS_COMPANY_ID = 'MwtqusMMlFBKTFSslRVk';
@@ -18,9 +17,13 @@ const callSend = async (phone: string, text: string): Promise<boolean> => {
   if (ACTIVE_COMPANY !== JLS_COMPANY_ID) return false; // ignore non-JLS companies
   if (!normalizePhone(phone)) return false;
   try {
-    const fn = httpsCallable(fbFunctions, 'sendWhatsapp');
-    const res: any = await fn({ phone, text, companyId: ACTIVE_COMPANY });
-    return res?.data?.success === true;
+    const res = await fetch(SEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, text, companyId: ACTIVE_COMPANY }),
+    });
+    const data: any = await res.json().catch(() => ({}));
+    return data?.success === true;
   } catch (e) {
     console.error('WhatsApp send error', e);
     return false;
