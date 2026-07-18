@@ -94,11 +94,13 @@ const Dashboard: React.FC = () => {
 
                 const companyId = currentCompany.id;
 
-                // Phase 1 (fast): loans, customers, deposits — drives the cards
-                const [loansSnap, customersSnap, depositsSnap] = await Promise.all([
+                // Phase 1 (fast): loans, customers, deposits, partner, expenses — drives the cards + balance
+                const [loansSnap, customersSnap, depositsSnap, partnerTxSnap, expensesSnap] = await Promise.all([
                     getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
                     getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId)))
+                    getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId)))
                 ]);
 
                 const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -114,7 +116,9 @@ const Dashboard: React.FC = () => {
                 setLoans(loansData);
                 setCustomers(customersData);
                 setDeposits(depositsData);
-                setLoading(false); // cards show immediately, heavy data loads after
+                setPartnerTransactions(partnerTxSnap.docs.map(doc => doc.data()));
+                setExpenses(expensesSnap.docs.map(doc => doc.data()));
+                setLoading(false); // cards + balance show immediately, ledger loads after
 
                 // Schedule notifications
                 NotificationService.scheduleLoanNotifications(loansData as unknown as Loan[]);
@@ -216,14 +220,13 @@ const Dashboard: React.FC = () => {
             calculatedBalance -= Number(exp.amount || 0);
         });
 
-        // ponytail: ledger is the source of truth for deposit cash. Only fold in
-        // deposit entries to avoid double-counting loan emi/disbursal already in metrics.
-        ledger.forEach((entry: any) => {
-            if (!entry.depositId || !Array.isArray(entry.entries)) return;
-            entry.entries.forEach((sub: any) => {
-                if (sub.account !== 'Cash / Bank') return;
-                calculatedBalance += (sub.type === 'Credit' ? Number(sub.amount || 0) : -Number(sub.amount || 0));
-            });
+        // ponytail: derive deposit cash straight from deposits (Phase 1 data) — no full ledger scan.
+        // For each deposit: cash IN = paid kists; cash OUT = foreclosure/mature payout (negative of payable).
+        deposits.forEach((d: any) => {
+            const paid = (d.depositSchedule || []).filter((i: any) => i.status === 'Paid').reduce((s: number, i: any) => s + (Number(i.amountPaid) || Number(i.amount) || 0), 0);
+            calculatedBalance += paid;
+            if (d.status === 'Foreclosed') calculatedBalance -= (Number(d.foreclosureCharge) || 0) || 0; // payout already net; charge is income kept
+            if (d.status === 'Matured') calculatedBalance -= (Number(d.maturityAmount) || 0);
         });
 
         loans.forEach(loan => {
