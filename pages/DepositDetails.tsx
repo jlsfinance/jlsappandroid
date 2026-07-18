@@ -26,6 +26,9 @@ const DepositDetails: React.FC = () => {
   const [customAmount, setCustomAmount] = useState<number>(0);
   const [paymentRemark, setPaymentRemark] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forecloseOpen, setForecloseOpen] = useState(false);
+  const [foreclosurePct, setForeclosurePct] = useState(2);
+  const DEFAULT_FORECLOSURE_PCT = 2;
 
   const load = async () => {
     if (!id) return;
@@ -165,6 +168,92 @@ const DepositDetails: React.FC = () => {
     } finally { setIsSubmitting(false); }
   };
 
+  // ponytail: foreclosure preview — interest on ACTUAL deposited kists for ACTUAL months held,
+  // then a foreclosure charge % (company income) is deducted from that interest.
+  const foreclosePreview = useMemo(() => {
+    if (!deposit) return { principalPaid: 0, charge: 0, payable: 0, interestEarned: 0 };
+    const monthlyRate = (deposit.interestRate || 0) / 12 / 100;
+    const today = new Date();
+    const paid = (deposit.depositSchedule || []).filter(i => i.status === 'Paid');
+    const principalPaid = paid.reduce((s, i) => s + (i.amountPaid || i.amount), 0);
+    // interest = sum of each kist amount * rate * months from its payment to foreclose date
+    const interestEarned = Math.round(paid.reduce((s, i) => {
+      const from = i.paymentDate ? new Date(i.paymentDate) : new Date(deposit.startDate);
+      const monthsHeld = Math.max(0, (today.getFullYear() - from.getFullYear()) * 12 + (today.getMonth() - from.getMonth()));
+      return s + (i.amountPaid || i.amount) * monthlyRate * monthsHeld;
+    }, 0));
+    const charge = Math.round((interestEarned * foreclosurePct) / 100);
+    const payable = principalPaid + interestEarned - charge;
+    return { principalPaid, charge, payable, interestEarned };
+  }, [deposit, foreclosurePct]);
+
+  const handleForeclose = async () => {
+    if (!deposit || isSubmitting) return;
+    if (!confirm(`Foreclose deposit for ${deposit.customerName}?\nPayable: ${formatCurrency(foreclosePreview.payable)}\nForeclosure charge (company income): ${formatCurrency(foreclosePreview.charge)}`)) return;
+    setIsSubmitting(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const depRef = doc(db, "deposits", deposit.id);
+        transaction.update(depRef, { status: 'Foreclosed', foreclosedAt: new Date().toISOString(), foreclosureCharge: foreclosePreview.charge });
+        await addDoc(collection(db, "ledger"), {
+          companyId: deposit.companyId, customerId: deposit.customerId, depositId: deposit.id,
+          date: new Date().toISOString(),
+          narration: `Foreclosure Payout: ${deposit.customerName} (#${deposit.id})`,
+          entries: [{ account: 'Cash / Bank', type: 'Debit', amount: foreclosePreview.payable }],
+          createdAt: new Date().toISOString(),
+        });
+        await addDoc(collection(db, "ledger"), {
+          companyId: deposit.companyId, customerId: deposit.customerId, depositId: deposit.id,
+          date: new Date().toISOString(),
+          narration: `Foreclosure Charge: ${deposit.customerName} (#${deposit.id})`,
+          entries: [{ account: 'Foreclosure Income', type: 'Credit', amount: foreclosePreview.charge }],
+          createdAt: new Date().toISOString(),
+        });
+      });
+      WhatsappService.sendForeclosed(deposit.customerName, WhatsappService.phoneOf(customer), foreclosePreview.payable, deposit.id, format(new Date(), 'yyyy-MM-dd'));
+      alert("Deposit foreclosed. Payout sent, charge booked as income.");
+      setForecloseOpen(false);
+      load();
+    } catch (e: any) {
+      console.error(e); alert("Failed: " + e.message);
+    } finally { setIsSubmitting(false); }
+  };
+
+  // ponytail: downloadable foreclosure certificate (with customer photo)
+  const downloadForeclosureCert = async () => {
+    if (!deposit) return;
+    const toB64 = (url: string) => new Promise<string | null>((res) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { try { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d')?.drawImage(img, 0, 0); res(c.toDataURL('image/jpeg')); } catch { res(null); } };
+      img.onerror = () => res(null);
+      img.src = url;
+    });
+    const docu = new jsPDF();
+    const cd = companyDetails;
+    docu.setFontSize(16); docu.text(cd.name, 20, 20);
+    docu.setFontSize(10); docu.text(cd.address || '', 20, 28); docu.text(`Ph: ${cd.phone || ''}`, 20, 34);
+    docu.setFontSize(14); docu.text('FORECLOSURE CERTIFICATE', 20, 50);
+    docu.setFontSize(10);
+    docu.text(`Certificate No: FC-${deposit.id}`, 20, 60);
+    docu.text(`Date: ${format(new Date(), 'dd MMM yyyy')}`, 20, 66);
+    docu.text(`Customer: ${deposit.customerName}`, 20, 76);
+    docu.text(`Deposit ID: #${deposit.id}   Type: ${deposit.type?.replace('_', ' ').toUpperCase()}`, 20, 82);
+    const fp = foreclosePreview;
+    docu.text(`Principal deposited: ${formatCurrency(fp.principalPaid)}`, 20, 92);
+    docu.text(`Interest (reduced): ${formatCurrency(fp.interestEarned)}`, 20, 98);
+    docu.text(`Foreclosure charge (company): ${formatCurrency(fp.charge)}`, 20, 104);
+    docu.text(`Amount paid to customer: ${formatCurrency(fp.payable)}`, 20, 110);
+    docu.text('This deposit account is hereby foreclosed and closed.', 20, 120);
+    docu.text(`Authorised Signatory, ${cd.name}`, 20, 140);
+    const photo = deposit.customerPhoto || customer?.photo_url;
+    if (photo) {
+      const b64 = await toB64(photo);
+      if (b64) { try { docu.addImage(b64, 'JPEG', 150, 55, 35, 35); } catch { /* ignore */ } }
+    }
+    docu.save(`Foreclosure_${deposit.id}.pdf`);
+  };
+
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>;
   if (!deposit) return <div className="p-8 text-center text-slate-500">Deposit not found.</div>;
 
@@ -198,7 +287,7 @@ const DepositDetails: React.FC = () => {
               <h2 className="font-bold text-lg capitalize">{deposit.customerName}</h2>
               <p className="text-xs text-slate-500">{deposit.type?.replace('_', ' ').toUpperCase()} · {deposit.interestRate}% p.a. · {deposit.tenure} months</p>
             </div>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${deposit.status === 'Active' ? 'bg-green-100 text-green-700' : deposit.status === 'Matured' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'}`}>{deposit.status}</span>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${deposit.status === 'Active' ? 'bg-green-100 text-green-700' : deposit.status === 'Matured' ? 'bg-blue-100 text-blue-700' : deposit.status === 'Foreclosed' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'}`}>{deposit.status}</span>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-4 text-center">
             <div>
@@ -232,6 +321,18 @@ const DepositDetails: React.FC = () => {
             <button onClick={handlePayMaturity} disabled={isSubmitting}
               className="w-full mt-4 py-3 rounded-xl bg-green-600 text-white font-bold disabled:opacity-60">
               Pay Maturity ({formatCurrency(deposit.maturityAmount)})
+            </button>
+          )}
+          {deposit.status === 'Active' && (
+            <button onClick={() => { setForeclosurePct(DEFAULT_FORECLOSURE_PCT); setForecloseOpen(true); }}
+              className="w-full mt-2 py-3 rounded-xl bg-orange-600 text-white font-bold">
+              Foreclose Deposit
+            </button>
+          )}
+          {deposit.status === 'Foreclosed' && (
+            <button onClick={downloadForeclosureCert}
+              className="w-full mt-2 py-3 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">download</span> Download Foreclosure Cert
             </button>
           )}
         </div>
@@ -302,6 +403,38 @@ const DepositDetails: React.FC = () => {
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2">
                 {isSubmitting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {forecloseOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+            <h3 className="text-lg font-bold mb-1">Foreclose Deposit</h3>
+            <p className="text-sm text-slate-500 mb-4">{deposit.customerName} · #{deposit.id}</p>
+            <div className="space-y-3 mb-5">
+              <div className="flex justify-between text-sm"><span className="text-slate-500">Principal collected</span><span className="font-bold">{formatCurrency(foreclosePreview.principalPaid)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-500">Interest (reduced)</span><span className="font-bold text-green-600">{formatCurrency(foreclosePreview.interestEarned)}</span></div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Foreclosure Charge (%) — company income</label>
+                <input type="number" min={0} max={10} step={0.5} value={foreclosurePct}
+                  onChange={(e) => setForeclosurePct(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg font-bold" />
+              </div>
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg flex justify-between items-center">
+                <span className="text-sm font-bold text-orange-800 dark:text-orange-300">Payable to customer</span>
+                <span className="text-lg font-extrabold text-orange-600">{formatCurrency(foreclosePreview.payable)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-orange-700 dark:text-orange-400"><span>Charge kept by company</span><span className="font-bold">{formatCurrency(foreclosePreview.charge)}</span></div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setForecloseOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button>
+              <button onClick={handleForeclose} disabled={isSubmitting}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2">
+                {isSubmitting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                Foreclose
               </button>
             </div>
           </div>

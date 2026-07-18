@@ -73,7 +73,7 @@ export interface Deposit {
   monthlyAmount?: number; // for RD: per-installment amount
   interestRate: number; // % p.a.
   tenure: number; // months
-  status: 'Pending' | 'Active' | 'Matured' | 'Closed';
+  status: 'Pending' | 'Active' | 'Matured' | 'Closed' | 'Foreclosed';
   startDate: string; // ISO date
   maturityDate?: string;
   maturityAmount?: number; // principal + total interest

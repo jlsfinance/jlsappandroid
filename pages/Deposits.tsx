@@ -15,7 +15,7 @@ const Deposits: React.FC = () => {
   const [customerMap, setCustomerMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Matured' | 'Closed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Matured' | 'Closed' | 'Foreclosed'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -163,6 +163,7 @@ const Deposits: React.FC = () => {
             <option value="Active">Active</option>
             <option value="Matured">Matured</option>
             <option value="Closed">Closed</option>
+            <option value="Foreclosed">Foreclosed</option>
           </select>
         </div>
 
