@@ -140,41 +140,23 @@ const DueList: React.FC = () => {
 
     // --- Actions ---
 
-    const handleSendReminder = (emi: PendingEmi) => {
+    const handleSendReminder = async (emi: PendingEmi) => {
         const customerPhone = emi.phoneNumber;
         if (!customerPhone || customerPhone === 'N/A' || customerPhone.length < 10) {
             alert("Customer phone number not found or invalid.");
             return;
         }
-
-        const formattedPhone = `91${customerPhone.replace(/\D/g, '').slice(-10)}`;
-        const dueDateFormatted = format(parseISO(emi.dueDate), 'dd MMMM, yyyy');
-        const amountFormatted = `Rs. ${emi.amount.toLocaleString('en-IN')}`;
-
-        let message;
-        const isOverdue = isPast(parseISO(emi.dueDate));
-
-        if (isOverdue) {
-            message = `चेतावनी: ${emi.customerName},\n\nJLS Finance Company से आपकी EMI (किश्त संख्या ${emi.emiNumber}) जिसका भुगतान ${dueDateFormatted} को होना था, अभी तक नहीं चुकाई गई है। राशि: ${amountFormatted}.\n\nकानूनी कार्रवाई और अतिरिक्त शुल्क से बचने के लिए तुरंत भुगतान करें।\n\nJLS Finance Company`;
-        } else {
-            message = `नमस्ते ${emi.customerName},\n\nJLS Finance Company की ओर से यह आपकी आने वाली EMI के लिए एक विनम्र अनुस्मारक है।\n\nराशि: ${amountFormatted}\nदेय तिथि: ${dueDateFormatted}\nEMI संख्या: ${emi.emiNumber}\n\nअतिरिक्त शुल्क से बचने के लिए कृपया समय पर भुगतान सुनिश्चित करें। धन्यवाद।`;
-        }
-
-        const whatsappUrl = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_system');
+        const dueDateFormatted = format(parseISO(emi.dueDate), 'yyyy-MM-dd');
+        await WhatsappService.sendEmiReminder(emi.customerName, customerPhone, emi.amount, dueDateFormatted, emi.loanId);
     };
 
-    const handleBulkSendReminders = () => {
+    const handleBulkSendReminders = async () => {
         if (filteredEmis.length === 0) return alert("No EMIs to remind.");
-
         let count = 0;
-        filteredEmis.forEach((emi, index) => {
-            if (emi.phoneNumber && emi.phoneNumber.length >= 10) {
-                setTimeout(() => handleSendReminder(emi), index * 500);
-                count++;
-            }
-        });
-        alert(`Opening WhatsApp for ${count} customers... allow popups if blocked.`);
+        for (const emi of filteredEmis) {
+            if (emi.phoneNumber && emi.phoneNumber.length >= 10) { await handleSendReminder(emi); count++; }
+        }
+        alert(`WhatsApp reminder sent to ${count} customers via API.`);
     };
 
     const generatePaymentReceiptPDF = (receiptData: {

@@ -238,7 +238,7 @@ const DepositDetails: React.FC = () => {
 
         <h3 className="font-bold text-base px-1">{isFd ? 'Interest Schedule' : 'Deposit Schedule'}</h3>
         <div className="space-y-2">
-          {(deposit.depositSchedule || []).map(inst => (
+          {[...((deposit.depositSchedule || []) as DepositInstallment[])].sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '')).map(inst => (
             <div key={inst.installmentNumber}
               className={`flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-xl border border-slate-100 dark:border-slate-800 ${inst.status === 'Pending' && isPast(parseISO(inst.dueDate)) ? 'ring-2 ring-red-400' : ''}`}>
               <div>

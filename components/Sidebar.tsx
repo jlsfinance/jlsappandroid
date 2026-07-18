@@ -53,6 +53,7 @@ const Sidebar: React.FC = () => {
                 { title: 'New Loan', path: '/loans/new', icon: 'add_circle' },
                 { title: 'All Deposits', path: '/deposits', icon: 'savings' },
                 { title: 'New Deposit', path: '/deposits/new', icon: 'add_card' },
+                { title: 'Deposit Dues', path: '/deposit-due-list', icon: 'event_repeat' },
                 { title: 'EMI Calculator', path: '/tools/emi', icon: 'calculate' },
             ]
         },

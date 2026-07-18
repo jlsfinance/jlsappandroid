@@ -24,6 +24,7 @@ import Receipts from './pages/Receipts';
 import Approvals from './pages/Approvals';
 import Disbursal from './pages/Disbursal';
 import DueList from './pages/DueList';
+import DepositDueList from './pages/DepositDueList';
 import Partners from './pages/Partners';
 import UserManagement from './pages/UserManagement';
 import LegalNotice from './pages/LegalNotice';
@@ -356,6 +357,14 @@ const App: React.FC = () => {
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
                       <DueList />
+                    </CompanyRequiredRoute>
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/deposit-due-list" element={
+                  <ProtectedRoute>
+                    <CompanyRequiredRoute>
+                      <DepositDueList />
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />

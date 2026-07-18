@@ -94,20 +94,15 @@ const Dashboard: React.FC = () => {
 
                 const companyId = currentCompany.id;
 
-                const [loansSnap, customersSnap, partnerTxSnap, expensesSnap, ledgerSnap, depositsSnap] = await Promise.all([
+                // Phase 1 (fast): loans, customers, deposits — drives the cards
+                const [loansSnap, customersSnap, depositsSnap] = await Promise.all([
                     getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
                     getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId))),
                     getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId)))
                 ]);
 
                 const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const partnerData = partnerTxSnap.docs.map(doc => doc.data());
-                const expensesData = expensesSnap.docs.map(doc => doc.data());
-                const ledgerData = ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const depositsData = depositsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 loansData.sort((a: any, b: any) => {
@@ -118,10 +113,8 @@ const Dashboard: React.FC = () => {
 
                 setLoans(loansData);
                 setCustomers(customersData);
-                setPartnerTransactions(partnerData);
-                setExpenses(expensesData);
-                setLedger(ledgerData);
                 setDeposits(depositsData);
+                setLoading(false); // cards show immediately, heavy data loads after
 
                 // Schedule notifications
                 NotificationService.scheduleLoanNotifications(loansData as unknown as Loan[]);
@@ -155,6 +148,18 @@ const Dashboard: React.FC = () => {
                     await new Promise(r => setTimeout(r, 1200));
                 }
                 if (newSent > sentMonth) localStorage.setItem(monthKey, String(newSent));
+
+                // Phase 2 (heavy, background): ledger / partner / expenses for metrics
+                try {
+                    const [ledgerSnap, partnerTxSnap, expensesSnap] = await Promise.all([
+                        getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId))),
+                        getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                        getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId)))
+                    ]);
+                    setLedger(ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setPartnerTransactions(partnerTxSnap.docs.map(doc => doc.data()));
+                    setExpenses(expensesSnap.docs.map(doc => doc.data()));
+                } catch (e) { console.error('Phase 2 load error', e); }
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
             } finally {
@@ -639,7 +644,7 @@ const Dashboard: React.FC = () => {
                                     }`}>{action.label}</span>
                             </Link>
                         ))}
-                        <Link to="/deposits"
+                        <Link to="/deposit-due-list"
                             className="group flex flex-col items-center justify-center p-5 transition-all duration-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1">
                             <div className="flex items-center justify-center transition-transform duration-300 group-hover:scale-110 w-12 h-12 rounded-xl bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600">
                                 <span className="material-symbols-outlined text-[26px] font-variation-FILL">account_balance_wallet</span>

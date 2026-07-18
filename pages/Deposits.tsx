@@ -180,8 +180,8 @@ const Deposits: React.FC = () => {
               const total = d.depositSchedule?.length || 0;
               const cust = customerMap[d.customerId];
               return (
-                <button key={d.id} onClick={() => navigate(`/deposits/${d.id}`)}
-                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all text-left">
+                <div key={d.id} onClick={() => navigate(`/deposits/${d.id}`)}
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1e2736] rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all text-left cursor-pointer">
                   <div className="flex items-center gap-3">
                     {cust?.photo_url ? (
                       <img src={cust.photo_url} alt="" className="h-11 w-11 rounded-full object-cover border border-slate-200" />
@@ -195,7 +195,7 @@ const Deposits: React.FC = () => {
                       <p className="text-xs text-slate-500">#{d.id} · {d.type?.replace('_', ' ').toUpperCase()} · {d.interestRate}% p.a.</p>
                     </div>
                   </div>
-                  <div className="text-right flex flex-col items-end gap-2">
+                  <div className="text-right flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
                     <p className="font-extrabold text-primary">₹{(d.principal || 0).toLocaleString('en-IN')}</p>
                     <p className="text-xs text-slate-500">{paid}/{total} paid</p>
                     <div className="flex gap-2">
@@ -213,7 +213,7 @@ const Deposits: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
