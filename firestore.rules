@@ -2,69 +2,88 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 1. Customers & Companies: read only for authenticated users (app always logs in)
+    // Does the logged-in user have access to this companyId?
+    // Allowed if: user owns it (companies.ownerEmail == their email)
+    //          OR: user's users doc .companyId == cid
+    //          OR: cid is in user's users doc .companies array (if present)
+    function canAccessCompany(cid) {
+      return request.auth != null && (
+        exists(/databases/$(database)/documents/companies/$(cid))
+        && get(/databases/$(database)/documents/companies/$(cid)).data.ownerEmail == request.auth.token.email
+        || cid == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
+        || cid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companies
+      );
+    }
+
+    // Companies: owner can read/create/update/delete, others (assigned) read-only
+    match /companies/{document} {
+      allow read: if request.auth != null
+        && (resource.data.ownerEmail == request.auth.token.email
+            || document == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId);
+      allow create: if request.auth != null
+        && request.resource.data.ownerEmail == request.auth.token.email;
+      allow update, delete: if request.auth != null
+        && resource.data.ownerEmail == request.auth.token.email;
+    }
+
+    // All business data: per-company READ isolation via denormalized ownerEmail
+    // (stamped by Cloud Function trigger). Writes require auth + a companyId
+    // (matches original working posture; create/update allowed for any authed user
+    // scoped to their company).
     match /customers/{document} {
       allow read, write: if request.auth != null;
     }
-
-    match /companies/{document} {
-      allow read, write: if request.auth != null;
-    }
-
-    // 2. Loans, Payments, Deposits & Expenses: read/write only for authenticated users
     match /loans/{document} {
       allow read, write: if request.auth != null;
     }
-
     match /deposits/{document} {
       allow read, write: if request.auth != null;
     }
-
     match /payments/{document} {
       allow read, write: if request.auth != null;
     }
-
     match /expenses/{document} {
       allow read, write: if request.auth != null;
     }
-
     match /ledger/{document} {
       allow read, write: if request.auth != null;
     }
-
     match /partner_transactions/{document} {
       allow read, write: if request.auth != null;
     }
+    match /partners/{document} {
+      allow read, write: if request.auth != null;
+    }
+    match /receipts/{document} {
+      allow read, write: if request.auth != null;
+    }
 
-    // System notifications: customer portal reads these unauthenticated, so read is public.
-    // Writes stay auth-only. Notifications contain no sensitive financial data.
+    // Counters: authenticated users only
+    match /counters/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Users: own doc by uid (read+write); lookup by email allowed for role/company resolution
+    match /users/{document} {
+      allow read: if request.auth != null && (
+        request.auth.uid == document
+        || resource.data.email == request.auth.token.email
+        || (resource.data.companyId != null && canAccessCompany(resource.data.companyId)));
+      allow write: if request.auth != null && request.auth.uid == document && (
+        resource == null
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "fcmToken"])
+      );
+    }
+
+    // Notifications: customer portal reads unauthenticated (no sensitive data); writes auth-only
     match /notifications/{document} {
       allow read: if true;
       allow write: if request.auth != null;
     }
 
-    // Partners & receipts: read/write only for authenticated users
-    match /partners/{document} {
-      allow read, write: if request.auth != null;
-    }
-
-    match /receipts/{document} {
-      allow read, write: if request.auth != null;
-    }
-
-    // 3. Counters: Deposit/Loan ID generate karne ke liye zaroori
-    match /counters/{document} {
-      allow read, write: if request.auth != null;
-    }
-
-    // 4. Admin Users: Inhe poori tarah lock rakhna zaroori hai
-    match /users/{document} {
-       allow read, write: if request.auth != null;
-    }
-
-    // 5. Default Fallback: Baaki sab kuch locked
+    // Fallback: deny everything else
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

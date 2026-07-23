@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 
 interface UserPermissions {
@@ -36,10 +37,115 @@ const UserManagement: React.FC = () => {
   const [editedRole, setEditedRole] = useState<'admin' | 'agent' | 'customer'>('customer');
   const [editedPermissions, setEditedPermissions] = useState<UserPermissions>(defaultPermissions);
 
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<'admin' | 'agent' | 'customer'>('customer');
+  const [newPermissions, setNewPermissions] = useState<UserPermissions>(defaultPermissions);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [toast, setToast] = useState('');
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(''), 4000);
+  };
+
+  const openAddDialog = () => {
+    setNewName('');
+    setNewEmail('');
+    setNewPassword('');
+    setNewRole('customer');
+    setNewPermissions(defaultPermissions);
+    setShowPassword(false);
+    setAddError('');
+    setShowAddDialog(true);
+  };
+
+  const closeAddDialog = () => {
+    if (isCreating) return;
+    setShowAddDialog(false);
+  };
+
+  const handleCreateUser = async () => {
+    if (isCreating) return;
+    setAddError('');
+
+    const name = newName.trim();
+    const email = newEmail.trim();
+
+    if (!name || !email || !newPassword) {
+      setAddError('All fields are required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAddError('Enter a valid email address.');
+      return;
+    }
+    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setAddError('Password must be at least 8 characters and include a letter and a number.');
+      return;
+    }
+    if (!currentCompany) {
+      setAddError('Please select or create a company first.');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const createUserByAdmin = httpsCallable<
+        {
+          name: string;
+          email: string;
+          password: string;
+          role: string;
+          companyId: string;
+          permissions?: Partial<UserPermissions>;
+        },
+        { success: boolean; uid: string }
+      >(functions, 'createUserByAdmin');
+
+      await createUserByAdmin({
+        name,
+        email,
+        password: newPassword,
+        role: newRole,
+        companyId: currentCompany.id,
+        permissions: newRole === 'agent' ? newPermissions : {},
+      });
+
+      setShowAddDialog(false);
+      await fetchUsers();
+      showToast(`User ${name} created successfully.`);
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (code.includes('already-exists')) {
+        setAddError('This email is already in use.');
+      } else if (code.includes('permission-denied')) {
+        setAddError("You don't have permission to add users.");
+      } else if (code.includes('not-found')) {
+        setAddError('Company not found. Please re-select your company.');
+      } else if (code.includes('invalid-argument')) {
+        setAddError(err?.message || 'Please check the entered details.');
+      } else if (code.includes('unavailable') || code.includes('deadline-exceeded')) {
+        setAddError('Network error. Check your connection and try again.');
+      } else {
+        setAddError('Something went wrong. Please try again.');
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, "users"));
+      const q = query(
+        collection(db, "users"),
+        where("companyId", "==", currentCompany.id)
+      );
       const querySnapshot = await getDocs(q);
       const usersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as User[];
       setUsers(usersData);
@@ -64,20 +170,20 @@ const UserManagement: React.FC = () => {
     if (!selectedUser || !currentCompany) return;
     setIsSubmitting(true);
     try {
-      const userRef = doc(db, "users", selectedUser.id);
+      const updateUserByAdmin = httpsCallable<
+        {
+          uid: string;
+          permissions?: Partial<UserPermissions>;
+          companyId: string;
+        },
+        { success: boolean; uid: string }
+      >(functions, 'updateUserByAdmin');
 
-      const updateData: any = {
-        role: editedRole,
-        companyId: currentCompany.id
-      };
-
-      if (editedRole === 'agent') {
-        updateData.permissions = editedPermissions;
-      } else {
-        updateData.permissions = {};
-      }
-
-      await updateDoc(userRef, updateData);
+      await updateUserByAdmin({
+        uid: selectedUser.id,
+        companyId: currentCompany.id,
+        permissions: editedRole === 'agent' ? editedPermissions : {},
+      });
 
       alert(`User profile for ${selectedUser.name || selectedUser.email} has been updated and assigned to ${currentCompany.name}.`);
       await fetchUsers();
@@ -115,9 +221,18 @@ const UserManagement: React.FC = () => {
         )}
 
         <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-            <h2 className="font-bold text-lg">System Users</h2>
-            <p className="text-sm text-slate-500">Manage user roles and agent permissions.</p>
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-lg">System Users</h2>
+              <p className="text-sm text-slate-500">Manage user roles and agent permissions.</p>
+            </div>
+            <button
+              onClick={openAddDialog}
+              className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white font-black text-xs shadow-md shadow-primary/20 active:scale-95 transition-all uppercase tracking-widest"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Add User
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -244,6 +359,151 @@ const UserManagement: React.FC = () => {
                 Save Changes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showAddDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-1">Add User</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              New user will be assigned to <strong>{currentCompany?.name || '—'}</strong>
+            </p>
+
+            {addError && (
+              <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm font-medium text-red-600 dark:text-red-400">
+                {addError}
+              </div>
+            )}
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  disabled={isCreating}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
+                  placeholder="John Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  disabled={isCreating}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={isCreating}
+                    className="w-full px-3 py-2 pr-10 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
+                    placeholder="Min 8 chars, 1 letter, 1 number"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    disabled={isCreating}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-50"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {showPassword ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Role</label>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as any)}
+                  disabled={isCreating}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
+                >
+                  <option value="customer">Customer</option>
+                  <option value="agent">Agent</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              {newRole === 'agent' && (
+                <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <h4 className="text-sm font-bold">Agent Permissions</h4>
+                  <label className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newPermissions.canViewCustomers}
+                      onChange={(e) => setNewPermissions((p) => ({ ...p, canViewCustomers: e.target.checked }))}
+                      disabled={isCreating}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 disabled:opacity-50"
+                    />
+                    <span className="text-sm">Can View Customers</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newPermissions.canViewLoans}
+                      onChange={(e) => setNewPermissions((p) => ({ ...p, canViewLoans: e.target.checked }))}
+                      disabled={isCreating}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 disabled:opacity-50"
+                    />
+                    <span className="text-sm">Can View Loans</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newPermissions.canCollectEMI}
+                      onChange={(e) => setNewPermissions((p) => ({ ...p, canCollectEMI: e.target.checked }))}
+                      disabled={isCreating}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 disabled:opacity-50"
+                    />
+                    <span className="text-sm">Can Collect EMI</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={closeAddDialog}
+                disabled={isCreating}
+                className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateUser}
+                disabled={isCreating}
+                className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isCreating && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                Create User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-20 left-4 right-4 z-50 max-w-md mx-auto">
+          <div className="bg-slate-800 dark:bg-slate-900 text-white rounded-xl p-4 shadow-lg flex items-center gap-3">
+            <span className="material-symbols-outlined text-green-400">check_circle</span>
+            <span className="text-sm">{toast}</span>
           </div>
         </div>
       )}
