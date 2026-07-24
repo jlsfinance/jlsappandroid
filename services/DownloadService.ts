@@ -31,16 +31,13 @@ export class DownloadService {
             });
           } catch (e) {
             // Ignore 'already exists' errors
-            // console.log('Directory might already exist', e);
           }
 
-          const result = await Filesystem.writeFile({
+          await Filesystem.writeFile({
             path: `JLS_Downloads/${filename}`,
             data: base64Data,
             directory: Directory.External,
           });
-
-          console.log('File saved to External:', result.uri);
 
           // Notification (Keep it silent or minimal)
           try {
@@ -50,7 +47,8 @@ export class DownloadService {
                 body: `${filename} saved successfully.`,
                 id: new Date().getTime(),
                 schedule: { at: new Date(Date.now() + 100) },
-                smallIcon: 'ic_launcher',
+                smallIcon: 'ic_stat_jls',
+                iconColor: '#4f46e5',
                 extra: null
               }]
             });

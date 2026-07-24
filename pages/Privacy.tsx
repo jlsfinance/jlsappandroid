@@ -107,6 +107,16 @@ const Privacy: React.FC = () => {
                     </p>
                 </section>
 
+                <section className="space-y-3">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">7. Account & Data Deletion</h2>
+                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
+                        You can permanently delete your account at any time from <strong>Settings → Delete Account</strong>. This removes your login credentials and personal profile immediately, and you will no longer be able to sign in.
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm mt-2">
+                        Business ledger records (loans, deposits, customer entries) are retained as required by applicable financial record-keeping regulations and are disassociated from your deleted login. To request removal of specific business records, contact us at {SUPPORT_EMAIL}.
+                    </p>
+                </section>
+
                 <div className="pt-10 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-400">
                     <p>Contact Us: {SUPPORT_EMAIL}</p>
                     <p className="mt-1">Last updated: December 23, 2025</p>

@@ -161,6 +161,15 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Anonymous users are Customer Portal sessions — they have no companies,
+        // no /users doc, and no email. Skip all admin company loading entirely.
+        if (user.isAnonymous) {
+          setCompanies([]);
+          setCurrentCompanyState(null);
+          setUserRole('customer');
+          setLoading(false);
+          return;
+        }
         fetchCompanies();
       } else {
         setCompanies([]);

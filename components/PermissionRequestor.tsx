@@ -15,8 +15,7 @@ const PermissionRequestor: React.FC = () => {
             try {
                 // 1. Storage / Filesystem (Force Request)
                 try {
-                    const fsPerms = await Filesystem.requestPermissions();
-                    console.log('Storage Permissions Result:', fsPerms);
+                    await Filesystem.requestPermissions();
                 } catch (e) {
                     console.warn('Filesystem Permission Error:', e);
                 }

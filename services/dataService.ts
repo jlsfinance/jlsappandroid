@@ -53,7 +53,6 @@ export const fetchCustomerById = async (id: string): Promise<Customer | null> =>
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as Customer;
     } else {
-      console.log("No such customer document!");
       return null;
     }
   } catch (error) {

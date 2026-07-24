@@ -1,6 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Loan } from '../types';
-import { parseISO, isFuture, isToday, setHours, setMinutes, setSeconds, isPast } from 'date-fns';
+import { parseISO, isFuture, isToday, setHours, setMinutes, setSeconds, isPast, isValid, format } from 'date-fns';
 
 export const NotificationService = {
     async requestPermissions() {
@@ -58,7 +58,6 @@ export const NotificationService = {
 
         try {
             const deliveryTime = new Date(Date.now() + 1000 * 10); // 10 seconds from now
-            console.log("Scheduling notification for: " + deliveryTime.toString());
 
             await LocalNotifications.schedule({
                 notifications: [{
@@ -66,7 +65,8 @@ export const NotificationService = {
                     body: 'If you are reading this, the app can notify you even when closed (via functionality like AlarmManager). For 100% reliability on all devices, use Server-Side Push.',
                     id: Math.floor(Math.random() * 100000), // Random ID to avoid collisions
                     schedule: { at: deliveryTime },
-                    smallIcon: 'ic_launcher',
+                    smallIcon: 'ic_stat_jls',
+                    iconColor: '#4f46e5',
                     channelId: 'default',
                     sound: 'beep.wav',
                     attachments: undefined,
@@ -74,7 +74,6 @@ export const NotificationService = {
                     extra: null
                 }]
             });
-            console.log("Test notification scheduled for 10s from now. Close the app immediately to test background delivery.");
         } catch (e) {
             console.error("Error scheduling test notification", e);
             alert("Error scheduling test notification: " + JSON.stringify(e));
@@ -88,7 +87,6 @@ export const NotificationService = {
             await PushNotifications.removeAllListeners();
 
             await PushNotifications.addListener('registration', async token => {
-                console.log('Push registration success, token: ' + token.value);
                 localStorage.setItem('fcm_token', token.value);
 
                 // Save token to Firestore
@@ -106,11 +104,19 @@ export const NotificationService = {
                             await setDoc(userRef, { fcmToken: token.value, email: user.email }, { merge: true });
                         }
                     } else {
-                        // If customer portal (anonymous or local ID), we might want to store it against the customer ID
+                        // Customer portal: store token on the existing customer doc (one token per customer, overwrite)
                         const customerId = localStorage.getItem('customerPortalId');
                         if (customerId) {
+                            const { Capacitor } = await import('@capacitor/core');
                             const custRef = doc(db, 'customers', customerId);
-                            await updateDoc(custRef, { fcmToken: token.value }).catch(() => { });
+                            const tokenData = {
+                                fcmToken: token.value,
+                                fcmUpdatedAt: new Date().toISOString(),
+                                fcmPlatform: Capacitor.getPlatform(),
+                            };
+                            await updateDoc(custRef, tokenData).catch(async () => {
+                                await setDoc(custRef, tokenData, { merge: true }).catch(() => { });
+                            });
                         }
                     }
                 } catch (e) {
@@ -124,27 +130,11 @@ export const NotificationService = {
             });
 
             await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
-                console.log('Push received: ', notification);
-                // Fallback: If presentationOptions doesn't work or for custom handling
-                // We verify if we need to show a local toast/notification
-                // For now, let's just log it. The capacitor config 'presentationOptions' should handle the UI.
-                // But if we want to force it:
-                /*
-                await LocalNotifications.schedule({
-                    notifications: [{
-                        title: notification.title || 'New Notification',
-                        body: notification.body || '',
-                        id: new Date().getTime(),
-                        schedule: { at: new Date(Date.now()) },
-                        smallIcon: 'ic_launcher',
-                        extra: notification.data
-                    }]
-                });
-                */
+                // presentationOptions in capacitor.config handles foreground display
             });
 
             await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
-                console.log('Push action performed: ', notification);
+                // no-op: tapping the push opens the app
             });
 
             const perm = await PushNotifications.checkPermissions();
@@ -161,6 +151,31 @@ export const NotificationService = {
         return localStorage.getItem('fcm_token');
     },
 
+    async clearCustomerToken(customerId: string) {
+        try {
+            const { db } = await import('../firebaseConfig');
+            const { doc, updateDoc, deleteField } = await import('firebase/firestore');
+            await updateDoc(doc(db, 'customers', customerId), {
+                fcmToken: deleteField(),
+                fcmUpdatedAt: deleteField(),
+                fcmPlatform: deleteField(),
+            }).catch(() => { });
+        } catch (e) {
+            console.error('clearCustomerToken failed', e);
+        }
+        localStorage.removeItem('fcm_token');
+    },
+    // ponytail: deterministic 32-bit positive id so re-runs overwrite, never duplicate
+    emiNotificationId(loanId: string, emiNumber: number): number {
+        let h = 2166136261;
+        const s = `${loanId}_${emiNumber}`;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return (h >>> 0) % 2000000000 + 1;
+    },
+
     async scheduleLoanNotifications(loans: Loan[]) {
         const hasPermission = await this.requestPermissions();
         if (!hasPermission) return;
@@ -172,88 +187,89 @@ export const NotificationService = {
         }
 
         const notifications: any[] = [];
-        let idCounter = 1;
 
         for (const loan of loans) {
             // Only consider active loans
             if (['Active', 'Disbursed', 'Overdue'].includes(loan.status) && loan.repaymentSchedule) {
 
                 // Find the NEXT unpaid installment
-                const nextInstallment = loan.repaymentSchedule.find(inst => inst.status === 'Pending');
+                const nextIdx = loan.repaymentSchedule.findIndex(inst => inst.status === 'Pending');
 
-                if (nextInstallment) {
-                    const dueDateStr = nextInstallment.dueDate || nextInstallment.date;
+                if (nextIdx >= 0) {
+                    const nextInstallment = loan.repaymentSchedule[nextIdx];
+                    // ponytail: runtime data uses `dueDate` (Disbursal), type says `date`; read both safely
+                    const inst = nextInstallment as { dueDate?: string; date?: string; amount?: number };
+                    const dueDateStr = inst.dueDate || inst.date;
                     if (!dueDateStr) continue;
+                    // ponytail: per-EMI dedup key; changes when dueDate changes (reschedule/top-up)
+                    const dedupKey = `notif_emi_${loan.id}_${nextIdx}_${dueDateStr}`;
+                    if (localStorage.getItem(dedupKey)) continue;
                     const dueDate = parseISO(dueDateStr);
 
                     // Create a schedule date at 9:00 AM on the due date
                     const scheduleDate = setSeconds(setMinutes(setHours(dueDate, 9), 0), 0);
-
-                    // If due date is in the past (e.g. Overdue) or Today but past 9AM, notify effectively "Now" (or today at next convenient time)
-                    // Actually, if it's strictly in the past, we should notify "Immediately" if we want to alert them of overdue.
-                    // But let's check: if "isToday", schedule for 1 minute from now (if current time > 9am) or 9am.
-                    // If "isPast" (and not today), it's Overdue. 
 
                     let trigger: any = { at: scheduleDate };
                     let body = `EMI of Rs. ${nextInstallment.amount} is due today for ${loan.customerName}`;
                     let title = 'EMI Due Today';
 
                     if (isToday(dueDate)) {
-                        // It's due today. 
                         const now = new Date();
                         if (now > scheduleDate) {
-                            // It's already past 9 AM today. trigger now-ish.
                             trigger = { at: new Date(now.getTime() + 1000 * 5) }; // 5 seconds from now
                         }
                     } else if (isPast(dueDate)) {
-                        // It is OVERDUE.
                         title = 'EMI Overdue';
-                        body = `EMI of Rs. ${nextInstallment.amount} from ${loan.customerName} was due on ${nextInstallment.date}`;
-                        // Trigger immediately (5 sec delay)
+                        // ponytail: use the resolved dueDate (never the missing .date field) + safe format
+                        const dueLabel = isValid(dueDate) ? format(dueDate, 'dd MMM yyyy') : dueDateStr;
+                        body = `EMI of Rs. ${nextInstallment.amount} from ${loan.customerName} was due on ${dueLabel}`;
                         trigger = { at: new Date(Date.now() + 1000 * 5) };
                     }
 
-                    // If it is in the future, 'trigger' remains set to 9 AM on that day.
+                    // ponytail: stable id from loan+emi index overwrites prior schedule instead of duplicating
+                    const id = this.emiNotificationId(loan.id || '', nextIdx);
 
-                    // Construct ID based on loan ID hash or simple counter? 
-                    // Using counter for batch.
-
-                    // We only schedule ONE notification per loan (the next one) to save slots.
                     notifications.push({
                         title: title,
                         body: body,
-                        id: idCounter++,
+                        id: id,
                         schedule: trigger,
                         sound: null,
                         attachments: null,
                         actionTypeId: "",
-                        smallIcon: "ic_launcher",
+                        smallIcon: "ic_stat_jls",
+                        iconColor: '#4f46e5',
                         channelId: 'default',
                         extra: {
                             loanId: loan.id,
                             customerId: loan.customerId
                         }
                     });
+                    localStorage.setItem(dedupKey, '1');
                 }
             }
         }
 
-        // Always schedule a "Sync Complete" immediate notification to confirm logic ran
-        notifications.push({
-            title: 'Reminders Synced',
-            body: `Processed active loans. Alerts set for upcoming due dates.`,
-            id: 999999,
-            schedule: { at: new Date(Date.now() + 2000) },
-            sound: 'beep.wav',
-            channelId: 'default',
-            smallIcon: 'ic_launcher',
-            extra: null
-        });
+        // ponytail: "Reminders Synced" once per calendar day to stop open/switch spam
+        const todayKey = `notif_sync_${new Date().toISOString().slice(0, 10)}`;
+        if (!localStorage.getItem(todayKey)) {
+            notifications.push({
+                title: 'Reminders Synced',
+                body: `Processed active loans. Alerts set for upcoming due dates.`,
+                id: 999999,
+                schedule: { at: new Date(Date.now() + 2000) },
+                sound: 'beep.wav',
+                channelId: 'default',
+                smallIcon: 'ic_stat_jls',
+                iconColor: '#4f46e5',
+                extra: null
+            });
+            localStorage.setItem(todayKey, '1');
+        }
 
         if (notifications.length > 0) {
             try {
                 await LocalNotifications.schedule({ notifications });
-                console.log(`Scheduled ${notifications.length} notifications.`);
             } catch (error) {
                 console.error("Error scheduling notifications", error);
             }

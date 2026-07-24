@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-
-const IMGBB_API_KEY = "REMOVED_IMGBB_KEY";
+import { uploadImage } from '../src/uploadImage';
 
 const EditCustomer: React.FC = () => {
   const { id } = useParams();
@@ -78,20 +77,8 @@ const EditCustomer: React.FC = () => {
   };
 
   const uploadPhoto = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("image", file);
-    
     try {
-        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if (data.success) {
-            return data.data.url;
-        } else {
-            throw new Error(data.error?.message || "Upload failed");
-        }
+        return await uploadImage(file);
     } catch (error) {
         console.error("Image upload error:", error);
         return "";

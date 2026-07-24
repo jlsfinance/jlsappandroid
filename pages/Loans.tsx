@@ -238,11 +238,13 @@ const Loans: React.FC = () => {
         setCurrentPdfName(`Loan_Agreement_${loan.id}.pdf`);
 
         try {
-            const customerRef = doc(db, "customers", loan.customerId);
-            const customerSnap = await getDoc(customerRef);
-            if (!customerSnap.exists()) throw new Error("Customer details not found.");
-
-            const customer = customerSnap.data();
+            let customer = customers.find(c => c.id === loan.customerId);
+            if (!customer) {
+                const customerRef = doc(db, "customers", loan.customerId);
+                const customerSnap = await getDoc(customerRef);
+                if (!customerSnap.exists()) throw new Error("Customer details not found.");
+                customer = customerSnap.data();
+            }
             let customerPhotoBase64 = null;
             if (customer.photo_url) {
                 try { customerPhotoBase64 = await toBase64(customer.photo_url); } catch (e) { }
@@ -408,10 +410,13 @@ const Loans: React.FC = () => {
                 throw new Error("Incomplete loan details.");
             }
 
-            const customerRef = doc(db, "customers", loan.customerId);
-            const customerSnap = await getDoc(customerRef);
-            if (!customerSnap.exists()) throw new Error("Customer details not found.");
-            const customer = customerSnap.data();
+            let customer = customers.find(c => c.id === loan.customerId);
+            if (!customer) {
+                const customerRef = doc(db, "customers", loan.customerId);
+                const customerSnap = await getDoc(customerRef);
+                if (!customerSnap.exists()) throw new Error("Customer details not found.");
+                customer = customerSnap.data();
+            }
 
             let customerPhotoBase64 = null;
             if (customer.photo_url) {
@@ -587,8 +592,7 @@ const Loans: React.FC = () => {
             </div>
 
             {/* Header */}
-            {/* Header */}
-            <header className="sticky top-0 z-20 px-4 pb-4 glass border-b border-white/20 dark:border-slate-800/50" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
+            <header className="sticky top-0 z-20 px-4 pb-4 glass border-b border-white/20 dark:border-slate-800/50">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link to="/" className="group flex h-10 w-10 items-center justify-center rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm">

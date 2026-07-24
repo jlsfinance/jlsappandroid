@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.jls.suite"
+    namespace "com.jls.loanbook"
     compileSdk rootProject.ext.compileSdkVersion
     
     compileOptions {
@@ -10,11 +10,11 @@ android {
     }
     
     defaultConfig {
-        applicationId "com.jls.suite"
+        applicationId "com.jls.loanbook"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 22
+        versionName "1.0.20"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'

@@ -24,10 +24,11 @@ workflows:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-      - name: Build Android Release APK
+      - name: Build Android Release APK and AAB
         script: |
           cd android
-          ./gradlew assembleRelease
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease
     artifacts:
       - android/app/build/outputs/**/*.apk
       - android/app/build/outputs/**/*.aab

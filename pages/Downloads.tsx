@@ -17,7 +17,6 @@ const Downloads: React.FC = () => {
                 });
                 setFiles(externalRes.files);
             } catch (extErr) {
-                console.log('No external files or error:', extErr);
                 setFiles([]);
             }
         } catch (error) {

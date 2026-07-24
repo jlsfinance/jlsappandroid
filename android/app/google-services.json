@@ -39,6 +39,54 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:550122742532:android:b90bf63816699da42ce651",
+        "android_client_info": {
+          "package_name": "com.jls.loanbook"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "550122742532-0lvmfmvdj9rrb6t6rvbqa311k1oa3dg1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jls.loanbook",
+            "certificate_hash": "d1beebca145536d3f18bfe054e23ef4eb8e599a9"
+          }
+        },
+        {
+          "client_id": "550122742532-kll3d1s15h51ip64b1edk014grs20od2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jls.loanbook",
+            "certificate_hash": "1b8a47d5a30c360619c7bcc6fffc179909230e0b"
+          }
+        },
+        {
+          "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9osscWhA01zJU1VgSKdqH3zoZx_SuOnw"
+        },
+        {
+          "current_key": "AIzaSyA5Q9C6md9Zo4etlr7or1UcmpqSf9EODRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:550122742532:android:ddbc23f276418c682ce651",
         "android_client_info": {
           "package_name": "com.jls.suite"

@@ -41,8 +41,6 @@ const NotificationListener: React.FC = () => {
             if (customerId) recipients.push(customerId);
             if (userId) recipients.push(userId);
 
-            console.log("🔔 Notification Listener Active for:", recipients);
-
             // Create query - Unordered to avoid index requirement for small datasets
             // We filter by 'added' change type for real-time alerts
             const q = query(
@@ -66,7 +64,16 @@ const NotificationListener: React.FC = () => {
                         // Only notify for fresh alerts (avoiding old ones on mount)
                         if (age > 600000) return;
 
-                        console.log("🔔 Receiving Notification:", data.title);
+                        // ponytail: same Firestore doc -> same local notif once (stable id + guard)
+                        const docId = change.doc.id;
+                        const listenerGuard = `notif_listener_${docId}`;
+                        if (localStorage.getItem(listenerGuard)) return;
+                        let h = 2166136261;
+                        for (let i = 0; i < docId.length; i++) {
+                            h ^= docId.charCodeAt(i);
+                            h = Math.imul(h, 16777619);
+                        }
+                        const notifId = (h >>> 0) % 2000000000 + 1;
 
                         try {
                             // Schedule Local Notification
@@ -74,14 +81,16 @@ const NotificationListener: React.FC = () => {
                                 notifications: [{
                                     title: data.title || 'JLS Alert',
                                     body: data.message || '',
-                                    id: Math.floor(Math.random() * 1000000),
+                                    id: notifId,
                                     schedule: { at: new Date(Date.now() + 1500) }, // 1.5s delay
                                     sound: 'beep.wav',
                                     channelId: 'default',
-                                    smallIcon: 'ic_launcher',
+                                    smallIcon: 'ic_stat_jls',
+                                    iconColor: '#4f46e5',
                                     largeIcon: 'ic_launcher'
                                 }]
                             });
+                            localStorage.setItem(listenerGuard, '1');
                         } catch (err) {
                             // Fallback for Web Browser
                             if ("Notification" in window) {

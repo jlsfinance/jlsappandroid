@@ -27,8 +27,6 @@ const Sidebar: React.FC = () => {
         if (window.confirm("Are you sure you want to logout?")) {
             try {
                 await signOut(auth);
-                localStorage.removeItem('customerPortalId');
-                localStorage.removeItem('customerPortalCompanyId');
                 closeSidebar();
                 navigate('/login');
             } catch (error) {
@@ -81,6 +79,10 @@ const Sidebar: React.FC = () => {
             closeSidebar();
         }
     };
+
+    if (['/login', '/register', '/forgot-password', '/customer-login', '/customer-portal'].includes(location.pathname)) {
+        return null;
+    }
 
     return (
         <>

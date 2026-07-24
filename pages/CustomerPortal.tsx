@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../firebaseConfig';
+import { db, auth, functions } from '../firebaseConfig';
 import { format } from 'date-fns';
 import NotificationListener from '../components/NotificationListener';
 import { PdfGenerator } from '../services/PdfGenerator';
@@ -87,11 +88,51 @@ const CustomerPortal: React.FC = () => {
       const cData = { id: cSnap.id, ...cSnap.data() } as Customer;
       setCustomer(cData);
       if (cData.companyId) {
-        const compSnap = await getDoc(doc(db, "companies", cData.companyId));
-        if (compSnap.exists()) setCompany({ id: compSnap.id, ...compSnap.data() } as Company);
+        try {
+          // Fetch ONLY public company info (name, phone, upiId) via Cloud Function.
+          // The full company document (ownerEmail, gstin, etc.) is NEVER sent to the client.
+          const getCompanyPublicInfo = httpsCallable<
+            { companyId: string },
+            { name: string; phone?: string; upiId?: string }
+          >(functions, 'getCompanyPublicInfo');
+          const result = await getCompanyPublicInfo({ companyId: cData.companyId });
+          setCompany({ id: cData.companyId, ...result.data } as Company);
+        } catch (companyErr) {
+          console.error('Could not load company info:', companyErr);
+        }
       }
-      const lSnap = await getDocs(query(collection(db, "loans"), where("customerId", "==", cid)));
-      setLoans(lSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      // ponytail: same person may have multiple customer docs in the SAME company.
+      // Gather all their customer-doc ids (matched by phone, within this company only),
+      // then fetch every loan for those ids. Company isolation is enforced twice:
+      // the customers query is scoped to companyId, and loans are re-filtered by companyId.
+      const customerIds = new Set<string>([cid]);
+      if (cData.phone && cData.companyId) {
+        const phoneVariants = Array.from(new Set([
+          cData.phone,
+          cData.phone.replace(/^\+91/, ''),
+          cData.phone.startsWith('+91') ? cData.phone : `+91${cData.phone}`,
+        ]));
+        for (const p of phoneVariants) {
+          const dupSnap = await getDocs(query(
+            collection(db, "customers"),
+            where("companyId", "==", cData.companyId),
+            where("phone", "==", p),
+          ));
+          dupSnap.docs.forEach(d => customerIds.add(d.id));
+        }
+      }
+
+      const idList = Array.from(customerIds);
+      const loanMap = new Map<string, Loan>();
+      for (let i = 0; i < idList.length; i += 10) {
+        const chunk = idList.slice(i, i + 10);
+        const lSnap = await getDocs(query(collection(db, "loans"), where("customerId", "in", chunk)));
+        lSnap.docs.forEach(d => {
+          const loan = { id: d.id, ...d.data() } as Loan;
+          if (loan.companyId === cData.companyId) loanMap.set(loan.id, loan);
+        });
+      }
+      setLoans(Array.from(loanMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [navigate]);
 
@@ -102,6 +143,17 @@ const CustomerPortal: React.FC = () => {
       NotificationService.scheduleLoanNotifications(loans);
     }
   }, [loans]);
+
+  useEffect(() => {
+    if (!customer?.id) return;
+    // Customer verified: request permission + register FCM so token saves on customers/{id}
+    (async () => {
+      try {
+        await NotificationService.requestPermissions();
+        await NotificationService.registerNotifications();
+      } catch (e) { console.error('Push register failed', e); }
+    })();
+  }, [customer?.id]);
 
   useEffect(() => {
     if (isAuthReady) fetchData();
@@ -150,8 +202,10 @@ const CustomerPortal: React.FC = () => {
     }
   }, [loans]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("Are you sure you want to logout?")) {
+      const cid = localStorage.getItem('customerPortalId');
+      if (cid) await NotificationService.clearCustomerToken(cid);
       localStorage.removeItem('customerPortalId');
       localStorage.removeItem('customerPortalPhone');
       navigate('/customer-login');
@@ -171,7 +225,7 @@ const CustomerPortal: React.FC = () => {
       <NotificationListener />
 
       {/* Header */}
-      <header className="bg-[#6366f1] pb-16 px-6 rounded-b-[2.5rem] shadow-xl relative overflow-hidden" style={{ paddingTop: 'calc(3rem + env(safe-area-inset-top))' }}>
+      <header className="bg-[#6366f1] pb-16 px-6 rounded-b-[2.5rem] shadow-xl relative overflow-hidden pt-12">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
         <div className="flex justify-between items-center relative z-10 text-white">
           <div className="flex items-center gap-3">

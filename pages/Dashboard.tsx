@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -43,6 +43,7 @@ const Dashboard: React.FC = () => {
     const [notifBody, setNotifBody] = useState('');
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [sending, setSending] = useState(false);
+    const [reminderSending, setReminderSending] = useState(false);
 
     const handleSendNotification = async () => {
         if (!notifTitle || !notifBody) return alert("Please enter title and message");
@@ -72,6 +73,48 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    // ponytail: WhatsApp reminders triggered by button only (not on dashboard load)
+    const handleSendWhatsappReminders = async () => {
+        if (!loans.length && !deposits.length) return;
+        if (!confirm("Send WhatsApp reminders to all customers with dues this month?")) return;
+        setReminderSending(true);
+        try {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const thisMonth = today.slice(0, 7); // yyyy-MM
+            const monthKey = 'wa_month_count_' + thisMonth;
+            const sentMonth = Number(localStorage.getItem(monthKey) || 0);
+            const maxMonth = 30;
+            const dueThisMonth = [
+                ...loans.flatMap((l: any) => (l.repaymentSchedule || [])
+                    .filter((e: any) => e.status === 'Pending' && (e.dueDate || '').slice(0, 7) === thisMonth)
+                    .map((e: any) => ({ ...e, customerId: l.customerId, customerName: l.customerName, loanId: l.id }))),
+                ...deposits.flatMap((d: any) => (d.depositSchedule || [])
+                    .filter((s: any) => s.status === 'Pending' && (s.dueDate || '').slice(0, 7) === thisMonth)
+                    .map((s: any) => ({ ...s, customerId: d.customerId, customerName: d.customerName, depositId: d.id }))),
+            ];
+            let newSent = sentMonth;
+            for (const t of dueThisMonth) {
+                if (newSent >= maxMonth) break;
+                const key = `wa_month_${thisMonth}_${t.loanId || t.depositId}_${(t.emiNumber || t.installmentNumber)}`;
+                if (localStorage.getItem(key)) continue;
+                const cust = customers.find((c: any) => c.id === t.customerId);
+                const phone = cust?.phone || (t as any).phone;
+                if (!phone) continue;
+                const ok = t.loanId
+                    ? await WhatsappService.sendEmiReminder(t.customerName, phone, Number(t.amount) || 0, (t.dueDate || today).slice(0, 10), t.loanId)
+                    : await WhatsappService.sendDepositReminder(t.customerName, phone, Number(t.amount) || 0, (t.dueDate || today).slice(0, 10), t.depositId, t.installmentNumber);
+                if (ok) { localStorage.setItem(key, '1'); newSent++; }
+                await new Promise(r => setTimeout(r, 1200));
+            }
+            if (newSent > sentMonth) localStorage.setItem(monthKey, String(newSent));
+            alert(`WhatsApp reminders sent: ${newSent - sentMonth}`);
+        } catch (e: any) {
+            alert("Error: " + e.message);
+        } finally {
+            setReminderSending(false);
+        }
+    };
+
     useEffect(() => {
         const avatars = [
             'https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Felix&backgroundColor=b6e3f4,c0aede,d1d4f9',
@@ -94,18 +137,19 @@ const Dashboard: React.FC = () => {
 
                 const companyId = currentCompany.id;
 
-                // Phase 1 (fast): loans, customers, deposits, partner, expenses — drives the cards + balance
-                const [loansSnap, customersSnap, depositsSnap, partnerTxSnap, expensesSnap] = await Promise.all([
+                // Phase 1 (fast): loans, customers, deposits, partner, expenses, ledger — drives cards + balance
+                const [loansSnap, customersSnap, depositsSnap, partnerTxSnap, expensesSnap, ledgerSnap] = await Promise.all([
                     getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
                     getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
                     getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId))),
                     getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId)))
+                    getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                    getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId)))
                 ]);
 
-                const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const depositsData = depositsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const loansData = loansSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+                const customersData = customersSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+                const depositsData = depositsSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
 
                 loansData.sort((a: any, b: any) => {
                     const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
@@ -116,54 +160,13 @@ const Dashboard: React.FC = () => {
                 setLoans(loansData);
                 setCustomers(customersData);
                 setDeposits(depositsData);
-                setPartnerTransactions(partnerTxSnap.docs.map(doc => doc.data()));
-                setExpenses(expensesSnap.docs.map(doc => doc.data()));
-                setLoading(false); // cards + balance show immediately, ledger loads after
+                setPartnerTransactions(partnerTxSnap.docs.map((doc: any) => doc.data()));
+                setExpenses(expensesSnap.docs.map((doc: any) => doc.data()));
+                setLedger(ledgerSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
+                setLoading(false); // cards + balance show immediately
 
-                // Schedule notifications
-                NotificationService.scheduleLoanNotifications(loansData as unknown as Loan[]);
-
-                // ponytail: WhatsApp reminders for all items due THIS MONTH (once per item/month, max 30 to save quota)
-                const today = format(new Date(), 'yyyy-MM-dd');
-                const thisMonth = today.slice(0, 7); // yyyy-MM
-                const monthKey = 'wa_month_count_' + thisMonth;
-                const sentMonth = Number(localStorage.getItem(monthKey) || 0);
-                const maxMonth = 30;
-                const dueThisMonth = [
-                    ...loansData.flatMap((l: any) => (l.repaymentSchedule || [])
-                        .filter((e: any) => e.status === 'Pending' && (e.dueDate || '').slice(0, 7) === thisMonth)
-                        .map((e: any) => ({ ...e, customerId: l.customerId, customerName: l.customerName, loanId: l.id }))),
-                    ...depositsData.flatMap((d: any) => (d.depositSchedule || [])
-                        .filter((s: any) => s.status === 'Pending' && (s.dueDate || '').slice(0, 7) === thisMonth)
-                        .map((s: any) => ({ ...s, customerId: d.customerId, customerName: d.customerName, depositId: d.id }))),
-                ];
-                let newSent = sentMonth;
-                for (const t of dueThisMonth) {
-                    if (newSent >= maxMonth) break;
-                    const key = `wa_month_${thisMonth}_${t.loanId || t.depositId}_${(t.emiNumber || t.installmentNumber)}`;
-                    if (localStorage.getItem(key)) continue;
-                    const cust = customersData.find((c: any) => c.id === t.customerId);
-                    const phone = cust?.phone || (t as any).phone;
-                    if (!phone) continue;
-                    const ok = t.loanId
-                        ? await WhatsappService.sendEmiReminder(t.customerName, phone, Number(t.amount) || 0, (t.dueDate || today).slice(0, 10), t.loanId)
-                        : await WhatsappService.sendDepositReminder(t.customerName, phone, Number(t.amount) || 0, (t.dueDate || today).slice(0, 10), t.depositId, t.installmentNumber);
-                    if (ok) { localStorage.setItem(key, '1'); newSent++; }
-                    await new Promise(r => setTimeout(r, 1200));
-                }
-                if (newSent > sentMonth) localStorage.setItem(monthKey, String(newSent));
-
-                // Phase 2 (heavy, background): ledger / partner / expenses for metrics
-                try {
-                    const [ledgerSnap, partnerTxSnap, expensesSnap] = await Promise.all([
-                        getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId))),
-                        getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                        getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId)))
-                    ]);
-                    setLedger(ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    setPartnerTransactions(partnerTxSnap.docs.map(doc => doc.data()));
-                    setExpenses(expensesSnap.docs.map(doc => doc.data()));
-                } catch (e) { console.error('Phase 2 load error', e); }
+                // ponytail: WhatsApp reminders MOVED to a button (handleSendWhatsappReminders)
+                // so dashboard loads instantly.
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
             } finally {
@@ -293,6 +296,59 @@ const Dashboard: React.FC = () => {
 
         const netDisbursed = totalDisbursedPrincipal - totalProcessingFees;
 
+        // ponytail: cash balance = same reconstruction FinanceOverview uses (₹3,05,544).
+        // Build a flat credit/debit list from partner, expenses, ledger Cash/Bank, and loans.
+        let cash = 0;
+
+        partnerTransactions.forEach((tx: any) => {
+            const amt = Number(tx.amount) || 0;
+            cash += tx.type === 'investment' ? amt : -amt;
+        });
+
+        expenses.forEach((ex: any) => {
+            cash -= Number(ex.amount) || 0;
+        });
+
+        ledger.forEach((entry: any) => {
+            const subs = Array.isArray(entry.entries) ? entry.entries : [entry];
+            subs.forEach((sub: any) => {
+                if (sub.account === 'Cash / Bank' && Number(sub.amount) > 0) {
+                    cash += sub.type === 'Credit' ? Number(sub.amount) : -Number(sub.amount);
+                }
+            });
+        });
+
+        loans.forEach((loan: any) => {
+            const topUps = loan.topUpHistory || [];
+            let totalTopUp = 0;
+            topUps.forEach((t: any) => { totalTopUp += Number(t.topUpAmount || t.amount) || 0; });
+            const disbursal = Math.max(0, (Number(loan.amount) || 0) - totalTopUp);
+
+            if (loan.disbursalDate && disbursal > 0) {
+                cash -= disbursal;
+                const feePct = loan.processingFeePercentage || 0;
+                const fee = (disbursal * feePct) / 100;
+                if (fee > 0) cash += fee;
+
+                topUps.forEach((t: any) => {
+                    const tDate = (t.date || '').split('T')[0];
+                    const hasLedger = ledger.some((le: any) =>
+                        le.loanId === loan.id && (le.date || '').startsWith(tDate));
+                    if (!hasLedger) {
+                        cash -= Number(t.topUpAmount || t.amount) || 0;
+                        if (t.processingFee) cash += Number(t.processingFee) || 0;
+                    }
+                });
+            }
+
+            (loan.repaymentSchedule || []).forEach((emi: any) => {
+                if (emi.status === 'Paid' && emi.paymentDate) cash += Number(emi.amount) || 0;
+            });
+
+            const fc = loan.foreclosureDetails;
+            if (fc && fc.amountReceived && fc.date) cash += Number(fc.totalPaid) || 0;
+        });
+
         return {
             totalDisbursedCount,
             totalDisbursedPrincipal,
@@ -300,7 +356,7 @@ const Dashboard: React.FC = () => {
             activeLoansPrincipal,
             activeLoansOutstandingPI,
             customerCount: customers.length,
-            cashBalance: calculatedBalance,
+            cashBalance: cash,
             netDisbursed,
             totalCollections,
             totalProcessingFees
@@ -535,8 +591,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Premium Compact Header */}
-            <div className="sticky top-0 z-40 px-4 py-2 bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl border-b border-white/20 dark:border-white/5 shadow-sm transition-all duration-500"
-                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4px)' }}>
+            <div className="sticky top-0 z-40 px-4 py-2 bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl border-b border-white/20 dark:border-white/5 shadow-sm transition-all duration-500">
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button onClick={openSidebar} className="lg:hidden p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800 transition-colors">
@@ -676,6 +731,16 @@ const Dashboard: React.FC = () => {
                         <span className="material-symbols-outlined text-white">rocket_launch</span>
                     </div>
                 </div>
+
+                {/* WhatsApp bulk reminder button */}
+                <button
+                    onClick={handleSendWhatsappReminders}
+                    disabled={reminderSending}
+                    className="w-full mt-3 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-500/30 active:scale-[0.98] transition-all disabled:opacity-60"
+                >
+                    <span className="material-symbols-outlined text-[20px]">whatsapp</span>
+                    {reminderSending ? 'Sending WhatsApp Reminders…' : 'Send WhatsApp Reminders (This Month Due)'}
+                </button>
 
                 {/* Modern Analytics Cards */}
                 <div>

@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.jls.suite',
+  appId: 'com.jls.loanbook',
   appName: 'JLS Suite',
   webDir: 'dist',
   server: {
@@ -21,9 +21,9 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true
     },
     StatusBar: {
-      overlaysWebView: true,
+      overlaysWebView: false,
       style: 'Dark',
-      backgroundColor: '#ffffff'
+      backgroundColor: '#1e1b4b'
     },
     GoogleAuth: {
       scopes: ['profile', 'email'],

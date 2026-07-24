@@ -1,0 +1,55 @@
+═══════════════════════════════════════════════════════════════════════════
+        PLAY STORE LISTING — JLS Suite (copy into Play Console)
+═══════════════════════════════════════════════════════════════════════════
+
+APP NAME (30 chars max):
+Loan Book & Debt Manager
+
+TITLE (30 chars max):
+Loan Book & Debt Manager
+
+SHORT DESCRIPTION (80 chars max):
+Track loans, EMIs & deposits. Collect, remind & report — all in one app.
+
+FULL DESCRIPTION (4000 chars max):
+Welcome to Loan Book & Debt Manager — the #1 smart ledger for finance businesses! Say goodbye to book-keeping headaches and save time managing your loans, EMIs, and deposits — all from one secure app, at zero extra cost.
+
+🔐 Securely manage your lending and deposit business and keep your data safe with Loan Book & Debt Manager. Your records are stored privately on Google Firebase and accessible only by you and the team you authorize.
+
+👥 Collaborate with your team on Loan Book & Debt Manager and streamline your daily collections and deposit operations.
+
+📈 Keep track of your loans, EMIs, and deposits with ease — see exactly what is due, overdue, or collected.
+
+💰 Manage multiple businesses in one place and stay organized, whether you run loans, RD/FD deposits, or both.
+
+📊 Export your data in PDF or Excel formats, and analyze your business performance from clear dashboards.
+
+🏦 Deposits made simple: open RD/FD deposits, track every kist, handle maturities, and even foreclose early with a transparent charge and a downloadable certificate.
+
+📲 Auto Reminders: set up WhatsApp reminders for your borrowers and depositors — they are sent so you never lose track of a due date.
+
+WHO IS IT FOR?
+Finance companies, deposit collectors, agents, and small lenders who need a reliable mobile ledger without complexity or recurring software cost.
+
+KEY FEATURES
+• Loan Management — create loans, set EMIs, track schedules, monitor overdue.
+• EMI Collection — collect on the go, auto-generate receipts.
+• Deposit Tracking — RD/FD management, kist collection, maturity payouts.
+• Foreclosure — early close with clear charges + certificate (with photo).
+• Customer Profiles — details, photos, KYC (Aadhaar/PAN), guarantor info.
+• Due Lists & Reminders — overdue + monthly due, one-tap WhatsApp reminders.
+• Reports & Finance — dashboards, cash-flow, partner accounts, PDF/Excel export.
+• Multi-Company — switch businesses from one account.
+• Secure — Firebase auth with per-company data isolation.
+
+Please note: JLS Suite is a MANAGEMENT & RECORD-KEEPING TOOL only. We are not a lender, bank, or NBFC, and we do not provide loans or process payments to third parties. Read our Privacy Policy inside the app or at jls-finance-company.web.app/privacy-policy.html.
+
+Download Loan Book & Debt Manager today — keep your books clean, compliant, and always in your pocket.
+
+PRIVACY POLICY URL:
+https://jls-finance-company.web.app/privacy-policy.html
+
+CATEGORY: Finance
+CONTENT RATING: Everyone
+TAGS: loan manager, EMI, deposit, ledger, finance, bookkeeping, collections, RD, FD
+═══════════════════════════════════════════════════════════════════════════

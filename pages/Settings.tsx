@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { APP_NAME, APP_VERSION, DEVELOPER_NAME } from '../constants';
 import { Link, useNavigate } from 'react-router-dom';
-import { signOut, updateProfile, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { signOut, updateProfile, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { NotificationService } from '../services/NotificationService';
@@ -13,6 +13,10 @@ const Settings: React.FC = () => {
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [profileName, setProfileName] = useState(auth.currentUser?.displayName || '');
   const [profileEmail, setProfileEmail] = useState(auth.currentUser?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -27,6 +31,24 @@ const Settings: React.FC = () => {
       navigate('/login');
     } catch (error) {
       console.error("Error signing out:", error);
+    }
+  };
+
+  // ponytail: real account deletion — re-auth then delete the Firebase auth user.
+  // Business ledger records (loans/deposits) are retained per financial record-keeping law.
+  const handleDeleteAccount = async () => {
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const credential = EmailAuthProvider.credential(user.email, deletePassword);
+      await reauthenticateWithCredential(user, credential);
+      await deleteUser(user);
+      navigate('/login');
+    } catch (e: any) {
+      setDeleteError(e.message || 'Failed to delete account');
+      setIsDeleting(false);
     }
   };
 
@@ -191,7 +213,7 @@ const Settings: React.FC = () => {
           </Link>
 
           <div
-            onClick={() => alert("Please contact support or admin to request permanent account deletion.")}
+            onClick={() => { setDeletePassword(''); setDeleteError(''); setShowDeleteModal(true); }}
             className="flex items-center gap-4 px-4 py-3.5 hover:bg-red-50 dark:hover:bg-red-900/10 cursor-pointer transition-colors group"
           >
             <div className="flex items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 shrink-0 size-9 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
@@ -199,7 +221,7 @@ const Settings: React.FC = () => {
             </div>
             <div className="flex-1">
               <p className="text-base font-medium leading-normal text-red-600 dark:text-red-400">Delete Account</p>
-              <p className="text-xs text-red-400/80 dark:text-red-400/70">Request permanent data removal</p>
+              <p className="text-xs text-red-400/80 dark:text-red-400/70">Permanently remove your account</p>
             </div>
             <span className="material-symbols-outlined text-red-400 dark:text-red-600 text-[20px]">chevron_right</span>
           </div>
@@ -321,6 +343,50 @@ const Settings: React.FC = () => {
       )}
 
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-full h-12 w-12 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[24px]">warning</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Delete Account?</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+              This permanently deletes your login account and personal profile. You will not be able to sign in again.
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-500 mb-4">
+              Note: business ledger records (loans, deposits, customers) are retained as required by financial record-keeping law and are not deleted.
+            </p>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-slate-900 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none mb-3"
+              placeholder="Enter password to confirm"
+            />
+            {deleteError && <p className="text-xs text-red-600 mb-2">{deleteError}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-3 text-primary font-medium border border-primary rounded-xl hover:bg-primary/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || !deletePassword}
+                className="flex-1 px-4 py-3 bg-red-600 text-white font-black rounded-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

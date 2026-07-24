@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCompany } from '../context/CompanyContext';
 import { Company } from '../types';
-import { collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
 const CompanySelector: React.FC = () => {
@@ -37,44 +37,33 @@ const CompanySelector: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkOrphanedData = async () => {
-      try {
-        const [customersSnap, loansSnap, partnersSnap, expensesSnap] = await Promise.all([
-          getDocs(query(collection(db, "customers"), where("companyId", "==", null))),
-          getDocs(query(collection(db, "loans"), where("companyId", "==", null))),
-          getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", null))),
-          getDocs(query(collection(db, "expenses"), where("companyId", "==", null)))
-        ]);
+  const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'checked'>('idle');
 
-        const customersWithoutCompany = customersSnap.docs.filter(doc => !doc.data().companyId).length;
-        const loansWithoutCompany = loansSnap.docs.filter(doc => !doc.data().companyId).length;
-        const partnersWithoutCompany = partnersSnap.docs.filter(doc => !doc.data().companyId).length;
-        const expensesWithoutCompany = expensesSnap.docs.filter(doc => !doc.data().companyId).length;
+  const checkOrphanedData = async () => {
+    setCheckStatus('checking');
+    try {
+      const allCustomers = await getDocs(collection(db, "customers"));
+      const allLoans = await getDocs(collection(db, "loans"));
+      const allPartners = await getDocs(collection(db, "partner_transactions"));
+      const allExpenses = await getDocs(collection(db, "expenses"));
 
-        const allCustomers = await getDocs(collection(db, "customers"));
-        const allLoans = await getDocs(collection(db, "loans"));
-        const allPartners = await getDocs(collection(db, "partner_transactions"));
-        const allExpenses = await getDocs(collection(db, "expenses"));
+      const orphanCustomers = allCustomers.docs.filter(d => !d.data().companyId).length;
+      const orphanLoans = allLoans.docs.filter(d => !d.data().companyId).length;
+      const orphanPartners = allPartners.docs.filter(d => !d.data().companyId).length;
+      const orphanExpenses = allExpenses.docs.filter(d => !d.data().companyId).length;
 
-        const orphanCustomers = allCustomers.docs.filter(d => !d.data().companyId).length;
-        const orphanLoans = allLoans.docs.filter(d => !d.data().companyId).length;
-        const orphanPartners = allPartners.docs.filter(d => !d.data().companyId).length;
-        const orphanExpenses = allExpenses.docs.filter(d => !d.data().companyId).length;
-
-        setOrphanedData({
-          customers: orphanCustomers,
-          loans: orphanLoans,
-          partners: orphanPartners,
-          expenses: orphanExpenses
-        });
-      } catch (error) {
-        console.error("Error checking orphaned data:", error);
-      }
-    };
-
-    checkOrphanedData();
-  }, []);
+      setOrphanedData({
+        customers: orphanCustomers,
+        loans: orphanLoans,
+        partners: orphanPartners,
+        expenses: orphanExpenses
+      });
+      setCheckStatus('checked');
+    } catch (error) {
+      console.error("Error checking orphaned data:", error);
+      setCheckStatus('idle');
+    }
+  };
 
   const handleMigrateData = async () => {
     if (!selectedCompanyForMigration) return;
@@ -242,9 +231,14 @@ const CompanySelector: React.FC = () => {
       setNewCompanyGstin('');
       setNewCompanyUpi('9413821007@superyes');
       alert("Company added successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding company:", error);
-      alert("Failed to add company");
+      if (error) {
+        console.error("Error code:", error.code);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      alert(`Failed to add company: ${error?.message || error?.code || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -339,6 +333,38 @@ const CompanySelector: React.FC = () => {
               </div>
             </div>
           ))
+        )}
+
+        {companies.length > 0 && checkStatus === 'idle' && (
+          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 mt-4 text-center">
+            <h4 className="font-semibold text-slate-700 dark:text-slate-300">Data Integrity Check</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Scan for unassociated customer/loan records.</p>
+            <button
+              onClick={() => checkOrphanedData()}
+              className="mt-3 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-750 font-medium px-4 py-2 rounded-xl text-xs transition-colors"
+            >
+              Run Integrity Check
+            </button>
+          </div>
+        )}
+
+        {companies.length > 0 && checkStatus === 'checking' && (
+          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 mt-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+              <div className="h-4 w-4 animate-spin rounded-full border border-primary border-t-transparent"></div>
+              Checking data integrity...
+            </div>
+          </div>
+        )}
+
+        {companies.length > 0 && checkStatus === 'checked' && !hasOrphanedData && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 mt-4 flex items-center gap-3">
+            <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
+            <div>
+              <h4 className="font-semibold text-green-800 dark:text-green-300">Data Consistent</h4>
+              <p className="text-xs text-green-700 dark:text-green-400">No orphaned records found.</p>
+            </div>
+          </div>
         )}
 
         {hasOrphanedData && companies.length > 0 && (

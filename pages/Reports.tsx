@@ -29,10 +29,16 @@ const Reports: React.FC = () => {
     // Filter States
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
     const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+    const [shouldLoad, setShouldLoad] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
             if (!currentCompany) {
+                setLoading(false);
+                return;
+            }
+
+            if (!shouldLoad) {
                 setLoading(false);
                 return;
             }
@@ -416,7 +422,26 @@ const Reports: React.FC = () => {
                 </div>
 
                 {/* Content Area */}
-                {renderTabContent()}
+                {!shouldLoad ? (
+                    <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1e2736] border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 shadow-sm animate-in fade-in">
+                        <span className="material-symbols-outlined text-4xl text-slate-400">query_stats</span>
+                        <div>
+                            <h3 className="font-bold text-lg">Report Data Not Loaded</h3>
+                            <p className="text-sm text-slate-500 max-w-sm mt-1">To minimize database read costs, please click the button below to retrieve report records.</p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setLoading(true);
+                                setShouldLoad(true);
+                            }}
+                            className="bg-primary text-white font-bold px-6 py-2.5 rounded-full shadow-md active:scale-95 transition-all text-sm flex items-center gap-2"
+                        >
+                            <span className="material-symbols-outlined text-sm">analytics</span> Generate Report
+                        </button>
+                    </div>
+                ) : (
+                    renderTabContent()
+                )}
             </div>
         </div>
     );

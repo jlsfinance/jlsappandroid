@@ -10,9 +10,9 @@ body {
 
 :root {
   --primary-color: #4f46e5;
-  --safe-top: env(safe-area-inset-top, 24px);
-  --safe-bottom: env(safe-area-inset-bottom, 20px);
-  --ion-safe-area-top: 0px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ion-safe-area-top: env(safe-area-inset-top, 0px);
 }
 
 html,
@@ -109,15 +109,15 @@ h6,
 
 /* Safe Area Utilities */
 .pt-safe {
-  padding-top: env(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .min-h-safe {
-  min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
 }
 
 .btn-primary {

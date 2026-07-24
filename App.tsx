@@ -33,9 +33,9 @@ import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
-import CompanySelector from './pages/CompanySelector';
 import CustomerLogin from './pages/CustomerLogin';
 import CustomerPortal from './pages/CustomerPortal';
+import CompanySelector from './pages/CompanySelector';
 import BottomNav from './components/BottomNav';
 import { SidebarProvider } from './context/SidebarContext';
 import Sidebar from './components/Sidebar';
@@ -64,19 +64,7 @@ const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.
   }
 
   if (!user) {
-    // Check if customer is logged in locally
-    const customerId = localStorage.getItem('customerPortalId');
-    if (customerId) {
-      return <Navigate to="/customer-portal" replace />;
-    }
-    return <Navigate to="/customer-login" replace />;
-  }
-
-  // If user IS logged in, but is a Customer (has portal ID), ensure they don't access Admin routes
-  if (localStorage.getItem('customerPortalId')) {
-    // If they are trying to access anything other than customer portal (and maybe public routes), send them back
-    // Since this ProtectedRoute wraps Admin pages, we should redirect customers to portal
-    return <Navigate to="/customer-portal" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
@@ -104,6 +92,7 @@ const CompanyRequiredRoute = ({ children }: { children?: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import AnimatedSplash from './components/AnimatedSplash';
 import IntroNotice from './components/IntroNotice';
@@ -120,9 +109,40 @@ const WhatsappCompanySync: React.FC = () => {
   return null;
 };
 
+// ponytail: restore returning customers from cold start — only from root, never hijack admins/deep links
+const CustomerSessionRedirect: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+    const customerId = localStorage.getItem('customerPortalId');
+    if (!customerId) return;
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && !user.isAnonymous) return;
+      if (location.pathname === '/') navigate('/customer-portal', { replace: true });
+      unsubscribe();
+    });
+    return () => unsubscribe();
+  }, [navigate, location.pathname]);
+
+  return null;
+};
+
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(Capacitor.getPlatform() !== 'web');
   const [showNotice, setShowNotice] = useState(false);
+
+  useEffect(() => {
+    import('@codetrix-studio/capacitor-google-auth').then(({ GoogleAuth }) => {
+      GoogleAuth.initialize({
+        clientId: '550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com',
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      }).catch(err => console.error('GoogleAuth init error:', err));
+    }).catch(err => console.error('GoogleAuth import error:', err));
+  }, []);
 
   // Handle Splash Finish
   const handleSplashFinish = () => {
@@ -149,6 +169,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <BackButtonHandler />
+      <CustomerSessionRedirect />
       <PermissionRequestor />
       <NotificationListener />
       <CompanyProvider>

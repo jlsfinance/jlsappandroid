@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
-
-const IMGBB_API_KEY = "REMOVED_IMGBB_KEY";
+import { uploadImage } from '../src/uploadImage';
 
 const NewCustomer: React.FC = () => {
     const navigate = useNavigate();
@@ -43,23 +42,11 @@ const NewCustomer: React.FC = () => {
     };
 
     const uploadPhoto = async (file: File): Promise<string> => {
-        const formData = new FormData();
-        formData.append("image", file);
-
         try {
-            const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success) {
-                return data.data.url;
-            } else {
-                throw new Error(data.error?.message || "Upload failed");
-            }
-        } catch (error) {
+            return await uploadImage(file);
+        } catch (error: any) {
             console.error("Image upload error:", error);
-            alert("Photo upload failed. Proceeding without photo.");
+            alert("Photo upload failed: " + (error?.message || error) + ". Proceeding without photo.");
             return "";
         }
     };

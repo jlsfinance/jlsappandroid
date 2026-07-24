@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, addDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { getDocsSmart } from '../services/dataService';
 import { useCompany } from '../context/CompanyContext';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -66,18 +67,17 @@ const FinanceOverview: React.FC = () => {
         try {
             const companyId = currentCompany.id;
             const [partnerTxSnap, loansSnap, expensesSnap, customersSnap] = await Promise.all([
-                getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                getDocs(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
-                getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId))),
-                getDocs(query(collection(db, "customers"), where("companyId", "==", companyId)))
+                getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
+                getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId)))
             ]);
 
-            const partnerTxs = partnerTxSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartnerTransaction));
-            const loans = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
-            const expenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-            const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const partnerTxs = partnerTxSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as PartnerTransaction));
+            const loans = loansSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Loan));
+            const expenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Expense));
+            const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
             setCustomers(customersData);
-            const manualLedger_snap = await getDocs(query(collection(db, "ledger"), where("companyId", "==", companyId))); // legacy check
             // Also fetch global ledger or company specific logic if needed. Assuming 'ledger' collection has companyId? 
             // LoanDetails addDoc didn't add companyId explicitly? 
             // Let's check LoanDetails addDoc: 
@@ -88,8 +88,8 @@ const FinanceOverview: React.FC = () => {
             // Let's fetch all 'ledger' generally or filter by date?
             // For now, let's fetch 'ledger' collection.
             // Fetch ledger entries for the current company
-            const ledgerSnap = await getDocs(query(collection(db, "ledger"), where("companyId", "==", companyId)));
-            const manualLedger = ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+            const ledgerSnap = await getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId)));
+            const manualLedger = ledgerSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as any));
 
 
             let flatLedgerEntries: LedgerEntry[] = [];
@@ -442,7 +442,7 @@ const FinanceOverview: React.FC = () => {
     return (
         <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
             {/* M3 Header */}
-            <div className="sticky top-0 z-20 flex items-center bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm p-4 pb-3 justify-between border-b border-outline-light/10 dark:border-outline-dark/10 transition-colors" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
+            <div className="sticky top-0 z-20 flex items-center bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm p-4 pb-3 justify-between border-b border-outline-light/10 dark:border-outline-dark/10 transition-colors">
                 <div className="flex items-center gap-3">
                     <Link to="/" className="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant-light/30 dark:hover:bg-surface-variant-dark/30 transition-colors">
                         <span className="material-symbols-outlined">arrow_back</span>

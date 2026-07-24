@@ -45,6 +45,15 @@ const Login: React.FC = () => {
     try {
       if (Capacitor.isNativePlatform()) {
         const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+        try {
+          await GoogleAuth.initialize({
+            clientId: '550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com',
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true,
+          });
+        } catch (e) {
+          // ignore if already initialized
+        }
         const user = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(user.authentication.idToken);
         await signInWithCredential(auth, credential);
@@ -56,14 +65,14 @@ const Login: React.FC = () => {
     } catch (err: any) {
       console.error("Google login error:", err);
       const errorMessage = err.message || JSON.stringify(err);
-      setError(`Google Sign-In failed: ${errorMessage.slice(0, 50)}... Check Firebase/SHA configuration.`);
+      setError(`Google Sign-In failed: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#3b2d72] via-[#482880] to-[#2c1b52] px-6 py-4 text-white font-sans overflow-hidden relative">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#3b2d72] via-[#482880] to-[#2c1b52] px-6 py-4 text-white font-sans overflow-hidden relative">
       {/* Background decoration elements */}
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>

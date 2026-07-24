@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
       port: 5000,
       host: '0.0.0.0',
       allowedHosts: true,
+      watch: {
+        ignored: ['**/android/**', '**/node_modules/**', '**/dist/**']
+      }
     },
     plugins: [react()],
     define: {
@@ -21,5 +24,23 @@ export default defineConfig(({ mode }) => {
       }
     },
     base: './', // CRITICAL: Fixes broken UI in Capacitor/Android
+    esbuild: {
+      drop: mode === 'production' ? ['debugger'] : []
+    },
+    build: {
+      chunkSizeWarningLimit: 1000,
+      minify: 'esbuild',
+      cssCodeSplit: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor-motion': ['framer-motion'],
+            'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+          },
+        },
+      },
+    },
   };
 });

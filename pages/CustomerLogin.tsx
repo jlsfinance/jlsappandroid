@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { signInAnonymously } from 'firebase/auth';
+import { db, functions, auth } from '../firebaseConfig';
 
 const CustomerLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +14,12 @@ const CustomerLogin: React.FC = () => {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   useEffect(() => {
+    // Ensure anonymous auth session exists before any Firestore query
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((e) =>
+        console.error('Anonymous sign-in failed:', e)
+      );
+    }
     const customerId = localStorage.getItem('customerPortalId');
     if (customerId) {
       navigate('/customer-portal');
@@ -76,7 +84,13 @@ const CustomerLogin: React.FC = () => {
         return;
       }
 
-      // Find customer whose company matches the code
+      // Find customer and verify company code using secure Cloud Function
+      // The full company document is NEVER sent to the client — only { valid, companyName }
+      const verifyCompanyCode = httpsCallable<
+        { companyId: string; companyCode: string },
+        { valid: boolean; companyName?: string; error?: string }
+      >(functions, 'verifyCompanyCode');
+
       let matchedCustomer: any = null;
       let matchedCompanyId: string = '';
       let matchedCompanyName: string = '';
@@ -85,21 +99,18 @@ const CustomerLogin: React.FC = () => {
         const customerData = customerDoc.data();
         if (customerData.companyId) {
           try {
-            const companyRef = doc(db, "companies", customerData.companyId);
-            const companySnap = await getDoc(companyRef);
-            if (companySnap.exists()) {
-              const companyName = companySnap.data().name || '';
-              const companyPrefix = companyName.substring(0, 3).toLowerCase();
-
-              if (companyPrefix === companyCode) {
-                matchedCustomer = { id: customerDoc.id, ...customerData };
-                matchedCompanyId = customerData.companyId;
-                matchedCompanyName = companyName;
-                break;
-              }
+            const result = await verifyCompanyCode({
+              companyId: customerData.companyId,
+              companyCode,
+            });
+            if (result.data.valid) {
+              matchedCustomer = { id: customerDoc.id, ...customerData };
+              matchedCompanyId = customerData.companyId;
+              matchedCompanyName = result.data.companyName || '';
+              break;
             }
           } catch (err) {
-            console.log('Could not verify company:', err);
+            console.error('Company verification error:', err);
           }
         }
       }
@@ -124,7 +135,7 @@ const CustomerLogin: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center p-4 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center p-4 overflow-hidden">
 
       <div className="w-full max-w-sm flex flex-col h-full justify-evenly">
 

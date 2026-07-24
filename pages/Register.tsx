@@ -72,6 +72,15 @@ const Register: React.FC = () => {
       let user;
       if (Capacitor.isNativePlatform()) {
         const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+        try {
+          await GoogleAuth.initialize({
+            clientId: '550122742532-cifihtlsbmr31ra1tcgbctr6dq1156o0.apps.googleusercontent.com',
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true,
+          });
+        } catch (e) {
+          // ignore if already initialized
+        }
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         const userCredential = await signInWithCredential(auth, credential);
