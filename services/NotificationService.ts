@@ -82,6 +82,10 @@ export const NotificationService = {
 
     async registerNotifications() {
         try {
+            const { Capacitor } = await import('@capacitor/core');
+            if (Capacitor.getPlatform() === 'web') {
+                return;
+            }
             const { PushNotifications } = await import('@capacitor/push-notifications');
 
             await PushNotifications.removeAllListeners();

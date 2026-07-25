@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, deleteDoc, updateDoc, runTransaction, clearIndexedDbPersistence, getDocsFromCache, getDocsFromServer, getDocFromCache, getDocFromServer } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, deleteDoc, updateDoc, runTransaction, getDocsFromCache, getDocsFromServer, getDocFromCache, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Customer, Loan, Deposit } from '../types';
 
@@ -17,15 +17,6 @@ export const getDocSmart = async (ref: any) => {
     return await getDocFromCache(ref);
   } catch {
     return await getDocFromServer(ref);
-  }
-};
-
-// Clears the query cache so subsequent reads fetch fresh data (after writes/deletes)
-export const clearQueryCache = async () => {
-  try {
-    await clearIndexedDbPersistence(db);
-  } catch {
-    /* ignore if nothing to clear */
   }
 };
 
@@ -100,7 +91,6 @@ export const fetchLoans = async (companyId?: string): Promise<Loan[]> => {
 export const createCustomer = async (customer: Omit<Customer, 'id'> & { companyId: string }) => {
   try {
     const docRef = await addDoc(collection(db, "customers"), customer);
-    await clearQueryCache();
     return docRef.id;
   } catch (error) {
     console.error("Error adding customer:", error);
@@ -111,7 +101,6 @@ export const createCustomer = async (customer: Omit<Customer, 'id'> & { companyI
 export const deleteCustomer = async (customerId: string): Promise<void> => {
   try {
     await deleteDoc(doc(db, "customers", customerId));
-    await clearQueryCache();
   } catch (error) {
     console.error("Error deleting customer:", error);
     throw error;

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const NotificationListener: React.FC = () => {
     useEffect(() => {
@@ -33,19 +33,36 @@ const NotificationListener: React.FC = () => {
 
         let unsubscribe: any;
 
-        const setupListener = (userId: string | null) => {
+        const setupListener = async (user: User | null) => {
+            if (unsubscribe) unsubscribe();
+
             const customerId = localStorage.getItem('customerPortalId');
 
-            // Define who this device is listening for
+            let companyId: string | null = null;
+
+            if (user) {
+                if (customerId) {
+                    try {
+                        const tokenResult = await user.getIdTokenResult();
+                        companyId = (tokenResult.claims as any).companyId || null;
+                    } catch {
+                        return;
+                    }
+                } else {
+                    companyId = localStorage.getItem(`selectedCompany_${user.uid}`);
+                }
+            }
+
+            if (!companyId) return;
+
             const recipients = ['all'];
             if (customerId) recipients.push(customerId);
-            if (userId) recipients.push(userId);
+            if (user) recipients.push(user.uid);
 
-            // Create query - Unordered to avoid index requirement for small datasets
-            // We filter by 'added' change type for real-time alerts
             const q = query(
                 collection(db, 'notifications'),
-                where('recipientId', 'in', recipients)
+                where('recipientId', 'in', recipients),
+                where('companyId', '==', companyId)
             );
 
             unsubscribe = onSnapshot(q, (snapshot) => {
@@ -113,10 +130,8 @@ const NotificationListener: React.FC = () => {
             });
         };
 
-        // Wait for Auth to settle so we have the User ID (if admin)
         const authUnsub = onAuthStateChanged(auth, (user) => {
-            if (unsubscribe) unsubscribe();
-            setupListener(user ? user.uid : null);
+            setupListener(user).catch(console.error);
         });
 
         return () => {

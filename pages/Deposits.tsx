@@ -7,7 +7,7 @@ import { Deposit, DepositInstallment } from '../types';
 import { useCompany } from '../context/CompanyContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import UpgradeModal from '../components/UpgradeModal';
-import { fetchCustomers, clearQueryCache } from '../services/dataService';
+import { fetchCustomers } from '../services/dataService';
 import { WhatsappService } from '../services/whatsappService';
 
 const Deposits: React.FC = () => {
@@ -139,7 +139,6 @@ const Deposits: React.FC = () => {
       const ledgerSnap = await getDocs(query(collection(db, "ledger"), where("depositId", "==", deleteId)));
       await Promise.all(ledgerSnap.docs.map(d => deleteDoc(d.ref)));
       await deleteDoc(doc(db, "deposits", deleteId));
-      await clearQueryCache();
       setDeposits(prev => prev.filter(d => d.id !== deleteId));
       alert("Deposit deleted.");
     } catch (e) {

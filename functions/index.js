@@ -186,9 +186,11 @@ exports.sendDailyEmiPushReminders = onSchedule(
       const today = istNow.toISOString().slice(0, 10); // yyyy-MM-dd in IST
 
       const loanSnap = await db.collection('loans')
+        .where('companyId', '==', JLS_COMPANY_ID)
         .where('status', 'in', ['Active', 'Disbursed', 'Overdue'])
         .get();
 
+      const matchMap = new Map();
       for (const loanDoc of loanSnap.docs) {
         const loan = loanDoc.data();
         const schedule = loan.repaymentSchedule || [];
@@ -203,46 +205,68 @@ exports.sendDailyEmiPushReminders = onSchedule(
           if (due === today || due < today) {
             match = e;
             emiKey = e.emiNumber != null ? String(e.emiNumber) : String(i);
-            break; // first qualifying unpaid installment per loan
+            break;
           }
         }
         if (!match) continue;
 
-        const customerDoc = await db.collection('customers').doc(loan.customerId).get();
-        if (!customerDoc.exists) continue;
-        const customerData = customerDoc.data();
-        if (customerData.companyId !== loan.companyId) continue; // never cross-company
+        if (!matchMap.has(loan.customerId)) {
+          matchMap.set(loan.customerId, []);
+        }
+        matchMap.get(loan.customerId).push({ loanDocId: loanDoc.id, match, emiKey, companyId: loan.companyId });
+      }
+
+      if (matchMap.size === 0) {
+        console.log('EMI push reminders sent: 0');
+        return null;
+      }
+
+      const customerIds = Array.from(matchMap.keys());
+      const customerDocs = await Promise.all(
+        customerIds.map(id => db.collection('customers').doc(id).get())
+      );
+      const customerMap = new Map();
+      for (const d of customerDocs) {
+        if (d.exists) customerMap.set(d.id, d.data());
+      }
+
+      for (const [customerId, entries] of matchMap) {
+        const customerData = customerMap.get(customerId);
+        if (!customerData) continue;
+        if (customerData.companyId !== entries[0].companyId) continue;
 
         const token = customerData.fcmToken;
         if (!token) continue;
 
-        const amount = Number(match.amount);
-        if (!isFinite(amount)) continue;
-        const due = (match.dueDate || match.date || '').slice(0, 10);
+        for (const { loanDocId, match, emiKey } of entries) {
+          const amount = Number(match.amount);
+          if (!isFinite(amount)) continue;
+          const due = (match.dueDate || match.date || '').slice(0, 10);
 
-        const overdue = due < today;
-        const title = overdue ? 'EMI Overdue' : 'EMI Reminder';
-        const body = overdue
-          ? `Your EMI of ₹${amount.toLocaleString('en-IN')} is overdue.`
-          : `Your EMI of ₹${amount.toLocaleString('en-IN')} is due today.`;
+          const overdue = due < today;
+          const title = overdue ? 'EMI Overdue' : 'EMI Reminder';
+          const body = overdue
+            ? `Your EMI of ₹${amount.toLocaleString('en-IN')} is overdue.`
+            : `Your EMI of ₹${amount.toLocaleString('en-IN')} is due today.`;
 
-        const guardId = `${loanDoc.id}_${emiKey}_${due}`;
-        const guardRef = db.collection('emi_push_sent').doc(guardId);
-        const existing = await guardRef.get();
-        if (existing.exists) continue; // already sent for this EMI due-date
+          const guardId = `${loanDocId}_${emiKey}_${due}`;
+          const guardRef = db.collection('emi_push_sent').doc(guardId);
+          const existing = await guardRef.get();
+          if (existing.exists) continue;
 
-        const message = {
-          token,
-          notification: { title, body },
-          data: { action: 'OPEN_APP', loanId: loanDoc.id },
-        };
+          const message = {
+            token,
+            notification: { title, body },
+            data: { action: 'OPEN_APP', loanId: loanDocId },
+          };
 
-        try {
-          await getMessaging().send(message);
-          await guardRef.set({ sentAt: FieldValue.serverTimestamp() });
-          sent++;
-        } catch (err) {
-          console.error('EMI push send error', err);
+          try {
+            await getMessaging().send(message);
+            await guardRef.set({ sentAt: FieldValue.serverTimestamp() });
+            sent++;
+          } catch (err) {
+            console.error('EMI push send error', err);
+          }
         }
       }
 

@@ -14,7 +14,6 @@
     "@capacitor/android": "^7.4.4",
     "@capacitor/app": "^7.1.1",
     "@capacitor/camera": "^7.0.3",
-    "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
     "@capacitor/filesystem": "^7.1.6",
     "@capacitor/keyboard": "^7.0.4",
@@ -35,6 +34,7 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.4.4",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.19.3",
     "@vitejs/plugin-react": "^5.1.2",

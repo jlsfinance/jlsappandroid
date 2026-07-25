@@ -42,6 +42,21 @@ service cloud.firestore {
       return request.auth != null && resource != null && canAccessCompany(resource.data.companyId);
     }
 
+    // Customer authentication via Custom Token (no email, no /users/{uid} doc)
+    function isCustomer() {
+      return request.auth != null && request.auth.token.role == 'customer'
+        && request.auth.token.customerDocId != null
+        && request.auth.token.companyId != null;
+    }
+
+    function getCustomerDocId() {
+      return request.auth.token.customerDocId;
+    }
+
+    function getCustomerCompanyId() {
+      return request.auth.token.companyId;
+    }
+
     // Companies: owner can read/create/update/delete, assigned company users can read
     match /companies/{document} {
       allow read: if request.auth != null
@@ -55,14 +70,16 @@ service cloud.firestore {
 
     // Business Data Collections: Company-Isolated Access & Immutable companyId/ownerEmail
     match /customers/{document} {
-      allow read: if canReadBusinessData();
+      allow read: if canReadBusinessData()
+        || (isCustomer() && document == getCustomerDocId());
       allow create: if canCreateBusinessData();
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }
 
     match /loans/{document} {
-      allow read: if canReadBusinessData();
+      allow read: if canReadBusinessData()
+        || (isCustomer() && resource != null && resource.data.customerId == getCustomerDocId());
       allow create: if canCreateBusinessData();
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
@@ -134,6 +151,11 @@ service cloud.firestore {
       allow read: if request.auth != null && resource != null && (
         canAccessCompany(resource.data.companyId)
         || resource.data.recipientId == request.auth.uid
+        || (isCustomer()
+            && resource.data.companyId == getCustomerCompanyId()
+            && (resource.data.recipientId == 'all'
+                || resource.data.recipientId == getCustomerDocId()
+                || resource.data.recipientId == request.auth.uid))
       );
       allow create: if request.auth != null && (
         request.resource.data.companyId != null

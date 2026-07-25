@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, where, doc, runTransaction, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
@@ -142,76 +142,26 @@ const NewLoan: React.FC = () => {
     try {
       const applicationDate = new Date().toISOString();
 
-      let newLoanId: string | number = '';
-      try {
-        newLoanId = await runTransaction(db, async (transaction) => {
-          const counterRef = doc(db, 'counters', 'loanId_counter');
-          let nextId = 10110;
-          try {
-            const counterDoc = await transaction.get(counterRef);
-            if (counterDoc.exists()) {
-              const lastId = counterDoc.data().lastId;
-              nextId = typeof lastId === 'number' ? lastId + 10 : 10110;
-            }
-          } catch (e) {
-            nextId = Math.floor(10000 + Math.random() * 90000);
-          }
-
-          const newLoanRef = doc(db, 'loans', nextId.toString());
-
-          const loanData = {
-            id: nextId.toString(),
-            customerId: selectedCustomer.id,
-            customerName: selectedCustomer.name,
-            companyId: currentCompany!.id,
-            amount: form.amount,
-            interestRate: form.interestRate,
-            tenure: form.tenure,
-            processingFeePercentage: form.processingFeePercentage,
-            processingFee,
-            emi,
-            notes: form.notes || null,
-            status: "Pending",
-            createdBy: auth.currentUser!.uid,
-            date: applicationDate,
-            approvalDate: null,
-            disbursalDate: null,
-            repaymentSchedule: []
-          };
-
-          transaction.set(newLoanRef, loanData);
-          try {
-            transaction.set(counterRef, { lastId: nextId }, { merge: true });
-          } catch (cErr) {
-            // counter update skipped if server-only rule is active
-          }
-
-          return nextId;
-        });
-      } catch (txErr) {
-        // Direct addDoc fallback
-        const fallbackId = (Math.floor(10000 + Math.random() * 90000)).toString();
-        await setDoc(doc(db, 'loans', fallbackId), {
-          id: fallbackId,
-          customerId: selectedCustomer.id,
-          customerName: selectedCustomer.name,
-          companyId: currentCompany!.id,
-          amount: form.amount,
-          interestRate: form.interestRate,
-          tenure: form.tenure,
-          processingFeePercentage: form.processingFeePercentage,
-          processingFee,
-          emi,
-          notes: form.notes || null,
-          status: "Pending",
-          createdBy: auth.currentUser!.uid,
-          date: applicationDate,
-          approvalDate: null,
-          disbursalDate: null,
-          repaymentSchedule: []
-        });
-        newLoanId = fallbackId;
-      }
+      const newLoanId = (Math.floor(10000 + Math.random() * 90000)).toString();
+      await setDoc(doc(db, 'loans', newLoanId), {
+        id: newLoanId,
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        companyId: currentCompany!.id,
+        amount: form.amount,
+        interestRate: form.interestRate,
+        tenure: form.tenure,
+        processingFeePercentage: form.processingFeePercentage,
+        processingFee,
+        emi,
+        notes: form.notes || null,
+        status: "Pending",
+        createdBy: auth.currentUser!.uid,
+        date: applicationDate,
+        approvalDate: null,
+        disbursalDate: null,
+        repaymentSchedule: []
+      });
 
       alert(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
       // ponytail: notify customer on loan creation

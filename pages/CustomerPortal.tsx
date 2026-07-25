@@ -118,6 +118,17 @@ const CustomerPortal: React.FC = () => {
       // then fetch every loan for those ids. Company isolation is enforced twice:
       // the customers query is scoped to companyId, and loans are re-filtered by companyId.
       const customerIds = new Set<string>([cid]);
+
+      // Load own loans first — always succeeds with the new security rule
+      const loanMap = new Map<string, Loan>();
+      const ownLoansSnap = await getDocs(query(collection(db, "loans"), where("customerId", "==", cid)));
+      ownLoansSnap.docs.forEach(d => {
+        const loan = { id: d.id, ...d.data() } as Loan;
+        if (loan.companyId === cData.companyId) loanMap.set(loan.id, loan);
+      });
+      setLoans(Array.from(loanMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
+      // Duplicate lookup — isolated failure, never blocks loans display
       if (cData.phone && cData.companyId) {
         const phoneVariants = Array.from(new Set([
           cData.phone,
@@ -125,26 +136,30 @@ const CustomerPortal: React.FC = () => {
           cData.phone.startsWith('+91') ? cData.phone : `+91${cData.phone}`,
         ]));
         for (const p of phoneVariants) {
-          const dupSnap = await getDocs(query(
-            collection(db, "customers"),
-            where("companyId", "==", cData.companyId),
-            where("phone", "==", p),
-          ));
-          dupSnap.docs.forEach(d => customerIds.add(d.id));
+          try {
+            const dupSnap = await getDocs(query(
+              collection(db, "customers"),
+              where("companyId", "==", cData.companyId),
+              where("phone", "==", p),
+            ));
+            dupSnap.docs.forEach(d => customerIds.add(d.id));
+          } catch (dupErr) {
+            console.error('Duplicate customer lookup failed (non-fatal):', dupErr);
+          }
+        }
+        if (customerIds.size > 1) {
+          const extraIds = Array.from(customerIds).filter(id => id !== cid);
+          for (let i = 0; i < extraIds.length; i += 10) {
+            const chunk = extraIds.slice(i, i + 10);
+            const extraSnap = await getDocs(query(collection(db, "loans"), where("customerId", "in", chunk)));
+            extraSnap.docs.forEach(d => {
+              const loan = { id: d.id, ...d.data() } as Loan;
+              if (loan.companyId === cData.companyId) loanMap.set(loan.id, loan);
+            });
+          }
+          setLoans(Array.from(loanMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         }
       }
-
-      const idList = Array.from(customerIds);
-      const loanMap = new Map<string, Loan>();
-      for (let i = 0; i < idList.length; i += 10) {
-        const chunk = idList.slice(i, i + 10);
-        const lSnap = await getDocs(query(collection(db, "loans"), where("customerId", "in", chunk)));
-        lSnap.docs.forEach(d => {
-          const loan = { id: d.id, ...d.data() } as Loan;
-          if (loan.companyId === cData.companyId) loanMap.set(loan.id, loan);
-        });
-      }
-      setLoans(Array.from(loanMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [navigate, customerId]);
 
