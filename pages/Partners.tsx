@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, query, orderBy, where } from 'firebase/fir
 import { db } from '../firebaseConfig';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { useCompany } from '../context/CompanyContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -36,6 +37,8 @@ const Partners: React.FC = () => {
         date: format(new Date(), 'yyyy-MM-dd')
     });
 
+    const { currentCompany } = useCompany();
+
     // Ledger Modal State
     const [ledgerPartner, setLedgerPartner] = useState<Partner | null>(null);
     const [ledgerEntries, setLedgerEntries] = useState<PartnerLedgerEntry[]>([]);
@@ -45,11 +48,11 @@ const Partners: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const partnersSnap = await getDocs(query(collection(db, "partners"), orderBy("name")));
+            const partnersSnap = await getDocs(query(collection(db, "partners"), where("companyId", "==", currentCompany.id), orderBy("name")));
             const partnersData = partnersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Partner[];
             setPartners(partnersData);
 
-            const transactionsSnap = await getDocs(query(collection(db, "partner_transactions"), orderBy("date", "desc")));
+            const transactionsSnap = await getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", currentCompany.id), orderBy("date", "desc")));
             const transactionsData = transactionsSnap.docs.map(doc => {
                 const data = doc.data() as Omit<Transaction, 'id' | 'partnerName'>;
                 const partner = partnersData.find(p => p.id === data.partnerId);
@@ -57,11 +60,11 @@ const Partners: React.FC = () => {
             }) as Transaction[];
             setTransactions(transactionsData);
 
-            const loansSnap = await getDocs(query(collection(db, "loans"), where("status", "in", ["Disbursed", "Completed", "Active", "Overdue"])));
+            const loansSnap = await getDocs(query(collection(db, "loans"), where("companyId", "==", currentCompany.id), where("status", "in", ["Disbursed", "Completed", "Active", "Overdue"])));
             const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Loan[];
             setLoans(loansData);
             
-            const receiptsSnap = await getDocs(query(collection(db, "receipts")));
+            const receiptsSnap = await getDocs(query(collection(db, "receipts"), where("companyId", "==", currentCompany.id)));
             const validReceipts = receiptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Receipt));
             setReceipts(validReceipts);
 
@@ -261,7 +264,7 @@ const Partners: React.FC = () => {
         if (!partnerFormName) return;
         setIsSubmitting(true);
         try {
-            await addDoc(collection(db, "partners"), { name: partnerFormName });
+            await addDoc(collection(db, "partners"), { name: partnerFormName, companyId: currentCompany.id });
             setPartnerFormName("");
             setShowPartnerModal(false);
             fetchData();
@@ -279,7 +282,8 @@ const Partners: React.FC = () => {
         try {
             await addDoc(collection(db, "partner_transactions"), {
                 ...transactionForm,
-                amount: Number(transactionForm.amount)
+                amount: Number(transactionForm.amount),
+                companyId: currentCompany.id
             });
             setTransactionForm({ partnerId: '', type: 'investment', amount: '', date: format(new Date(), 'yyyy-MM-dd') });
             setShowTransactionModal(false);
@@ -291,6 +295,7 @@ const Partners: React.FC = () => {
         }
     }
 
+    if (!currentCompany) return <div className="flex h-screen w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>;
     if (loading) return <div className="flex h-screen w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>;
 
     return (

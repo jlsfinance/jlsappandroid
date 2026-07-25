@@ -7,11 +7,14 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
+import com.jls.loanbook.plugins.GooglePlayBillingPlugin;
 
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        registerPlugin(GooglePlayBillingPlugin.class);
         
         try {
             // Enable edge-to-edge display using AndroidX WindowCompat (Google recommended implementation)

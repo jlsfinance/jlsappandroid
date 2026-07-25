@@ -6,6 +6,8 @@ import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from '../components/UpgradeModal';
 
 // --- Types ---
 interface Loan { id: string; customerId: string; customerName: string; amount: number; interestRate: number; disbursalDate: string; status: string; repaymentSchedule: any[]; processingFee: number; }
@@ -18,6 +20,7 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { styl
 const Reports: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { canExportExcel, showUpgradeModal, hideUpgradeModal, upgradeModalState, activePlan } = useSubscription();
     const [activeTab, setActiveTab] = useState('summary');
     const [loading, setLoading] = useState(true);
 
@@ -395,6 +398,21 @@ const Reports: React.FC = () => {
                     </button>
                     <h1 className="text-xl font-bold tracking-tight">Financial Reports</h1>
                 </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => {
+                            const res = canExportExcel();
+                            if (!res.allowed) {
+                                showUpgradeModal(res);
+                            } else {
+                                alert("Exporting report to Excel...");
+                            }
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all"
+                    >
+                        <span className="material-symbols-outlined text-sm">table_view</span> Excel Export
+                    </button>
+                </div>
             </div>
 
             <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -443,6 +461,15 @@ const Reports: React.FC = () => {
                     renderTabContent()
                 )}
             </div>
+
+            <UpgradeModal
+                isOpen={upgradeModalState.isOpen}
+                onClose={hideUpgradeModal}
+                blockedFeature="Excel Export Restricted"
+                currentPlan={activePlan}
+                requiredPlanId={upgradeModalState.result?.requiredPlanId}
+                reason={upgradeModalState.result?.reason}
+            />
         </div>
     );
 };

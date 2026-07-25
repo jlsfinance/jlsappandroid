@@ -3,6 +3,8 @@ import { APP_NAME, APP_VERSION } from '../constants';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from './UpgradeModal';
 import { auth } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
 import AboutModal from './AboutModal';
@@ -18,10 +20,13 @@ interface MenuItem {
 const Sidebar: React.FC = () => {
     const { isOpen, closeSidebar } = useSidebar();
     const { currentCompany } = useCompany();
+    const { activePlan } = useSubscription();
     const location = useLocation();
     const navigate = useNavigate();
     const [expandedMenus, setExpandedMenus] = useState<string[]>(['Loans', 'Finance']); // Default expanded
     const [showAbout, setShowAbout] = useState(false);
+
+    const allowDeposits = activePlan.limits.allowDepositModule;
 
     const handleLogout = async () => {
         if (window.confirm("Are you sure you want to logout?")) {
@@ -41,19 +46,23 @@ const Sidebar: React.FC = () => {
         );
     };
 
+    const loanSubmenu = [
+        { title: 'All Loans', path: '/loans', icon: 'list_alt' },
+        { title: 'New Loan', path: '/loans/new', icon: 'add_circle' },
+        ...(allowDeposits ? [
+            { title: 'All Deposits', path: '/deposits', icon: 'savings' },
+            { title: 'New Deposit', path: '/deposits/new', icon: 'add_card' },
+            { title: 'Deposit Dues', path: '/deposit-due-list', icon: 'event_repeat' },
+        ] : []),
+        { title: 'EMI Calculator', path: '/tools/emi', icon: 'calculate' },
+    ];
+
     const menuItems: MenuItem[] = [
         { title: 'Dashboard', path: '/', icon: 'dashboard' },
         {
             title: 'Loans',
             icon: 'account_balance',
-            submenu: [
-                { title: 'All Loans', path: '/loans', icon: 'list_alt' },
-                { title: 'New Loan', path: '/loans/new', icon: 'add_circle' },
-                { title: 'All Deposits', path: '/deposits', icon: 'savings' },
-                { title: 'New Deposit', path: '/deposits/new', icon: 'add_card' },
-                { title: 'Deposit Dues', path: '/deposit-due-list', icon: 'event_repeat' },
-                { title: 'EMI Calculator', path: '/tools/emi', icon: 'calculate' },
-            ]
+            submenu: loanSubmenu
         },
         {
             title: 'Finance',

@@ -4,6 +4,8 @@ import { collection, getDocs, query, where, doc, runTransaction } from 'firebase
 import { db, auth } from '../firebaseConfig';
 import { Customer, DepositType } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from '../components/UpgradeModal';
 import { WhatsappService } from '../services/whatsappService';
 import { generateDepositSchedule, computeMaturity } from '../services/depositService';
 
@@ -16,6 +18,7 @@ const DEPOSIT_TYPES: { value: DepositType; label: string; desc: string }[] = [
 const NewDeposit: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
+  const { canCreateDeposit, showUpgradeModal, hideUpgradeModal, upgradeModalState, activePlan } = useSubscription();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -72,6 +75,13 @@ const NewDeposit: React.FC = () => {
     e.preventDefault();
     if (!selectedCustomer || !auth.currentUser || !currentCompany) return;
     if (form.tenure < 1) return alert("Minimum tenure is 1 month");
+
+    // Subscription Deposit Guard Check
+    const guardRes = canCreateDeposit(form.tenure);
+    if (!guardRes.allowed) {
+      showUpgradeModal(guardRes);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -281,6 +291,15 @@ const NewDeposit: React.FC = () => {
             </form>
           </div>
         )}
+
+        <UpgradeModal
+          isOpen={upgradeModalState.isOpen}
+          onClose={hideUpgradeModal}
+          blockedFeature="Deposit Feature Locked"
+          currentPlan={activePlan}
+          requiredPlanId={upgradeModalState.result?.requiredPlanId}
+          reason={upgradeModalState.result?.reason}
+        />
       </div>
     </div>
   );

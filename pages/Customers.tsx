@@ -4,39 +4,43 @@ import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import ErrorDisplay from '../components/ErrorDisplay';
 
 const Customers: React.FC = () => {
   const { currentCompany } = useCompany();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'All' | 'Overdue' | 'Active'>('All');
 
+  const fetchCustomers = async () => {
+    if (!currentCompany) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const q = query(collection(db, "customers"), where("companyId", "==", currentCompany.id));
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => {
+        const docData = doc.data();
+        return {
+          id: doc.id,
+          ...docData,
+          status: docData.status || 'Active',
+          avatar: docData.photo_url || docData.avatar || '',
+          name: docData.name || 'Unknown Customer'
+        };
+      }) as Customer[];
+      setCustomers(data);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      setError('Failed to load customers.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCustomers = async () => {
-      if (!currentCompany) return;
-
-      try {
-        const q = query(collection(db, "customers"), where("companyId", "==", currentCompany.id));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => {
-          const docData = doc.data();
-          return {
-            id: doc.id,
-            ...docData,
-            status: docData.status || 'Active',
-            avatar: docData.photo_url || docData.avatar || '',
-            name: docData.name || 'Unknown Customer'
-          };
-        }) as Customer[];
-        setCustomers(data);
-      } catch (error) {
-        console.error("Error fetching customers:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCustomers();
   }, [currentCompany]);
 
@@ -145,7 +149,9 @@ const Customers: React.FC = () => {
 
       {/* List */}
       <main className="flex flex-col gap-3 px-4 pt-2">
-        {loading ? (
+        {error ? (
+          <ErrorDisplay message={error} onRetry={fetchCustomers} />
+        ) : loading ? (
           <div className="flex justify-center p-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>

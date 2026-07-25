@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from '../components/UpgradeModal';
+import { UsageService } from '../services/UsageService';
 import { uploadImage } from '../src/uploadImage';
 
 const NewCustomer: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { canAddCustomer, showUpgradeModal, hideUpgradeModal, upgradeModalState, activePlan } = useSubscription();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -58,6 +62,13 @@ const NewCustomer: React.FC = () => {
 
         if (!formData.fullName) return alert("Full Name is required");
         if (!formData.mobile) return alert("Mobile Number is required");
+
+        // Subscription Guard Check via Usage Tracking (0 Firestore Reads)
+        const guardRes = canAddCustomer();
+        if (!guardRes.allowed) {
+            showUpgradeModal(guardRes);
+            return;
+        }
 
         setIsSubmitting(true);
 
@@ -284,6 +295,15 @@ const NewCustomer: React.FC = () => {
                         )}
                     </button>
                 </form>
+
+                <UpgradeModal
+                    isOpen={upgradeModalState.isOpen}
+                    onClose={hideUpgradeModal}
+                    blockedFeature="Customer Limit Reached"
+                    currentPlan={activePlan}
+                    requiredPlanId={upgradeModalState.result?.requiredPlanId}
+                    reason={upgradeModalState.result?.reason}
+                />
             </div>
         </div>
     );

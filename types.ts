@@ -1,3 +1,5 @@
+import { PlanId } from './constants/subscriptionPlans';
+
 export interface Customer {
   id: string;
   name: string;
@@ -120,4 +122,67 @@ export interface AppUser {
     canViewCustomers?: boolean;
   };
   createdAt?: string;
+}
+
+// Subscription & Payment Models
+export interface UserSubscription {
+  userId: string;
+  userEmail: string;
+  planId: 'free' | 'starter' | 'pro' | 'enterprise';
+  billingCycle: 'monthly' | 'yearly';
+  status: 'active' | 'expired' | 'cancelled' | 'past_due' | 'free_tier';
+  startDate: string; // ISO
+  expiryDate: string; // ISO
+  autoRenewal: boolean;
+  paymentSource: 'google_play' | 'razorpay' | 'admin_manual' | 'free_tier';
+  purchaseToken?: string;
+  orderId?: string;
+  lastPaymentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  userId: string;
+  userEmail: string;
+  planId: 'starter' | 'pro' | 'enterprise';
+  billingCycle: 'monthly' | 'yearly';
+  amount: number;
+  currency: 'INR';
+  gateway: 'google_play' | 'razorpay' | 'admin_manual';
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  googlePurchaseToken?: string;
+  status: 'success' | 'failed' | 'pending';
+  timestamp: string;
+}
+
+export interface SubscriptionAuditLog {
+  id: string;
+  userId: string;
+  action: 'create' | 'upgrade' | 'downgrade' | 'renew' | 'cancel' | 'expire' | 'admin_override';
+  previousPlanId?: string;
+  newPlanId: string;
+  reason?: string;
+  performedBy: string; // userId or 'system' or 'cloud_function'
+  timestamp: string;
+}
+
+export interface GuardCheckResult {
+  allowed: boolean;
+  reason?: string;
+  currentCount?: number;
+  limit?: number;
+  requiredPlanId?: PlanId;
+}
+
+export interface UserUsage {
+  userId: string;
+  customers: number;
+  companies: number;
+  loans: number;
+  deposits: number;
+  staff: number;
+  updatedAt: string;
 }

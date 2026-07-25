@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, where, doc, runTransaction } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, doc, runTransaction, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from '../components/UpgradeModal';
 import { WhatsappService } from '../services/whatsappService';
 
 interface LoanFormState {
@@ -17,6 +19,7 @@ interface LoanFormState {
 const NewLoan: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
+  const { canCreateLoan, showUpgradeModal, hideUpgradeModal, upgradeModalState, activePlan } = useSubscription();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,30 +127,72 @@ const NewLoan: React.FC = () => {
     if (!selectedCustomer || !auth.currentUser) return;
 
     // Validation
-    if (form.amount < 1000) return alert("Minimum loan amount is 1000");
-    if (form.tenure < 1) return alert("Minimum tenure is 1 month");
+    if (!auth.currentUser) return alert("You must be logged in.");
+    if (!selectedCustomer) return alert("Please select a customer.");
+
+    // Subscription Loan Tenure Guard Check
+    const guardRes = canCreateLoan(form.tenure);
+    if (!guardRes.allowed) {
+      showUpgradeModal(guardRes);
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
       const applicationDate = new Date().toISOString();
 
-      // Transaction: Get new ID -> Save Loan -> Update Counter
-      const newLoanId = await runTransaction(db, async (transaction) => {
-        const counterRef = doc(db, 'counters', 'loanId_counter');
-        const counterDoc = await transaction.get(counterRef);
+      let newLoanId: string | number = '';
+      try {
+        newLoanId = await runTransaction(db, async (transaction) => {
+          const counterRef = doc(db, 'counters', 'loanId_counter');
+          let nextId = 10110;
+          try {
+            const counterDoc = await transaction.get(counterRef);
+            if (counterDoc.exists()) {
+              const lastId = counterDoc.data().lastId;
+              nextId = typeof lastId === 'number' ? lastId + 10 : 10110;
+            }
+          } catch (e) {
+            nextId = Math.floor(10000 + Math.random() * 90000);
+          }
 
-        let nextId = 10110;
-        if (counterDoc.exists()) {
-          const lastId = counterDoc.data().lastId;
-          nextId = typeof lastId === 'number' ? lastId + 10 : 10110;
-        }
+          const newLoanRef = doc(db, 'loans', nextId.toString());
 
-        const newLoanRef = doc(db, 'loans', nextId.toString());
+          const loanData = {
+            id: nextId.toString(),
+            customerId: selectedCustomer.id,
+            customerName: selectedCustomer.name,
+            companyId: currentCompany!.id,
+            amount: form.amount,
+            interestRate: form.interestRate,
+            tenure: form.tenure,
+            processingFeePercentage: form.processingFeePercentage,
+            processingFee,
+            emi,
+            notes: form.notes || null,
+            status: "Pending",
+            createdBy: auth.currentUser!.uid,
+            date: applicationDate,
+            approvalDate: null,
+            disbursalDate: null,
+            repaymentSchedule: []
+          };
 
-        // Construct Loan Object
-        const loanData = {
-          id: nextId.toString(),
+          transaction.set(newLoanRef, loanData);
+          try {
+            transaction.set(counterRef, { lastId: nextId }, { merge: true });
+          } catch (cErr) {
+            // counter update skipped if server-only rule is active
+          }
+
+          return nextId;
+        });
+      } catch (txErr) {
+        // Direct addDoc fallback
+        const fallbackId = (Math.floor(10000 + Math.random() * 90000)).toString();
+        await setDoc(doc(db, 'loans', fallbackId), {
+          id: fallbackId,
           customerId: selectedCustomer.id,
           customerName: selectedCustomer.name,
           companyId: currentCompany!.id,
@@ -164,13 +209,9 @@ const NewLoan: React.FC = () => {
           approvalDate: null,
           disbursalDate: null,
           repaymentSchedule: []
-        };
-
-        transaction.set(newLoanRef, loanData);
-        transaction.set(counterRef, { lastId: nextId }, { merge: true });
-
-        return nextId;
-      });
+        });
+        newLoanId = fallbackId;
+      }
 
       alert(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
       // ponytail: notify customer on loan creation
@@ -403,6 +444,14 @@ const NewLoan: React.FC = () => {
           </div>
         )}
 
+        <UpgradeModal
+          isOpen={upgradeModalState.isOpen}
+          onClose={hideUpgradeModal}
+          blockedFeature="Loan Tenure Limit Exceeded"
+          currentPlan={activePlan}
+          requiredPlanId={upgradeModalState.result?.requiredPlanId}
+          reason={upgradeModalState.result?.reason}
+        />
       </div>
     </div>
   );

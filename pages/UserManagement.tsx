@@ -47,6 +47,9 @@ const UserManagement: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [addError, setAddError] = useState('');
   const [toast, setToast] = useState('');
+  const [pinValue, setPinValue] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinError, setPinError] = useState('');
 
   const showToast = (message: string) => {
     setToast(message);
@@ -196,6 +199,29 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const handleSetPin = async () => {
+    if (!selectedUser || !currentCompany) return;
+    if (!pinValue || pinValue.length < 6) { setPinError('PIN must be at least 6 digits.'); return; }
+    setPinLoading(true);
+    setPinError('');
+    try {
+      const custSnap = await getDocs(query(
+        collection(db, "customers"),
+        where("companyId", "==", currentCompany.id),
+        where("name", "==", selectedUser.name)
+      ));
+      if (custSnap.empty) {
+        setPinError('No matching customer record found. Create a customer with this name first.');
+        return;
+      }
+      const setCustomerPin = httpsCallable(functions, 'setCustomerPin');
+      await setCustomerPin({ customerId: custSnap.docs[0].id, newPin: pinValue });
+      setPinValue('');
+      showToast('PIN set successfully.');
+    } catch (err: any) { setPinError(err?.message || 'Failed to set PIN.'); }
+    finally { setPinLoading(false); }
+  };
+
   const formatPermissionKey = (key: string) => {
     return key.replace('can', '').replace(/([A-Z])/g, ' $1').trim();
   }
@@ -339,6 +365,30 @@ const UserManagement: React.FC = () => {
                     />
                     <span className="text-sm">Can Collect EMI</span>
                   </label>
+                </div>
+              )}
+              {editedRole === 'customer' && (
+                <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <h4 className="text-sm font-bold">PIN Management</h4>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={pinValue}
+                      onChange={(e) => setPinValue(e.target.value.replace(/\D/g, ''))}
+                      placeholder="6-digit PIN"
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="flex-1 px-3 py-2 bg-slate-50 dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={handleSetPin}
+                      disabled={pinLoading}
+                      className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-50"
+                    >
+                      {pinLoading ? 'Setting...' : 'Set PIN'}
+                    </button>
+                  </div>
+                  {pinError && <p className="text-xs text-red-500">{pinError}</p>}
                 </div>
               )}
             </div>

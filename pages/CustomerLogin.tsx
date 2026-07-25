@@ -1,30 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { signInAnonymously } from 'firebase/auth';
-import { db, functions, auth } from '../firebaseConfig';
+import { signInWithCustomToken } from 'firebase/auth';
+import { functions, auth } from '../firebaseConfig';
 
 const CustomerLogin: React.FC = () => {
   const navigate = useNavigate();
   const [loginId, setLoginId] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [agreeToTerms, setAgreeToTerms] = useState(false);
-
-  useEffect(() => {
-    // Ensure anonymous auth session exists before any Firestore query
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch((e) =>
-        console.error('Anonymous sign-in failed:', e)
-      );
-    }
-    const customerId = localStorage.getItem('customerPortalId');
-    if (customerId) {
-      navigate('/customer-portal');
-    }
-  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,79 +42,27 @@ const CustomerLogin: React.FC = () => {
         return;
       }
 
-      if (password.toLowerCase() !== trimmedLoginId) {
-        setError('Invalid password. Password should be same as Login ID.');
+      if (!/^\d{6,}$/.test(pin)) {
+        setError('PIN must be at least 6 digits.');
         setLoading(false);
         return;
       }
 
-      // Search for customer by phone number
-      let customersQuery = query(
-        collection(db, "customers"),
-        where("phone", "==", phone)
-      );
-      let snapshot = await getDocs(customersQuery);
+      // Call Cloud Function to verify customer PIN
+      const verifyCustomerPin = httpsCallable<
+        { phone: string; companyCode: string; pin: string },
+        { customToken: string }
+      >(functions, 'verifyCustomerPin');
+      const result = await verifyCustomerPin({ phone, companyCode, pin });
 
-      // Try with +91 prefix if not found
-      if (snapshot.empty) {
-        customersQuery = query(
-          collection(db, "customers"),
-          where("phone", "==", `+91${phone}`)
-        );
-        snapshot = await getDocs(customersQuery);
+      if (result.data.customToken) {
+        await signInWithCustomToken(auth, result.data.customToken);
+        navigate('/customer-portal');
       }
-
-      if (snapshot.empty) {
-        setError('No account found with this phone number. Please contact your finance company.');
-        setLoading(false);
-        return;
-      }
-
-      // Find customer and verify company code using secure Cloud Function
-      // The full company document is NEVER sent to the client — only { valid, companyName }
-      const verifyCompanyCode = httpsCallable<
-        { companyId: string; companyCode: string },
-        { valid: boolean; companyName?: string; error?: string }
-      >(functions, 'verifyCompanyCode');
-
-      let matchedCustomer: any = null;
-      let matchedCompanyId: string = '';
-      let matchedCompanyName: string = '';
-
-      for (const customerDoc of snapshot.docs) {
-        const customerData = customerDoc.data();
-        if (customerData.companyId) {
-          try {
-            const result = await verifyCompanyCode({
-              companyId: customerData.companyId,
-              companyCode,
-            });
-            if (result.data.valid) {
-              matchedCustomer = { id: customerDoc.id, ...customerData };
-              matchedCompanyId = customerData.companyId;
-              matchedCompanyName = result.data.companyName || '';
-              break;
-            }
-          } catch (err) {
-            console.error('Company verification error:', err);
-          }
-        }
-      }
-
-      if (!matchedCustomer) {
-        setError('Company code does not match. Please check your Login ID.');
-        setLoading(false);
-        return;
-      }
-
-      localStorage.setItem('customerPortalId', matchedCustomer.id);
-      localStorage.setItem('customerPortalPhone', phone);
-      localStorage.setItem('customerPortalCompanyId', matchedCompanyId);
-      navigate('/customer-portal');
 
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError('Login failed. Please try again.');
+      // Always show generic error
+      setError('Invalid phone number or PIN.');
     } finally {
       setLoading(false);
     }
@@ -188,17 +122,20 @@ const CustomerLogin: React.FC = () => {
 
             <div>
               <label className="block text-[10px] font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wider">
-                Password
+                PIN
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">lock</span>
+                  <span className="material-symbols-outlined text-[18px]">dialpad</span>
                 </span>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Same as Login ID"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter 6-digit PIN"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   className="w-full pl-10 pr-3 py-3 bg-gray-50 dark:bg-[#1a2230] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white font-medium transition-all text-sm"
                   required
                 />

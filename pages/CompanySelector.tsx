@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from '../components/UpgradeModal';
+import { UsageService } from '../services/UsageService';
 import { Company } from '../types';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { collection, getDocs, doc } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
+import { SubscriptionGuard } from '../services/SubscriptionGuard';
+import { SUBSCRIPTION_PLANS } from '../constants/subscriptionPlans';
 
 const CompanySelector: React.FC = () => {
   const navigate = useNavigate();
   const { companies, currentCompany, setCurrentCompany, addCompany, deleteCompany, updateCompany, loading, refreshCompanies } = useCompany();
+  const { canAddCompany, showUpgradeModal, hideUpgradeModal, upgradeModalState, activePlan } = useSubscription();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCompanyLimitModal, setShowCompanyLimitModal] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyAddress, setNewCompanyAddress] = useState('');
   const [newCompanyPhone, setNewCompanyPhone] = useState('');
@@ -22,11 +29,6 @@ const CompanySelector: React.FC = () => {
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [orphanedData, setOrphanedData] = useState<{ customers: number, loans: number, partners: number, expenses: number }>({ customers: 0, loans: 0, partners: 0, expenses: 0 });
-  const [showMigrateModal, setShowMigrateModal] = useState(false);
-  const [selectedCompanyForMigration, setSelectedCompanyForMigration] = useState<Company | null>(null);
-  const [isMigrating, setIsMigrating] = useState(false);
-
   const [showEditModal, setShowEditModal] = useState(false);
   const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
   const [editCompanyName, setEditCompanyName] = useState('');
@@ -36,91 +38,6 @@ const CompanySelector: React.FC = () => {
   const [editCompanyUpi, setEditCompanyUpi] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
-
-  const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'checked'>('idle');
-
-  const checkOrphanedData = async () => {
-    setCheckStatus('checking');
-    try {
-      const allCustomers = await getDocs(collection(db, "customers"));
-      const allLoans = await getDocs(collection(db, "loans"));
-      const allPartners = await getDocs(collection(db, "partner_transactions"));
-      const allExpenses = await getDocs(collection(db, "expenses"));
-
-      const orphanCustomers = allCustomers.docs.filter(d => !d.data().companyId).length;
-      const orphanLoans = allLoans.docs.filter(d => !d.data().companyId).length;
-      const orphanPartners = allPartners.docs.filter(d => !d.data().companyId).length;
-      const orphanExpenses = allExpenses.docs.filter(d => !d.data().companyId).length;
-
-      setOrphanedData({
-        customers: orphanCustomers,
-        loans: orphanLoans,
-        partners: orphanPartners,
-        expenses: orphanExpenses
-      });
-      setCheckStatus('checked');
-    } catch (error) {
-      console.error("Error checking orphaned data:", error);
-      setCheckStatus('idle');
-    }
-  };
-
-  const handleMigrateData = async () => {
-    if (!selectedCompanyForMigration) return;
-
-    setIsMigrating(true);
-    try {
-      const batch = writeBatch(db);
-      const companyId = selectedCompanyForMigration.id;
-
-      const [customersSnap, loansSnap, partnersSnap, expensesSnap] = await Promise.all([
-        getDocs(collection(db, "customers")),
-        getDocs(collection(db, "loans")),
-        getDocs(collection(db, "partner_transactions")),
-        getDocs(collection(db, "expenses"))
-      ]);
-
-      customersSnap.docs.forEach(docSnap => {
-        if (!docSnap.data().companyId) {
-          batch.update(doc(db, "customers", docSnap.id), { companyId });
-        }
-      });
-
-      loansSnap.docs.forEach(docSnap => {
-        if (!docSnap.data().companyId) {
-          batch.update(doc(db, "loans", docSnap.id), { companyId });
-        }
-      });
-
-      partnersSnap.docs.forEach(docSnap => {
-        if (!docSnap.data().companyId) {
-          batch.update(doc(db, "partner_transactions", docSnap.id), { companyId });
-        }
-      });
-
-      expensesSnap.docs.forEach(docSnap => {
-        if (!docSnap.data().companyId) {
-          batch.update(doc(db, "expenses", docSnap.id), { companyId });
-        }
-      });
-
-      await batch.commit();
-
-      setOrphanedData({ customers: 0, loans: 0, partners: 0, expenses: 0 });
-      setShowMigrateModal(false);
-      alert("Data successfully migrated to " + selectedCompanyForMigration.name);
-
-      setCurrentCompany(selectedCompanyForMigration);
-      navigate('/');
-    } catch (error) {
-      console.error("Error migrating data:", error);
-      alert("Failed to migrate data. Please try again.");
-    } finally {
-      setIsMigrating(false);
-    }
-  };
-
-  const hasOrphanedData = orphanedData.customers > 0 || orphanedData.loans > 0 || orphanedData.partners > 0 || orphanedData.expenses > 0;
 
   const handleSelectCompany = (company: Company) => {
     setCurrentCompany(company);
@@ -221,9 +138,20 @@ const CompanySelector: React.FC = () => {
       return;
     }
 
+    // Subscription Company Guard Check via Usage Tracking (0 Firestore Reads)
+    const guardRes = canAddCompany();
+    if (!guardRes.allowed) {
+      setShowAddModal(false);
+      showUpgradeModal(guardRes);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addCompany(newCompanyName, newCompanyAddress, newCompanyPhone, newCompanyGstin, newCompanyUpi);
+      if (auth.currentUser?.uid) {
+        await UsageService.incrementUsage(auth.currentUser.uid, 'companies', 1);
+      }
       setShowAddModal(false);
       setNewCompanyName('');
       setNewCompanyAddress('');
@@ -252,6 +180,17 @@ const CompanySelector: React.FC = () => {
     );
   }
 
+  const maxCompanies = activePlan.limits.maxCompanies;
+  const maxCompaniesDisplay = maxCompanies === -1 ? '∞' : maxCompanies;
+  const companyUsageRatio = maxCompanies === -1 ? 0 : companies.length / maxCompanies;
+  const isNearLimit = companyUsageRatio >= 0.8;
+
+  const targetUnlockingPlan = SubscriptionGuard.getFirstUnlockingPlan(activePlan.id, (cand) => {
+    const candLimit = cand.limits.maxCompanies === -1 ? 999999 : cand.limits.maxCompanies;
+    const curLimit = maxCompanies === -1 ? 999999 : maxCompanies;
+    return candLimit > curLimit;
+  });
+
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark pb-10">
       <div className="sticky top-0 z-10 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-md px-4 py-4 border-b border-outline-light/10 dark:border-outline-dark/10">
@@ -262,6 +201,30 @@ const CompanySelector: React.FC = () => {
       </div>
 
       <div className="px-4 py-6 space-y-4">
+        {/* Company Usage Card & Limit Alert Banner */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-slate-400 font-bold uppercase tracking-wider">Company Allocation</span>
+            <span className="font-black px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Current Plan: {activePlan.name}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-baseline">
+            <span className="text-sm font-extrabold text-white">Companies</span>
+            <span className="text-base font-black text-amber-400">
+              {companies.length} / {maxCompaniesDisplay} Used
+            </span>
+          </div>
+
+          {/* Warning Banner when usage >= 80% */}
+          {isNearLimit && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2 font-medium">
+              <span className="material-symbols-outlined text-amber-400 text-base shrink-0">warning</span>
+              <span>You're almost at your limit. Upgrade now to avoid interruptions.</span>
+            </div>
+          )}
+        </div>
         {companies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <span className="material-symbols-outlined text-6xl text-on-surface-variant-light opacity-40 mb-4">business</span>
@@ -335,119 +298,88 @@ const CompanySelector: React.FC = () => {
           ))
         )}
 
-        {companies.length > 0 && checkStatus === 'idle' && (
-          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 mt-4 text-center">
-            <h4 className="font-semibold text-slate-700 dark:text-slate-300">Data Integrity Check</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Scan for unassociated customer/loan records.</p>
+        {(!canAddCompany().allowed || (activePlan.limits.maxCompanies !== 999999 && companies.length >= activePlan.limits.maxCompanies)) ? (
+          <div className="mt-6 space-y-2">
             <button
-              onClick={() => checkOrphanedData()}
-              className="mt-3 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-750 font-medium px-4 py-2 rounded-xl text-xs transition-colors"
+              type="button"
+              onClick={() => setShowCompanyLimitModal(true)}
+              className="w-full bg-slate-900 text-amber-400 font-bold py-4 rounded-2xl border border-amber-500/40 hover:border-amber-400 shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer group active:scale-98"
             >
-              Run Integrity Check
+              <span className="material-symbols-outlined text-amber-400 group-hover:scale-110 transition-transform">lock</span>
+              Upgrade to {targetUnlockingPlan.name}
             </button>
-          </div>
-        )}
-
-        {companies.length > 0 && checkStatus === 'checking' && (
-          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 mt-4 text-center">
-            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-              <div className="h-4 w-4 animate-spin rounded-full border border-primary border-t-transparent"></div>
-              Checking data integrity...
+            <div className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Current Usage: <strong className="text-amber-500">{companies.length} / {maxCompaniesDisplay}</strong> Companies Used
             </div>
           </div>
+        ) : (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-full bg-primary text-on-primary font-bold py-4 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mt-6"
+          >
+            <span className="material-symbols-outlined">add_business</span>
+            Add New Company
+          </button>
         )}
-
-        {companies.length > 0 && checkStatus === 'checked' && !hasOrphanedData && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 mt-4 flex items-center gap-3">
-            <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
-            <div>
-              <h4 className="font-semibold text-green-800 dark:text-green-300">Data Consistent</h4>
-              <p className="text-xs text-green-700 dark:text-green-400">No orphaned records found.</p>
-            </div>
-          </div>
-        )}
-
-        {hasOrphanedData && companies.length > 0 && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mt-4">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">info</span>
-              <div className="flex-1">
-                <h4 className="font-semibold text-amber-800 dark:text-amber-300">Existing Data Found</h4>
-                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                  You have data that needs to be linked to a company:
-                </p>
-                <ul className="text-sm text-amber-600 dark:text-amber-400 mt-2 space-y-1">
-                  {orphanedData.customers > 0 && <li>{orphanedData.customers} Customers</li>}
-                  {orphanedData.loans > 0 && <li>{orphanedData.loans} Loans</li>}
-                  {orphanedData.partners > 0 && <li>{orphanedData.partners} Partner Transactions</li>}
-                  {orphanedData.expenses > 0 && <li>{orphanedData.expenses} Expenses</li>}
-                </ul>
-                <button
-                  onClick={() => setShowMigrateModal(true)}
-                  className="mt-3 bg-amber-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-amber-700 transition-colors"
-                >
-                  Link to Company
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="w-full bg-primary text-on-primary font-bold py-4 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mt-6"
-        >
-          <span className="material-symbols-outlined">add_business</span>
-          Add New Company
-        </button>
       </div>
 
-      {showMigrateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
-            <h3 className="text-xl font-bold mb-4 text-on-surface-light dark:text-on-surface-dark">Link Data to Company</h3>
-            <p className="text-sm text-on-surface-variant-light dark:text-on-surface-variant-dark mb-4">
-              Select a company to link your existing data:
-            </p>
-
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {companies.map((company) => (
-                <div
-                  key={company.id}
-                  onClick={() => setSelectedCompanyForMigration(company)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedCompanyForMigration?.id === company.id
-                    ? 'border-primary bg-primary/10'
-                    : 'border-outline-light/20 hover:bg-surface-variant-light/30'
-                    }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary">business</span>
-                    <span className="font-medium">{company.name}</span>
-                    {selectedCompanyForMigration?.id === company.id && (
-                      <span className="material-symbols-outlined text-primary ml-auto">check_circle</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+      {/* Dynamic Company Limit Reached Intercept Modal */}
+      {showCompanyLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl w-full max-w-sm shadow-2xl p-6 space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-3xl">lock_clock</span>
             </div>
 
-            <div className="flex gap-3 pt-6">
+            <div className="text-center space-y-1.5">
+              <h3 className="text-xl font-black text-white font-display">Company Limit Reached</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Your <strong>{activePlan.name}</strong> allows only <strong>{maxCompaniesDisplay}</strong> Company. You have already created <strong>{companies.length} / {maxCompaniesDisplay}</strong> Companies. Upgrade to <strong>{targetUnlockingPlan.name}</strong> to create more companies.
+              </p>
+            </div>
+
+            {/* Dynamic Plan Comparison Matrix from subscriptionPlans.ts */}
+            <div className="bg-slate-950/80 rounded-2xl p-3 border border-slate-800 text-xs space-y-2">
+              {Object.values(SUBSCRIPTION_PLANS).map((p) => {
+                const isTarget = p.id === targetUnlockingPlan.id;
+                const isCurrent = p.id === activePlan.id;
+                const maxC = p.limits.maxCompanies === -1 ? 'Unlimited' : `${p.limits.maxCompanies} Company`;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex justify-between items-center p-2.5 rounded-xl border transition-all ${
+                      isTarget
+                        ? 'bg-gradient-to-r from-indigo-950/70 to-purple-950/70 border-indigo-500/50 text-indigo-200 shadow-sm'
+                        : isCurrent
+                        ? 'bg-slate-900/80 border-slate-700 text-slate-300'
+                        : 'bg-slate-900/30 border-slate-800/50 text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <span className="font-bold">{p.name} {isTarget && '⭐'}</span>
+                    <span className="font-black">✓ {maxC}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => {
-                  setShowMigrateModal(false);
-                  setSelectedCompanyForMigration(null);
-                }}
-                className="flex-1 px-4 py-3 text-primary font-medium border border-primary rounded-xl hover:bg-primary/5 transition-colors"
+                onClick={() => setShowCompanyLimitModal(false)}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleMigrateData}
-                disabled={!selectedCompanyForMigration || isMigrating}
-                className="flex-1 px-4 py-3 bg-primary text-on-primary font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                type="button"
+                onClick={() => {
+                  setShowCompanyLimitModal(false);
+                  navigate('/pricing');
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 flex items-center justify-center gap-1.5"
               >
-                {isMigrating ? 'Migrating...' : 'Link Data'}
+                <span className="material-symbols-outlined text-sm text-amber-400">rocket_launch</span>
+                Upgrade to {targetUnlockingPlan.name}
               </button>
             </div>
           </div>
@@ -661,6 +593,15 @@ const CompanySelector: React.FC = () => {
           </div>
         </div>
       )}
+
+      <UpgradeModal
+        isOpen={upgradeModalState.isOpen}
+        onClose={hideUpgradeModal}
+        blockedFeature="Company Limit Reached"
+        currentPlan={activePlan}
+        requiredPlanId={upgradeModalState.result?.requiredPlanId}
+        reason={upgradeModalState.result?.reason}
+      />
     </div>
   );
 };

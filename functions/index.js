@@ -9,10 +9,14 @@ admin.initializeApp();
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { getAuth } = require('firebase-admin/auth');
+const { JWT } = require('google-auth-library');
+const Razorpay = require('razorpay');
+const bcrypt = require('bcrypt');
 const db = getFirestore();
 
 // ─── WhatsApp auto-reminders (server-side, runs even if PC is off) ───
 const WASENDER_API_KEY = defineSecret('WASENDER_API_KEY');
+const RTDN_SECRET = defineSecret('RTDN_WEBHOOK_SECRET');
 const API_BASE = 'https://www.wasenderapi.com';
 const JLS_COMPANY_ID = 'MwtqusMMlFBKTFSslRVk';
 const MAX_PER_RUN = 40; // Wasender trial cap guard
@@ -338,20 +342,86 @@ exports.sendNotificationOnCreate = onDocumentCreated('notifications/{notificatio
         }
     });
 
-// ─── WhatsApp send (client calls this; API key stays server-side) ───
-exports.sendWhatsapp = onRequest({ cors: true, secrets: [WASENDER_API_KEY] }, async (req, res) => {
-  // CORS preflight
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+// ─── Rate limiting helpers ───
+const crypto_rate = require('crypto');
 
-  const { phone, text, companyId } = req.body || {};
-  if (!phone || !text) { res.status(400).json({ success: false, error: 'missing params' }); return; }
+const getRateLimitKey = (ip, phone, companyCode) => {
+  const raw = `${ip}_${phone}_${companyCode}`;
+  return crypto_rate.createHash('sha256').update(raw).digest('hex');
+};
+
+const ms = (v) => v?.toMillis ? v.toMillis() : (v || 0);
+
+const checkRateLimit = async (ip, phone, companyCode) => {
+  const key = getRateLimitKey(ip, phone, companyCode);
+  const ref = db.collection('rate_limits').doc(`ip_${key}`);
+  const snap = await ref.get();
+  const now = Date.now();
+  const data = snap.data() || { attempts: 0, firstAttemptAt: now, lastAttemptAt: now, blockedUntil: null };
+
+  // Check if currently blocked
+  if (data.blockedUntil && now < ms(data.blockedUntil)) {
+    const remaining = Math.ceil((ms(data.blockedUntil) - now) / 1000);
+    return { blocked: true, remaining };
+  }
+
+  // Reset if window passed (15 min)
+  const windowMs = 15 * 60 * 1000;
+  if (now - ms(data.firstAttemptAt) > windowMs && data.attempts > 0) {
+    data.attempts = 0;
+    data.firstAttemptAt = now;
+  }
+
+  return { blocked: false, ref, data, key };
+};
+
+const incrementRateLimit = async (ref, data, key, phone) => {
+  const now = Date.now();
+  const newAttempts = (data.attempts || 0) + 1;
+  const update = {
+    attempts: newAttempts,
+    firstAttemptAt: data.firstAttemptAt || now,
+    lastAttemptAt: now,
+    blockedUntil: null,
+  };
+  if (newAttempts >= 5) {
+    update.blockedUntil = new Date(now + 15 * 60 * 1000);
+  }
+  await ref.set(update, { merge: true });
+
+  // Log suspicious activity if > 3 attempts
+  if (newAttempts > 3) {
+    await db.collection('suspicious_activity').add({
+      type: newAttempts >= 5 ? 'rate_limited' : 'failed_login',
+      ip: key.split('_')[0] || '',
+      phoneLast4: (phone || '').slice(-4),
+      attempts: newAttempts,
+      timestamp: new Date().toISOString(),
+      method: 'verifyCustomerPin',
+    });
+  }
+};
+
+const resetRateLimit = async (ref) => {
+  await ref.delete().catch(() => {});
+};
+
+// ─── WhatsApp send (client calls this; authenticated onCall) ───
+exports.sendWhatsapp = onCall({ secrets: [WASENDER_API_KEY] }, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be signed in.');
+  }
+
+  const { phone, text, companyId } = request.data || {};
+  if (!phone || !text) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing phone or text parameters.');
+  }
   // Only the JLS company may send; ignore everything else.
-  if (companyId && companyId !== JLS_COMPANY_ID) { res.json({ success: false, error: 'ignored' }); return; }
+  if (companyId && companyId !== JLS_COMPANY_ID) {
+    return { success: false, error: 'ignored' };
+  }
   const ok = await sendWhatsApp(phone, text);
-  res.json({ success: ok });
+  return { success: ok };
 });
 
 // ─── Server-side Company Code Verification (Zero sensitive data exposure) ───
@@ -407,7 +477,374 @@ exports.getCompanyPublicInfo = onCall(async (request) => {
     if (error instanceof functions.https.HttpsError) throw error;
     console.error('Error in getCompanyPublicInfo:', error);
     throw new functions.https.HttpsError('internal', 'server error');
+      }
+});
+
+/**
+ * Verify Customer PIN and return Firebase Custom Token
+ */
+exports.verifyCustomerPin = onCall({ secrets: [WASENDER_API_KEY] }, async (request) => {
+  const GENERIC_ERROR = 'Invalid phone number or PIN.';
+
+  try {
+    const { phone, companyCode, pin } = request.data || {};
+
+    // Validate input
+    if (!phone || !companyCode || !pin || pin.length < 6 || !/^\d{6,}$/.test(pin)) {
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    // Get client IP for rate limiting
+    const ip = request.rawRequest?.ip || request.rawRequest?.connection?.remoteAddress || 'unknown';
+
+    // Rate limit check
+    const { blocked, ref: rateRef, data: rateData, key } = await checkRateLimit(ip, phone, companyCode.toLowerCase());
+    if (blocked) {
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    // Resolve company by code
+    const companiesSnap = await db.collection('companies').get();
+    let matchedCompany = null;
+    for (const doc of companiesSnap.docs) {
+      const name = doc.data().name || '';
+      if (name.substring(0, 3).toLowerCase() === companyCode.toLowerCase()) {
+        matchedCompany = { id: doc.id, ...doc.data() };
+        break;
+      }
+    }
+
+    if (!matchedCompany) {
+      await incrementRateLimit(rateRef, rateData, key, phone);
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    // Find customer by phone + companyId
+    const customersSnap = await db.collection('customers')
+      .where('phone', '==', phone)
+      .where('companyId', '==', matchedCompany.id)
+      .limit(1)
+      .get();
+
+    if (customersSnap.empty) {
+      await incrementRateLimit(rateRef, rateData, key, phone);
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    const customerDoc = customersSnap.docs[0];
+    const customerData = customerDoc.data();
+
+    // ALL validation failures return GENERIC_ERROR — never distinguish cause
+    if (customerData.active === false) {
+      await incrementRateLimit(rateRef, rateData, key, phone);
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    if (!customerData.pinHash) {
+      await incrementRateLimit(rateRef, rateData, key, phone);
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    // Re-read in transaction to prevent race conditions on pinFailedAttempts
+    let pinMatch = false;
+    await db.runTransaction(async (transaction) => {
+      const freshDoc = await transaction.get(customerDoc.ref);
+      const freshData = freshDoc.data();
+
+      // Check lockout inside transaction
+      const lockedUntil = freshData.pinLockedUntil ? new Date(freshData.pinLockedUntil).getTime() : 0;
+      const now = Date.now();
+      if ((freshData.pinFailedAttempts || 0) >= 5 && lockedUntil > now) {
+        throw new Error('LOCKED');
+      }
+
+      // Verify PIN
+      pinMatch = await bcrypt.compare(pin, freshData.pinHash);
+
+      if (pinMatch) {
+        transaction.update(customerDoc.ref, {
+          pinFailedAttempts: 0,
+          pinLockedUntil: null,
+        });
+      } else {
+        const newFailed = (freshData.pinFailedAttempts || 0) + 1;
+        const update = { pinFailedAttempts: newFailed };
+        if (newFailed >= 5) {
+          update.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        }
+        transaction.update(customerDoc.ref, update);
+      }
+    });
+
+    if (!pinMatch) {
+      await incrementRateLimit(rateRef, rateData, key, phone);
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+
+    // Success — reset rate limit
+    await resetRateLimit(rateRef);
+
+    // Ensure authUid exists (create Auth user if not)
+    let authUid = customerData.authUid;
+    if (!authUid) {
+      authUid = `cust_${customerDoc.id}`;
+      try {
+        await getAuth().createUser({ uid: authUid, displayName: customerData.name || '' });
+        await customerDoc.ref.update({ authUid });
+      } catch (authErr) {
+        if (authErr.code !== 'auth/uid-already-exists') throw authErr;
+      }
+    }
+
+    // Mint custom token
+    const pinVersion = customerData.pinVersion || 0;
+    const customToken = await getAuth().createCustomToken(authUid, {
+      role: 'customer',
+      customerDocId: customerDoc.id,
+      companyId: matchedCompany.id,
+      pinVersion,
+    });
+
+    return {
+      success: true,
+      customToken,
+      customerName: customerData.name || '',
+      companyName: matchedCompany.name || '',
+    };
+
+  } catch (error) {
+    // If it's already an HttpsError we threw, re-throw it
+    if (error instanceof functions.https.HttpsError) throw error;
+    // LOCKED error from transaction
+    if (error.message === 'LOCKED') {
+      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
+    }
+    console.error('verifyCustomerPin error:', error);
+    throw new functions.https.HttpsError('internal', 'Authentication service error.');
   }
+});
+
+/**
+ * Set initial PIN for customer (admin only)
+ */
+exports.setCustomerPin = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+  }
+
+  const callerUid = request.auth.uid;
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (!callerSnap.exists || !['admin', 'owner'].includes((callerSnap.data().role || '').toLowerCase())) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can set customer PINs.');
+  }
+
+  const { customerId, newPin } = request.data || {};
+  if (!customerId || !newPin || !/^\d{6,}$/.test(newPin)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Customer ID and 6-digit PIN are required.');
+  }
+
+  const customerRef = db.collection('customers').doc(customerId);
+  const customerSnap = await customerRef.get();
+  if (!customerSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Customer not found.');
+  }
+
+  const customerData = customerSnap.data();
+
+  // Ensure authUid exists (create Auth user if not already)
+  let authUid = customerData.authUid;
+  if (!authUid) {
+    authUid = `cust_${customerId}`;
+    try {
+      await getAuth().createUser({ uid: authUid, displayName: customerData.name || '' });
+      await customerRef.update({ authUid });
+    } catch (authErr) {
+      if (authErr.code !== 'auth/uid-already-exists') throw authErr;
+    }
+  }
+
+  // Hash PIN and save
+  const pinHash = await bcrypt.hash(newPin, 10);
+  const currentVersion = customerData.pinVersion || 0;
+  await customerRef.update({
+    pinHash,
+    pinVersion: currentVersion + 1,
+    pinFailedAttempts: 0,
+    pinLockedUntil: null,
+  });
+
+  return { success: true };
+});
+
+/**
+ * Change customer PIN (customer must be authenticated)
+ */
+exports.changeCustomerPin = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+  }
+
+  const claims = request.auth.token;
+  if (claims.role !== 'customer') {
+    throw new functions.https.HttpsError('permission-denied', 'Only customers can change their PIN.');
+  }
+
+  const { customerId, oldPin, newPin } = request.data || {};
+  if (!customerId || !oldPin || !newPin || !/^\d{6,}$/.test(newPin) || !/^\d{6,}$/.test(oldPin)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Customer ID, old PIN, and new 6-digit PIN are required.');
+  }
+
+  if (claims.customerDocId !== customerId) {
+    throw new functions.https.HttpsError('permission-denied', 'You can only change your own PIN.');
+  }
+
+  const customerRef = db.collection('customers').doc(customerId);
+  const customerSnap = await customerRef.get();
+  if (!customerSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Customer not found.');
+  }
+
+  const customerData = customerSnap.data();
+  if (!customerData.pinHash) {
+    throw new functions.https.HttpsError('failed-precondition', 'PIN not set. Contact admin.');
+  }
+
+  const oldPinMatch = await bcrypt.compare(oldPin, customerData.pinHash);
+  if (!oldPinMatch) {
+    throw new functions.https.HttpsError('permission-denied', 'Current PIN is incorrect.');
+  }
+
+  const newPinHash = await bcrypt.hash(newPin, 10);
+  const currentVersion = customerData.pinVersion || 0;
+  await customerRef.update({
+    pinHash: newPinHash,
+    pinVersion: currentVersion + 1,
+    pinFailedAttempts: 0,
+    pinLockedUntil: null,
+  });
+
+  return { success: true, message: 'PIN changed successfully. Please login again.' };
+});
+
+/**
+ * Admin force-resets a customer PIN
+ */
+exports.resetCustomerPin = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+  }
+
+  const callerUid = request.auth.uid;
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (!callerSnap.exists || !['admin', 'owner'].includes((callerSnap.data().role || '').toLowerCase())) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can reset customer PINs.');
+  }
+
+  const { customerId, newPin } = request.data || {};
+  if (!customerId || !newPin || !/^\d{6,}$/.test(newPin)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Customer ID and 6-digit PIN are required.');
+  }
+
+  const customerRef = db.collection('customers').doc(customerId);
+  const customerSnap = await customerRef.get();
+  if (!customerSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Customer not found.');
+  }
+
+  const customerData = customerSnap.data();
+  const pinHash = await bcrypt.hash(newPin, 10);
+  const currentVersion = customerData.pinVersion || 0;
+
+  await customerRef.update({
+    pinHash,
+    pinVersion: currentVersion + 1,
+    pinFailedAttempts: 0,
+    pinLockedUntil: null,
+  });
+
+  return { success: true, message: 'PIN has been reset. Customer must login with new PIN.' };
+});
+
+/**
+ * Update usage counters via Admin SDK (bypasses Firestore rules)
+ */
+exports.updateUsage = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+  }
+
+  const userId = request.auth.uid;
+  const { action, field, delta } = request.data || {};
+
+  const validFields = ['customers', 'companies', 'loans', 'deposits', 'staff'];
+  const usageRef = db.collection('usage').doc(userId);
+
+  if (action === 'init') {
+    const snap = await usageRef.get();
+    if (!snap.exists) {
+      await usageRef.set({
+        userId,
+        customers: 0,
+        companies: 1,
+        loans: 0,
+        deposits: 0,
+        staff: 0,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    return { success: true };
+  }
+
+  if (action === 'increment') {
+    if (!field || !validFields.includes(field)) {
+      throw new functions.https.HttpsError('invalid-argument', `Invalid field. Must be one of: ${validFields.join(', ')}`);
+    }
+    const amount = typeof delta === 'number' ? delta : 1;
+    await usageRef.set({
+      userId,
+      [field]: FieldValue.increment(amount),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return { success: true };
+  }
+
+  if (action === 'sync') {
+    const { companyId } = request.data;
+    const callerEmail = request.auth.token.email || '';
+
+    // Count companies by ownerEmail
+    const compSnap = await db.collection('companies').where('ownerEmail', '==', callerEmail).get();
+    const companyCount = compSnap.empty ? 1 : compSnap.size;
+
+    let customerCount = 0;
+    let loanCount = 0;
+    let depositCount = 0;
+
+    if (companyId) {
+      const [custSnap, loanSnap, depSnap] = await Promise.all([
+        db.collection('customers').where('companyId', '==', companyId).get(),
+        db.collection('loans').where('companyId', '==', companyId).get(),
+        db.collection('deposits').where('companyId', '==', companyId).get(),
+      ]);
+      customerCount = custSnap.size;
+      loanCount = loanSnap.size;
+      depositCount = depSnap.size;
+    }
+
+    await usageRef.set({
+      userId,
+      customers: customerCount,
+      companies: companyCount,
+      loans: loanCount,
+      deposits: depositCount,
+      staff: 0,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    return { success: true };
+  }
+
+  throw new functions.https.HttpsError('invalid-argument', 'Action must be "init", "increment", or "sync".');
 });
 
 // ─── Auto-stamp ownerEmail on business docs for queryable, per-company read isolation ───
@@ -615,13 +1052,23 @@ exports.updateUserByAdmin = onCall(async (request) => {
   return { success: true, uid };
 });
 
-exports.backfillOwnerEmails = onRequest({ cors: true }, async (req, res) => {
+exports.backfillOwnerEmails = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be signed in.');
+  }
+
+  const callerUid = request.auth.uid;
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (!callerSnap.exists || !ADMIN_ROLES.includes(callerSnap.data().role)) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can run backfill operations.');
+  }
+
   let total = 0;
   for (const col of BUSINESS_COLLECTIONS) {
     const snap = await db.collection(col).limit(500).get();
     for (const doc of snap.docs) {
       const d = doc.data();
-      if (d.ownerEmail) continue;            // already stamped
+      if (d.ownerEmail) continue; // already stamped
       if (!d.companyId) continue;
       const companySnap = await db.collection('companies').doc(d.companyId).get();
       if (!companySnap.exists) continue;
@@ -629,5 +1076,538 @@ exports.backfillOwnerEmails = onRequest({ cors: true }, async (req, res) => {
       if (ownerEmail) { await doc.ref.update({ ownerEmail }); total++; }
     }
   }
-  res.json({ ok: true, stamped: total });
+  return { success: true, stamped: total };
+});
+
+// ─── Subscription Server-Side Management & Verification Cloud Functions ───
+
+const SERVER_SUBSCRIPTION_PLANS = {
+  free: { name: 'Free', monthly: 0, yearly: 0 },
+  starter: { name: 'Starter', monthly: 59, yearly: 599 },
+  pro: { name: 'Pro', monthly: 199, yearly: 1999 },
+  enterprise: { name: 'Enterprise', monthly: 3999, yearly: 39999 },
+};
+
+/**
+ * 3. Create Authentic Razorpay Order (Strict REST API call, NO fake order fallbacks)
+ */
+exports.createRazorpayOrder = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+  }
+
+  const userId = request.auth.uid;
+  const userEmail = request.auth.token.email || '';
+  const { planId, billingCycle } = request.data || {};
+  const plan = SERVER_SUBSCRIPTION_PLANS[planId];
+
+  if (!plan || planId === 'free') {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid plan for paid subscription.');
+  }
+
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    throw new functions.https.HttpsError('failed-precondition', 'Razorpay API credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are not configured on server.');
+  }
+
+  const amountInRupees = billingCycle === 'yearly' ? plan.yearly : plan.monthly;
+  const amountInPaise = amountInRupees * 100;
+
+  let orderId = '';
+  try {
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+    const order = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: `rcpt_${userId.substring(0, 8)}_${Date.now()}`,
+      notes: { userId, userEmail, planId, billingCycle },
+    });
+    orderId = order.id;
+  } catch (apiErr) {
+    console.error('Razorpay Order API creation error:', apiErr);
+    throw new functions.https.HttpsError('internal', `Razorpay Order creation failed: ${apiErr.message}`);
+  }
+
+  // Store authentic pending order in Firestore (status: 'pending')
+  await db.collection('pending_orders').doc(orderId).set({
+    orderId,
+    userId,
+    userEmail,
+    planId,
+    billingCycle: billingCycle || 'monthly',
+    amount: amountInPaise,
+    status: 'pending',
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return {
+    success: true,
+    orderId,
+    amount: amountInPaise,
+    currency: 'INR',
+    keyId,
+  };
+});
+
+/**
+ * 4. Verify Razorpay Payment (Strict pending_orders Transaction Verification + HMAC SHA256)
+ */
+exports.verifyRazorpayPayment = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+  }
+
+  const userId = request.auth.uid;
+  const userEmail = request.auth.token.email || '';
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, billingCycle } = request.data || {};
+
+  if (!razorpay_order_id || !razorpay_payment_id || !planId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing payment verification arguments.');
+  }
+
+  const crypto = require('crypto');
+  const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!razorpaySecret) {
+    throw new functions.https.HttpsError('failed-precondition', 'Razorpay secret key is not configured on server.');
+  }
+
+  // 1. Strict HMAC SHA256 signature verification
+  if (!razorpay_signature) {
+    throw new functions.https.HttpsError('invalid-argument', 'Razorpay signature is required.');
+  }
+
+  const generatedSignature = crypto
+    .createHmac('sha256', razorpaySecret)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
+
+  if (generatedSignature !== razorpay_signature) {
+    await db.collection('payment_history').doc(razorpay_payment_id || `failed_${Date.now()}`).set({
+      id: razorpay_payment_id || `failed_${Date.now()}`,
+      userId,
+      userEmail,
+      planId,
+      billingCycle: billingCycle || 'monthly',
+      amount: SERVER_SUBSCRIPTION_PLANS[planId]?.[billingCycle] || 0,
+      currency: 'INR',
+      gateway: 'razorpay',
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      status: 'failed',
+      timestamp: new Date().toISOString(),
+    });
+
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid Razorpay signature. Verification failed.');
+  }
+
+  const plan = SERVER_SUBSCRIPTION_PLANS[planId];
+  if (!plan) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid plan ID.');
+  }
+  const expectedAmountInPaise = (billingCycle === 'yearly' ? plan.yearly : plan.monthly) * 100;
+  const days = billingCycle === 'yearly' ? 365 : 30;
+  const startDate = new Date().toISOString();
+  const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+  // 2. Single Firestore Transaction for pending_orders validation & atomic activation
+  await db.runTransaction(async (transaction) => {
+    // a. Verify pending_orders document
+    const orderRef = db.collection('pending_orders').doc(razorpay_order_id);
+    const orderSnap = await transaction.get(orderRef);
+
+    if (!orderSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Pending order does not exist.');
+    }
+
+    const orderData = orderSnap.data();
+    if (orderData.userId !== userId) {
+      throw new functions.https.HttpsError('permission-denied', 'Order belongs to another user.');
+    }
+    if (orderData.planId !== planId || orderData.billingCycle !== billingCycle) {
+      throw new functions.https.HttpsError('invalid-argument', 'Plan details do not match pending order.');
+    }
+    if (orderData.amount !== expectedAmountInPaise) {
+      throw new functions.https.HttpsError('invalid-argument', 'Order amount mismatch.');
+    }
+    if (orderData.status !== 'pending' && orderData.status !== 'created') {
+      throw new functions.https.HttpsError('already-exists', 'Order has already been processed or completed.');
+    }
+
+    // b. Verify payment_history replay protection
+    const paymentRef = db.collection('payment_history').doc(razorpay_payment_id);
+    const paymentSnap = await transaction.get(paymentRef);
+
+    if (paymentSnap.exists && paymentSnap.data().status === 'success') {
+      throw new functions.https.HttpsError('already-exists', 'This payment ID has already been processed.');
+    }
+
+    // c. Write subscription update, payment history, and mark pending order completed
+    const subRef = db.collection('subscriptions').doc(userId);
+    transaction.set(subRef, {
+      userId,
+      userEmail,
+      planId,
+      billingCycle: billingCycle || 'monthly',
+      status: 'active',
+      startDate,
+      expiryDate,
+      autoRenewal: true,
+      paymentSource: 'razorpay',
+      orderId: razorpay_order_id,
+      lastPaymentId: razorpay_payment_id,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    transaction.set(paymentRef, {
+      id: razorpay_payment_id,
+      userId,
+      userEmail,
+      planId,
+      billingCycle: billingCycle || 'monthly',
+      amount: SERVER_SUBSCRIPTION_PLANS[planId]?.[billingCycle] || 0,
+      currency: 'INR',
+      gateway: 'razorpay',
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      status: 'success',
+      timestamp: new Date().toISOString(),
+    });
+
+    transaction.update(orderRef, {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      razorpayPaymentId: razorpay_payment_id,
+    });
+  });
+
+  return {
+    success: true,
+    planId,
+    expiryDate,
+  };
+});
+
+/**
+ * Get OAuth2 access token from Google service account for Android Publisher API
+ */
+async function getGoogleAccessToken(serviceAccount) {
+  const auth = new JWT({
+    email: serviceAccount.client_email,
+    key: serviceAccount.private_key,
+    scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+  });
+  const tokens = await auth.authorize();
+  return tokens.access_token;
+}
+
+/**
+ * 1, 3 & 4. Verify Google Play Subscription (Android Publisher API + Transaction Replay Protection)
+ */
+exports.verifyGooglePlaySubscription = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+  }
+
+  const userId = request.auth.uid;
+  const userEmail = request.auth.token.email || '';
+  const { purchaseToken, productId, planId, billingCycle } = request.data || {};
+
+  if (!purchaseToken || !planId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing purchaseToken or planId.');
+  }
+
+  const packageName = process.env.ANDROID_PACKAGE_NAME || 'com.jls.loanbook';
+  const targetProductId = productId || `jls_${planId}_${billingCycle}`;
+  const days = billingCycle === 'yearly' ? 365 : 30;
+  let expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+  // 1. Official Google Android Publisher API Server-Side Verification
+  if (process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) {
+    try {
+      const serviceAccount = JSON.parse(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON);
+      const googleAccessToken = await getGoogleAccessToken(serviceAccount);
+      const apiUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptions/${targetProductId}/tokens/${purchaseToken}`;
+
+      const playRes = await fetch(apiUrl, {
+        headers: { Authorization: `Bearer ${googleAccessToken}` },
+      });
+
+      const playData = await playRes.json();
+      if (!playRes.ok || playData.error) {
+        throw new Error(playData?.error?.message || 'Google Play purchase token rejected by Google servers.');
+      }
+
+      const expiryMillis = Number(playData.expiryTimeMillis);
+      if (isNaN(expiryMillis) || expiryMillis <= Date.now()) {
+        throw new Error('Google Play subscription token is expired or inactive.');
+      }
+
+      if (playData.paymentState === 0) {
+        throw new Error('Google Play subscription payment is pending.');
+      }
+
+      expiryDate = new Date(expiryMillis).toISOString();
+    } catch (gErr) {
+      console.error('Google Play Publisher API error:', gErr);
+      throw new functions.https.HttpsError('permission-denied', `Google Play verification error: ${gErr.message}`);
+    }
+  } else {
+    throw new functions.https.HttpsError('failed-precondition', 'Google Play service account not configured on server.');
+  }
+
+  // 2. Token replay protection ID key
+  const safeTokenKey = purchaseToken.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 100);
+  const paymentId = `gplay_${safeTokenKey || Date.now()}`;
+  const startDate = new Date().toISOString();
+
+  // 3. Firestore Transaction for Replay Protection & Atomic Writes
+  await db.runTransaction(async (transaction) => {
+    const paymentRef = db.collection('payment_history').doc(paymentId);
+    const paymentSnap = await transaction.get(paymentRef);
+
+    if (paymentSnap.exists && paymentSnap.data().status === 'success') {
+      throw new functions.https.HttpsError('already-exists', 'This Google Play purchase token has already been processed.');
+    }
+
+    const subRef = db.collection('subscriptions').doc(userId);
+    transaction.set(subRef, {
+      userId,
+      userEmail,
+      planId,
+      billingCycle: billingCycle || 'monthly',
+      status: 'active',
+      startDate,
+      expiryDate,
+      autoRenewal: true,
+      paymentSource: 'google_play',
+      purchaseToken,
+      productId: targetProductId,
+      lastPaymentId: paymentId,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    transaction.set(paymentRef, {
+      id: paymentId,
+      userId,
+      userEmail,
+      planId,
+      billingCycle: billingCycle || 'monthly',
+      amount: SERVER_SUBSCRIPTION_PLANS[planId]?.[billingCycle] || 0,
+      currency: 'INR',
+      gateway: 'google_play',
+      googlePurchaseToken: purchaseToken,
+      status: 'success',
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  return {
+    success: true,
+    planId,
+    expiryDate,
+  };
+});
+
+/**
+ * 8. Razorpay Webhook Verification
+ */
+exports.razorpayWebhook = onRequest(async (req, res) => {
+  const crypto = require('crypto');
+  if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+    res.status(500).send('Razorpay webhook secret not configured on server');
+    return;
+  }
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const signature = req.headers['x-razorpay-signature'];
+
+  if (!signature) {
+    res.status(400).send('Missing webhook signature');
+    return;
+  }
+
+  const bodyString = req.rawBody ? req.rawBody.toString() : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+  const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(bodyString).digest('hex');
+
+  if (signature !== expectedSignature) {
+    res.status(400).send('Invalid webhook signature');
+    return;
+  }
+
+  const event = req.body?.event;
+  const payload = req.body?.payload?.payment?.entity || {};
+
+  if (event === 'payment.captured' || event === 'order.paid') {
+    const { order_id, id: payment_id, notes } = payload;
+    const userId = notes?.userId;
+    const planId = notes?.planId;
+    const billingCycle = notes?.billingCycle || 'monthly';
+
+    if (userId && planId) {
+      const days = billingCycle === 'yearly' ? 365 : 30;
+      const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+      try {
+        await db.runTransaction(async (t) => {
+          const pRef = db.collection('payment_history').doc(payment_id);
+          const pSnap = await t.get(pRef);
+          if (pSnap.exists && pSnap.data().status === 'success') return;
+
+          t.set(db.collection('subscriptions').doc(userId), {
+            userId,
+            planId,
+            billingCycle,
+            status: 'active',
+            expiryDate,
+            paymentSource: 'razorpay_webhook',
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+
+          t.set(pRef, {
+            id: payment_id,
+            userId,
+            planId,
+            billingCycle,
+            gateway: 'razorpay_webhook',
+            status: 'success',
+            timestamp: new Date().toISOString(),
+          });
+        });
+      } catch (whErr) {
+        console.error('Razorpay Webhook transaction error:', whErr);
+      }
+    }
+  }
+
+  res.status(200).json({ status: 'ok' });
+});
+
+/**
+ * 9. Google Real-Time Developer Notifications (RTDN) Webhook
+ */
+exports.googlePlayRtdnWebhook = onRequest(async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const expectedToken = process.env.RTDN_WEBHOOK_SECRET;
+
+  if (!expectedToken) {
+    console.error('RTDN_WEBHOOK_SECRET not configured');
+    res.status(500).send('Server configuration error');
+    return;
+  }
+
+  const receivedToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  if (receivedToken !== expectedToken) {
+    console.warn('RTDN webhook: invalid auth token');
+    res.status(401).send('Unauthorized');
+    return;
+  }
+
+  try {
+    const message = req.body?.message;
+    if (!message || !message.data) {
+      res.status(200).send('No data');
+      return;
+    }
+
+    const decodedData = Buffer.from(message.data, 'base64').toString('utf-8');
+    const notification = JSON.parse(decodedData);
+    const subNotif = notification.subscriptionNotification;
+
+    if (subNotif) {
+      const { notificationType, purchaseToken, subscriptionId } = subNotif;
+      console.log(`Google RTDN Received: type=${notificationType}, token=${purchaseToken}`);
+
+      // Query user with matching purchaseToken
+      const subQuery = await db.collection('subscriptions').where('purchaseToken', '==', purchaseToken).limit(1).get();
+      if (!subQuery.empty) {
+        const userSubDoc = subQuery.docs[0];
+        const subData = userSubDoc.data();
+
+        if (notificationType === 2) {
+          // SUBSCRIPTION_RENEWED (Type 2)
+          const days = subData.billingCycle === 'yearly' ? 365 : 30;
+          const newExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+          await userSubDoc.ref.update({ status: 'active', expiryDate: newExpiry, updatedAt: new Date().toISOString() });
+        } else if (notificationType === 3) {
+          // SUBSCRIPTION_CANCELED (Type 3)
+          await userSubDoc.ref.update({ autoRenewal: false, updatedAt: new Date().toISOString() });
+        } else if (notificationType === 13) {
+          // SUBSCRIPTION_EXPIRED (Type 13)
+          await userSubDoc.ref.update({ status: 'expired', planId: 'free', updatedAt: new Date().toISOString() });
+        }
+      }
+    }
+    res.status(200).send('Event processed');
+  } catch (err) {
+    console.error('Google RTDN error:', err);
+    res.status(500).send('Error');
+  }
+});
+
+exports.adminUpdateSubscription = onCall(async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+  }
+
+  const callerUid = request.auth.uid;
+  const callerSnap = await db.collection('users').doc(callerUid).get();
+  if (!callerSnap.exists || !['admin', 'owner'].includes((callerSnap.data().role || '').toLowerCase())) {
+    throw new functions.https.HttpsError('permission-denied', 'Only Admins can update user subscriptions.');
+  }
+
+  const { targetUserId, targetUserEmail, planId, billingCycle, durationDays, reason } = request.data || {};
+
+  if (!targetUserId || !planId) {
+    throw new functions.https.HttpsError('invalid-argument', 'targetUserId and planId are required.');
+  }
+
+  if (!SERVER_SUBSCRIPTION_PLANS[planId]) {
+    throw new functions.https.HttpsError('invalid-argument', `Invalid planId: ${planId}. Must be one of: ${Object.keys(SERVER_SUBSCRIPTION_PLANS).join(', ')}.`);
+  }
+
+  const targetUserSnap = await db.collection('users').doc(targetUserId).get();
+  if (!targetUserSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Target user not found.');
+  }
+
+  const callerCompanyId = callerSnap.data().companyId;
+  const targetCompanyId = targetUserSnap.data().companyId;
+  if (targetCompanyId && callerCompanyId && targetCompanyId !== callerCompanyId) {
+    throw new functions.https.HttpsError('permission-denied', 'Cannot update subscription for users in a different company.');
+  }
+
+  const days = Math.max(1, Number(durationDays) || 30);
+  const startDate = new Date().toISOString();
+  const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+  await db.collection('subscriptions').doc(targetUserId).set({
+    userId: targetUserId,
+    userEmail: targetUserEmail || '',
+    planId,
+    billingCycle: billingCycle || 'monthly',
+    status: 'active',
+    startDate,
+    expiryDate,
+    autoRenewal: false,
+    paymentSource: 'admin_manual',
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+
+  await db.collection('subscription_logs').doc(`log_${Date.now()}`).set({
+    id: `log_${Date.now()}`,
+    userId: targetUserId,
+    action: 'admin_override',
+    newPlanId: planId,
+    reason: reason || 'Manual Admin Update',
+    performedBy: callerUid,
+    timestamp: new Date().toISOString(),
+  });
+
+  return {
+    success: true,
+    targetUserId,
+    planId,
+    expiryDate,
+  };
 });

@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, clearIndexedDbPersistence, getDocsFromCache, getDocsFromServer } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB52JnNNz8ul7lajtCzhdQoC9zKr_ynk-Y",
@@ -14,14 +15,23 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Enable persistent offline cache so getDocsCached serves data instantly
+if (typeof self !== 'undefined' && typeof self.location !== 'undefined') {
+  const appCheckKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_KEY;
+  if (appCheckKey) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+}
+
 let db: ReturnType<typeof getFirestore>;
 try {
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 } catch {
-  db = getFirestore(app); // already initialized
+  db = getFirestore(app);
 }
 
 export { db };

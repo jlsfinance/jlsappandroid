@@ -48,7 +48,7 @@ const Register: React.FC = () => {
         uid: user.uid,
         name: formData.name,
         email: formData.email,
-        role: "admin", // Default role for registrants in this context? Or agent.
+        role: "pending", // New users must be promoted by an existing admin
         createdAt: new Date().toISOString(),
       });
 
@@ -98,7 +98,7 @@ const Register: React.FC = () => {
           uid: user.uid,
           name: user.displayName || 'No Name',
           email: user.email,
-          role: "admin",
+          role: "pending",
           createdAt: new Date().toISOString(),
         });
       }

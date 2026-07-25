@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { db, auth, functions } from '../firebaseConfig';
 import { format } from 'date-fns';
 import NotificationListener from '../components/NotificationListener';
@@ -59,27 +59,39 @@ const CustomerPortal: React.FC = () => {
   const [selectedEmi, setSelectedEmi] = useState<Emi | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [customerId, setCustomerId] = useState<string>('');
+  const [companyId, setCompanyId] = useState<string>('');
+  const [showChangePinModal, setShowChangePinModal] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [changePinLoading, setChangePinLoading] = useState(false);
+  const [changePinError, setChangePinError] = useState('');
 
   const formatCurrency = (val: number) => `₹${new Intl.NumberFormat("en-IN").format(val)}`;
   const formatDate = (d: string) => { try { return format(new Date(d), 'dd MMM yyyy'); } catch { return d; } };
 
   useEffect(() => {
-    // Ensure we have an anonymous auth session for Firestore Rules
-    const ensureAuth = async () => {
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (e) {
-          console.error("Anonymous Auth Failed", e);
-        }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate('/customer-login');
+        return;
       }
-      setIsAuthReady(true);
-    };
-    ensureAuth();
-  }, []);
+      user.getIdTokenResult().then((tokenResult) => {
+        if (tokenResult.claims.role !== 'customer') {
+          navigate('/customer-login');
+          return;
+        }
+        setCustomerId(tokenResult.claims.customerDocId as string);
+        setCompanyId(tokenResult.claims.companyId as string);
+        setIsAuthReady(true);
+      });
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   const fetchData = useCallback(async () => {
-    const cid = localStorage.getItem('customerPortalId');
+    const cid = customerId;
     if (!cid) return navigate('/customer-login');
     setLoading(true);
     try {
@@ -134,7 +146,7 @@ const CustomerPortal: React.FC = () => {
       }
       setLoans(Array.from(loanMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [navigate]);
+  }, [navigate, customerId]);
 
   useEffect(() => {
     if (loans.length > 0) {
@@ -156,8 +168,8 @@ const CustomerPortal: React.FC = () => {
   }, [customer?.id]);
 
   useEffect(() => {
-    if (isAuthReady) fetchData();
-  }, [fetchData, isAuthReady]);
+    if (isAuthReady && customerId) fetchData();
+  }, [fetchData, isAuthReady, customerId]);
 
   const activeLoans = useMemo(() => loans.filter(l => l.status === 'Active' || l.status === 'Disbursed'), [loans]);
   const getNextEmi = (loan: Loan) => loan.repaymentSchedule?.find(e => e.status === 'Pending' || e.status === 'Overdue');
@@ -204,12 +216,27 @@ const CustomerPortal: React.FC = () => {
 
   const handleLogout = async () => {
     if (confirm("Are you sure you want to logout?")) {
-      const cid = localStorage.getItem('customerPortalId');
-      if (cid) await NotificationService.clearCustomerToken(cid);
-      localStorage.removeItem('customerPortalId');
-      localStorage.removeItem('customerPortalPhone');
+      if (customerId) await NotificationService.clearCustomerToken(customerId);
+      await signOut(auth);
       navigate('/customer-login');
     }
+  };
+
+  const handleChangePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePinError('');
+    if (newPin.length < 6) { setChangePinError('PIN must be at least 6 digits.'); return; }
+    if (newPin !== confirmPin) { setChangePinError('PINs do not match.'); return; }
+    setChangePinLoading(true);
+    try {
+      const changeCustomerPin = httpsCallable(functions, 'changeCustomerPin');
+      await changeCustomerPin({ customerId, oldPin: currentPin, newPin });
+      setShowChangePinModal(false);
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmPin('');
+    } catch (err: any) { setChangePinError(err?.message || 'Failed to change PIN.'); }
+    finally { setChangePinLoading(false); }
   };
 
   if (loading || !isAuthReady) {
@@ -438,6 +465,7 @@ const CustomerPortal: React.FC = () => {
                   },
                   { label: 'Payment Receipts', icon: 'receipt_long', action: () => setCurrentTab('history') },
                   { label: 'Update Personal Details', icon: 'manage_accounts', action: () => alert('Contact admin to update profile.') },
+                  { label: 'Change PIN', icon: 'lock_reset', action: () => setShowChangePinModal(true) },
                   {
                     label: 'Refer a Friend & Earn',
                     icon: 'card_giftcard',
@@ -665,6 +693,38 @@ const CustomerPortal: React.FC = () => {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change PIN Modal */}
+      {showChangePinModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/70 backdrop-blur-lg animate-in fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20">
+            <div className="p-10">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-black text-xl text-gray-900 dark:text-white">Change PIN</h3>
+                <button onClick={() => setShowChangePinModal(false)} className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-full"><span className="material-symbols-outlined text-lg">close</span></button>
+              </div>
+              <form onSubmit={handleChangePin} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wider">Current PIN</label>
+                  <input type="password" value={currentPin} onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))} placeholder="Enter current PIN" inputMode="numeric" pattern="[0-9]*" maxLength={10} className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a2230] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white text-sm" required />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wider">New PIN</label>
+                  <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} placeholder="Enter new 6-digit PIN" inputMode="numeric" pattern="[0-9]*" maxLength={10} className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a2230] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white text-sm" required />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wider">Confirm PIN</label>
+                  <input type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))} placeholder="Re-enter new PIN" inputMode="numeric" pattern="[0-9]*" maxLength={10} className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a2230] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white text-sm" required />
+                </div>
+                {changePinError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-red-700 dark:text-red-400 text-xs text-center">{changePinError}</div>}
+                <button type="submit" disabled={changePinLoading} className="w-full py-4 btn-primary text-white font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2">
+                  {changePinLoading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div> : 'Update PIN'}
+                </button>
+              </form>
             </div>
           </div>
         </div>

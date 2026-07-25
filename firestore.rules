@@ -2,83 +2,190 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Does the logged-in user have access to this companyId?
-    // Allowed if: user owns it (companies.ownerEmail == their email)
-    //          OR: user's users doc .companyId == cid
-    //          OR: cid is in user's users doc .companies array (if present)
+    // Safely evaluates company access without crashing on null user documents or missing companies arrays
     function canAccessCompany(cid) {
-      return request.auth != null && (
-        exists(/databases/$(database)/documents/companies/$(cid))
-        && get(/databases/$(database)/documents/companies/$(cid)).data.ownerEmail == request.auth.token.email
-        || cid == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
-        || cid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companies
+      return request.auth != null && cid != null && (
+        (exists(/databases/$(database)/documents/companies/$(cid))
+         && get(/databases/$(database)/documents/companies/$(cid)).data.ownerEmail == request.auth.token.email)
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && cid == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId)
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && "companies" in get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+            && cid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companies)
       );
     }
 
-    // Companies: owner can read/create/update/delete, others (assigned) read-only
+    // Business Data Permission Helpers
+    function canReadBusinessData() {
+      return request.auth != null && (
+        resource == null || canAccessCompany(resource.data.companyId)
+      );
+    }
+
+    function canCreateBusinessData() {
+      return request.auth != null
+        && request.resource.data.companyId != null
+        && canAccessCompany(request.resource.data.companyId)
+        && (!('ownerEmail' in request.resource.data) || request.resource.data.ownerEmail == request.auth.token.email);
+    }
+
+    // Task 1 & Task 2: Protect companyId and ownerEmail from post-creation modification
+    function canUpdateBusinessData() {
+      return request.auth != null
+        && resource != null
+        && canAccessCompany(resource.data.companyId)
+        && request.resource.data.companyId == resource.data.companyId
+        && (!('ownerEmail' in resource.data) || request.resource.data.ownerEmail == resource.data.ownerEmail);
+    }
+
+    function canDeleteBusinessData() {
+      return request.auth != null && resource != null && canAccessCompany(resource.data.companyId);
+    }
+
+    // Companies: owner can read/create/update/delete, assigned company users can read
     match /companies/{document} {
       allow read: if request.auth != null
-        && (resource.data.ownerEmail == request.auth.token.email
-            || document == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId);
+        && ((resource != null && resource.data.ownerEmail == request.auth.token.email)
+            || canAccessCompany(document));
       allow create: if request.auth != null
         && request.resource.data.ownerEmail == request.auth.token.email;
       allow update, delete: if request.auth != null
         && resource.data.ownerEmail == request.auth.token.email;
     }
 
-    // All business data: per-company READ isolation via denormalized ownerEmail
-    // (stamped by Cloud Function trigger). Writes require auth + a companyId
-    // (matches original working posture; create/update allowed for any authed user
-    // scoped to their company).
+    // Business Data Collections: Company-Isolated Access & Immutable companyId/ownerEmail
     match /customers/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /loans/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /deposits/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /payments/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /expenses/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /ledger/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /partner_transactions/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /partners/{document} {
-      allow read, write: if request.auth != null;
-    }
-    match /receipts/{document} {
-      allow read, write: if request.auth != null;
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
     }
 
-    // Counters: authenticated users only
+    match /loans/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    match /deposits/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    match /expenses/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    match /ledger/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    match /partner_transactions/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    match /partners/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    match /receipts/{document} {
+      allow read: if canReadBusinessData();
+      allow create: if canCreateBusinessData();
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    // Counters: Server-side Cloud Functions only for writes
     match /counters/{document} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
     // Users: own doc by uid (read+write); lookup by email allowed for role/company resolution
     match /users/{document} {
       allow read: if request.auth != null && (
         request.auth.uid == document
-        || resource.data.email == request.auth.token.email
-        || (resource.data.companyId != null && canAccessCompany(resource.data.companyId)));
+        || (resource != null && resource.data.email == request.auth.token.email)
+        || (resource != null && resource.data.companyId != null && canAccessCompany(resource.data.companyId))
+      );
       allow write: if request.auth != null && request.auth.uid == document && (
         resource == null
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "fcmToken"])
       );
     }
 
-    // Notifications: customer portal reads unauthenticated (no sensitive data); writes auth-only
+    // Task 3: Notifications (Strict existing document READ rule without resource == null)
     match /notifications/{document} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read: if request.auth != null && resource != null && (
+        canAccessCompany(resource.data.companyId)
+        || resource.data.recipientId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.companyId != null
+        && canAccessCompany(request.resource.data.companyId)
+      );
+      allow update: if canUpdateBusinessData();
+      allow delete: if canDeleteBusinessData();
+    }
+
+    // Subscriptions: Users can read their subscription; WRITES RESTRICTED TO CLOUD FUNCTIONS (Admin SDK)
+    match /subscriptions/{document} {
+      allow read: if request.auth != null && (
+        request.auth.uid == document
+        || (resource != null && resource.data.userId == request.auth.uid)
+        || (resource != null && resource.data.userEmail == request.auth.token.email)
+      );
+      allow write: if false;
+    }
+
+    // Payments & Payment History: WRITES RESTRICTED TO CLOUD FUNCTIONS / ADMIN SDK ONLY
+    match /payments/{document} {
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid)
+        || (resource != null && resource.data.userEmail == request.auth.token.email)
+      );
+      allow write: if false;
+    }
+
+    match /payment_history/{document} {
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid)
+        || (resource != null && resource.data.userEmail == request.auth.token.email)
+      );
+      allow write: if false;
+    }
+
+    // Subscription Logs: Audit logs for subscription actions
+    match /subscription_logs/{document} {
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid)
+        || (resource != null && resource.data.userEmail == request.auth.token.email)
+      );
+      allow write: if false;
+    }
+
+    // Usage Collection: READ-ONLY FOR CLIENTS; WRITES RESTRICTED TO CLOUD FUNCTIONS / ADMIN SDK ONLY
+    match /usage/{document} {
+      allow read: if request.auth != null && (
+        request.auth.uid == document
+        || (resource != null && resource.data.userId == request.auth.uid)
+      );
+      allow write: if false;
     }
 
     // Fallback: deny everything else

@@ -25,8 +25,8 @@ dist-ssr
 .vercel
 
 # Secrets / keystores / local config
-android/app/release-key.jks
-android/app/upload-key.jks
+*.jks
+*.keystore
 android/app/upload-cert.pem
 android/app/key.properties
 google-services.json

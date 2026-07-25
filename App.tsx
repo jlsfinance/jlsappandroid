@@ -42,6 +42,9 @@ import Sidebar from './components/Sidebar';
 import Downloads from './pages/Downloads';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import { SubscriptionProvider } from './context/SubscriptionContext';
+import PricingPage from './pages/PricingPage';
+import SubscriptionDetails from './pages/SubscriptionDetails';
 
 const ProtectedRoute = ({ children, requireCompany = true }: { children?: React.ReactNode; requireCompany?: boolean }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -98,6 +101,7 @@ import AnimatedSplash from './components/AnimatedSplash';
 import IntroNotice from './components/IntroNotice';
 import BackButtonHandler from './components/BackButtonHandler';
 import ErrorBoundary from './components/ErrorBoundary';
+import SubscriptionRequiredRoute from './components/SubscriptionRequiredRoute';
 import { WhatsappService } from './services/whatsappService';
 import PermissionRequestor from './components/PermissionRequestor';
 import NotificationListener from './components/NotificationListener';
@@ -116,12 +120,13 @@ const CustomerSessionRedirect: React.FC = () => {
 
   useEffect(() => {
     if (location.pathname !== '/') return;
-    const customerId = localStorage.getItem('customerPortalId');
-    if (!customerId) return;
-
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && !user.isAnonymous) return;
-      if (location.pathname === '/') navigate('/customer-portal', { replace: true });
+      if (!user) return;
+      user.getIdTokenResult().then((tokenResult) => {
+        if (tokenResult.claims.role === 'customer') {
+          navigate('/customer-portal', { replace: true });
+        }
+      });
       unsubscribe();
     });
     return () => unsubscribe();
@@ -172,9 +177,10 @@ const App: React.FC = () => {
       <CustomerSessionRedirect />
       <PermissionRequestor />
       <NotificationListener />
-      <CompanyProvider>
-        <WhatsappCompanySync />
-        <SidebarProvider>
+      <SubscriptionProvider>
+        <CompanyProvider>
+          <WhatsappCompanySync />
+          <SidebarProvider>
           <div className="flex h-screen bg-background-light dark:bg-background-dark">
             <Sidebar />
             <div className="flex-1 flex flex-col h-full overflow-y-auto relative">
@@ -270,8 +276,10 @@ const App: React.FC = () => {
                 <Route path="/deposits" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <Deposits />
-                      <BottomNav />
+                      <SubscriptionRequiredRoute feature="deposit">
+                        <Deposits />
+                        <BottomNav />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -279,7 +287,9 @@ const App: React.FC = () => {
                 <Route path="/deposits/new" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <NewDeposit />
+                      <SubscriptionRequiredRoute feature="deposit">
+                        <NewDeposit />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -287,7 +297,9 @@ const App: React.FC = () => {
                 <Route path="/deposits/:id" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <DepositDetails />
+                      <SubscriptionRequiredRoute feature="deposit">
+                        <DepositDetails />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -295,7 +307,9 @@ const App: React.FC = () => {
                 <Route path="/deposits/edit/:id" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <EditDeposit />
+                      <SubscriptionRequiredRoute feature="deposit">
+                        <EditDeposit />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -345,7 +359,9 @@ const App: React.FC = () => {
                 <Route path="/reports" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <Reports />
+                      <SubscriptionRequiredRoute feature="advancedReports">
+                        <Reports />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -385,7 +401,9 @@ const App: React.FC = () => {
                 <Route path="/deposit-due-list" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <DepositDueList />
+                      <SubscriptionRequiredRoute feature="deposit">
+                        <DepositDueList />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -409,7 +427,9 @@ const App: React.FC = () => {
                 <Route path="/user-management" element={
                   <ProtectedRoute>
                     <CompanyRequiredRoute>
-                      <UserManagement />
+                      <SubscriptionRequiredRoute feature="multiStaff">
+                        <UserManagement />
+                      </SubscriptionRequiredRoute>
                     </CompanyRequiredRoute>
                   </ProtectedRoute>
                 } />
@@ -424,12 +444,19 @@ const App: React.FC = () => {
 
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/subscription" element={
+                  <ProtectedRoute>
+                    <SubscriptionDetails />
+                  </ProtectedRoute>
+                } />
               </Routes>
               </ErrorBoundary>
             </div>
           </div>
         </SidebarProvider>
       </CompanyProvider>
+    </SubscriptionProvider>
     </Router>
   );
 };

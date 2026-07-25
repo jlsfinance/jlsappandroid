@@ -5,12 +5,15 @@ import { format } from 'date-fns';
 import { db } from '../firebaseConfig';
 import { Deposit, DepositInstallment } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import UpgradeModal from '../components/UpgradeModal';
 import { fetchCustomers, clearQueryCache } from '../services/dataService';
 import { WhatsappService } from '../services/whatsappService';
 
 const Deposits: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
+  const { activePlan } = useSubscription();
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [customerMap, setCustomerMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -103,6 +106,28 @@ const Deposits: React.FC = () => {
       .filter(d => (d.customerName || '').toLowerCase().includes(s) || d.id.includes(s))
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
   }, [deposits, searchTerm, statusFilter]);
+
+  if (!activePlan.limits.allowDepositModule) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center">
+        <div className="w-20 h-20 bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
+          <span className="material-symbols-outlined text-4xl">lock</span>
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 font-display">
+          Deposit Module Locked
+        </h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mb-8">
+          The Deposit (RD/FD) management module is available on <strong>Starter</strong>, <strong>Pro</strong>, and <strong>Enterprise</strong> plans. Upgrade your subscription to unlock deposit ledgers.
+        </p>
+        <button
+          onClick={() => navigate('/pricing')}
+          className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm uppercase tracking-wider rounded-2xl shadow-lg shadow-indigo-500/25 hover:brightness-110 active:scale-95 transition-all"
+        >
+          View Plans & Upgrade
+        </button>
+      </div>
+    );
+  }
 
   const totalDeposited = deposits.reduce((sum, d) => sum + (d.principal || 0), 0);
   const totalMaturity = deposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0);

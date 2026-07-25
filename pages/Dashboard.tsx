@@ -4,10 +4,12 @@ import { collection, getDocs, query, orderBy, limit, where } from 'firebase/fire
 import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { useSidebar } from '../context/SidebarContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { NotificationService } from '../services/NotificationService';
 import { WhatsappService } from '../services/whatsappService';
 import { getDocsSmart } from '../services/dataService';
 import LazyImage from '../components/LazyImage';
+import ErrorDisplay from '../components/ErrorDisplay';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO } from 'date-fns';
@@ -25,6 +27,7 @@ const formatCurrency = (amount: number) => {
 const Dashboard: React.FC = () => {
     const { currentCompany } = useCompany();
     const { openSidebar } = useSidebar();
+    const { subscription, usage, activePlan } = useSubscription();
     const [activeCard, setActiveCard] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -35,6 +38,8 @@ const Dashboard: React.FC = () => {
     const [ledger, setLedger] = useState<any[]>([]);
     const [deposits, setDeposits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [userName, setUserName] = useState('Admin');
     const [isNotifEnabled, setIsNotifEnabled] = useState(false);
     const [randomAvatar, setRandomAvatar] = useState('');
@@ -125,57 +130,57 @@ const Dashboard: React.FC = () => {
         setRandomAvatar(avatars[Math.floor(Math.random() * avatars.length)]);
     }, []);
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            if (!currentCompany) return;
+    const fetchDashboardData = async (isManualRefresh = false) => {
+        if (!currentCompany) return;
+        if (isManualRefresh) setIsRefreshing(true);
+        setError(null);
 
-            try {
-                const user = auth.currentUser;
-                if (user?.email) {
-                    setUserName(user.email.split('@')[0]);
-                }
-
-                const companyId = currentCompany.id;
-
-                // Phase 1 (fast): loans, customers, deposits, partner, expenses, ledger — drives cards + balance
-                const [loansSnap, customersSnap, depositsSnap, partnerTxSnap, expensesSnap, ledgerSnap] = await Promise.all([
-                    getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
-                    getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId)))
-                ]);
-
-                const loansData = loansSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-                const customersData = customersSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-                const depositsData = depositsSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-
-                loansData.sort((a: any, b: any) => {
-                    const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
-                    const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
-                    return dateB.getTime() - dateA.getTime();
-                });
-
-                setLoans(loansData);
-                setCustomers(customersData);
-                setDeposits(depositsData);
-                setPartnerTransactions(partnerTxSnap.docs.map((doc: any) => doc.data()));
-                setExpenses(expensesSnap.docs.map((doc: any) => doc.data()));
-                setLedger(ledgerSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
-                setLoading(false); // cards + balance show immediately
-
-                // ponytail: WhatsApp reminders MOVED to a button (handleSendWhatsappReminders)
-                // so dashboard loads instantly.
-            } catch (error) {
-                console.error("Error loading dashboard data:", error);
-            } finally {
-                setLoading(false);
+        try {
+            const user = auth.currentUser;
+            if (user?.email) {
+                setUserName(user.email.split('@')[0]);
             }
-        };
 
+            const companyId = currentCompany.id;
 
+            // Phase 1 (fast): loans, customers, deposits, partner, expenses, ledger — drives cards + balance
+            const [loansSnap, customersSnap, depositsSnap, partnerTxSnap, expensesSnap, ledgerSnap] = await Promise.all([
+                getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId)))
+            ]);
 
+            const loansData = loansSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+            const customersData = customersSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+            const depositsData = depositsSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+
+            loansData.sort((a: any, b: any) => {
+                const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
+                const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            setLoans(loansData);
+            setCustomers(customersData);
+            setDeposits(depositsData);
+            setPartnerTransactions(partnerTxSnap.docs.map((doc: any) => doc.data()));
+            setExpenses(expensesSnap.docs.map((doc: any) => doc.data()));
+            setLedger(ledgerSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      setError('Failed to load dashboard data. Please check your connection.');
+    } finally {
+            setLoading(false);
+            if (isManualRefresh) {
+                setTimeout(() => setIsRefreshing(false), 600);
+            }
+        }
+    };
+
+    useEffect(() => {
         fetchDashboardData();
 
         // Check Notification Status (Permission + Token)
@@ -623,6 +628,18 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <Link
+                            to="/subscription"
+                            className="group relative flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/40 dark:bg-white/10 backdrop-blur-md border border-amber-500/30 dark:border-amber-400/30 hover:border-amber-400 shadow-md shadow-amber-500/10 hover:shadow-amber-500/20 transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
+                        >
+                            <span className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                            <span className="material-symbols-outlined text-amber-400 text-base animate-pulse">diamond</span>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 hidden sm:inline relative z-10">My Plan</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xs relative z-10">
+                                {activePlan?.name || 'FREE'}
+                            </span>
+                        </Link>
+
                         <Link to="/notifications" className={`relative p-2 rounded-full transition-all border shadow-sm active:scale-90 ${isNotifEnabled
                             ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
                             : 'bg-white/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 border-white/30 dark:border-white/5 hover:bg-white dark:hover:bg-slate-700'
@@ -653,9 +670,23 @@ const Dashboard: React.FC = () => {
                                 <span className="material-symbols-outlined text-indigo-200 text-sm">account_balance_wallet</span>
                                 <span className="text-xs font-semibold text-indigo-100 tracking-wide uppercase">Available Balance</span>
                             </div>
-                            <Link to="/finance" className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20">
-                                <span className="material-symbols-outlined">arrow_outward</span>
-                            </Link>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => fetchDashboardData(true)}
+                                    disabled={isRefreshing || loading}
+                                    title="Refresh Available Balance"
+                                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20 flex items-center justify-center cursor-pointer group/btn"
+                                >
+                                    <span className={`material-symbols-outlined text-xl transition-transform duration-700 ${isRefreshing ? 'animate-spin text-amber-300' : 'group-hover/btn:rotate-180'}`}>
+                                        refresh
+                                    </span>
+                                </button>
+
+                                <Link to="/finance" title="Open Finance Overview" className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20">
+                                    <span className="material-symbols-outlined text-xl">arrow_outward</span>
+                                </Link>
+                            </div>
                         </div>
 
                         <div className="text-center sm:text-left">
@@ -671,6 +702,12 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {error && (
+                  <div className="mx-4 mb-4">
+                    <ErrorDisplay message={error} onRetry={() => { setError(null); fetchDashboardData(); }} />
+                  </div>
+                )}
 
                 {/* Quick Actions */}
                 <div>
