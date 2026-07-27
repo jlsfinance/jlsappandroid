@@ -58,10 +58,16 @@ service cloud.firestore {
     }
 
     // ─── Plan enforcement helpers (ternary-only, CEL subset) ────────
+    function getTier(raw) {
+      return raw.matches('^enterprise') ? 'enterprise'
+        : raw.matches('^pro') ? 'pro'
+        : raw.matches('^starter') ? 'starter'
+        : 'free';
+    }
     function planOf(uid) {
-      return get(/databases/$(database)/documents/subscriptions/$(uid)).data != null
-        && get(/databases/$(database)/documents/subscriptions/$(uid)).data.status == 'active'
-        ? get(/databases/$(database)/documents/subscriptions/$(uid)).data.planId
+      let sub = get(/databases/$(database)/documents/subscriptions/$(uid));
+      return sub.data != null && sub.data.status in ['active', 'trialing', 'past_due', 'cancelled']
+        ? getTier(sub.data.planId)
         : 'free';
     }
     function usageCount(uid, field) {
@@ -141,6 +147,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
+    // ponytail: Intentionally unlimited — business expenses tracking has no practical ceiling
     match /expenses/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -148,6 +155,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
+    // ponytail: Intentionally unlimited — accounting ledger entries are per-transaction, not per-customer
     match /ledger/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -155,6 +163,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
+    // ponytail: Intentionally unlimited — investor transactions track capital flow, not customer count
     match /partner_transactions/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -162,6 +171,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
+    // ponytail: Intentionally unlimited — partner/business-relationship records are low-volume by nature
     match /partners/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -169,6 +179,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
+    // ponytail: Intentionally unlimited — one receipt per loan/deposit transaction, no ceiling
     match /receipts/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();

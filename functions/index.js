@@ -742,7 +742,114 @@ BUSINESS_COLLECTIONS.forEach((col) => {
   });
 });
 
-// ponytail: one-time backfill for existing docs (call once, then can be removed)
+// ─── Server-side plan enforcement (race-condition safety net) ───
+// ponytail: transaction-based atomic read+increment catches the race
+// between rules check and usage counter update. Rules = first line,
+// this = the safety net. Upgrade per-collection transactions if throughput
+// becomes a bottleneck.
+const getPlanTier = (planId) => {
+  const p = String(planId || '');
+  if (p.startsWith('enterprise')) return 'enterprise';
+  if (p.startsWith('pro')) return 'pro';
+  if (p.startsWith('starter')) return 'starter';
+  return 'free';
+};
+
+const LIMITS = {
+  free:   { customers: 10,  loans: [null, 24], deposits: [null, 0] },
+  starter: { customers: 50,  loans: [null, 36], deposits: [null, 36] },
+  pro:    { customers: 100, loans: [null, 60], deposits: [null, 60] },
+};
+
+const ENFORCED_COLLECTIONS = ['customers', 'loans', 'deposits'];
+
+const enforcePlanLimit = async (snap, collectionName) => {
+  const data = snap.data();
+  if (!data || !data.companyId) return;
+
+  const companySnap = await db.collection('companies').doc(data.companyId).get();
+  if (!companySnap.exists) return;
+  const ownerEmail = companySnap.data().ownerEmail;
+  if (!ownerEmail) return;
+
+  const userSnap = await db.collection('users').where('email', '==', ownerEmail).limit(1).get();
+  if (userSnap.empty) return;
+  const ownerUid = userSnap.docs[0].id;
+
+  const subSnap = await db.collection('subscriptions').doc(ownerUid).get();
+  if (!subSnap.exists) return;
+  const sub = subSnap.data();
+  const tier = getPlanTier(sub.planId);
+  if (tier === 'enterprise') return;
+  const status = sub.status || 'free_tier';
+  if (!['active', 'trialing', 'past_due', 'cancelled'].includes(status)) return;
+
+  const limit = LIMITS[tier];
+  if (!limit) return;
+
+  const usageRef = db.collection('usage').doc(ownerUid);
+
+  if (collectionName === 'customers') {
+    if (limit.customers < 0) return;
+    await db.runTransaction(async (t) => {
+      const usageSnap = await t.get(usageRef);
+      const current = Number(usageSnap.data()?.customers || 0);
+      if (current >= limit.customers) {
+        await t.delete(snap.ref);
+        await db.collection('subscription_logs').add({
+          userId: ownerUid,
+          action: 'plan_enforcement',
+          detail: `customer create blocked: count ${current} >= limit ${limit.customers}`,
+          deletedDocId: snap.id,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        t.set(usageRef, { customers: FieldValue.increment(1), updatedAt: new Date().toISOString() }, { merge: true });
+      }
+    });
+  }
+
+  // ponytail: loans/deposits check tenure inline (no shared counter, no race window)
+  if (collectionName === 'loans') {
+    const tenure = Number(data.tenure) || 0;
+    const maxTenure = limit.loans?.[1];
+    if (maxTenure == null || maxTenure <= 0) return;
+    if (tenure > maxTenure) {
+      await snap.ref.delete();
+      await db.collection('subscription_logs').add({
+        userId: ownerUid,
+        action: 'plan_enforcement',
+        detail: `loan create blocked: tenure ${tenure} > max ${maxTenure}`,
+        deletedDocId: snap.id,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // ponytail: deposits check tenure inline (no shared counter, no race window)
+  if (collectionName === 'deposits') {
+    const tenure = Number(data.tenure) || 0;
+    const maxTenure = limit.deposits?.[1];
+    if (maxTenure == null || maxTenure <= 0) return;
+    if (tenure > maxTenure) {
+      await snap.ref.delete();
+      await db.collection('subscription_logs').add({
+        userId: ownerUid,
+        action: 'plan_enforcement',
+        detail: `deposit create blocked: tenure ${tenure} > max ${maxTenure}`,
+        deletedDocId: snap.id,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+};
+
+ENFORCED_COLLECTIONS.forEach((col) => {
+  exports[`enforcePlan_${col}`] = onDocumentCreated(`${col}/{id}`, async (event) => {
+    await enforcePlanLimit(event.data, col);
+  });
+});
+
 // ─── User role constants (single source of truth) ───
 // ADMIN_ROLES: roles allowed to create users. Extend here for future roles
 //   (e.g. 'owner', 'superadmin') without touching the function body.
