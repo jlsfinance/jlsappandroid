@@ -132,6 +132,7 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboardData = async (isManualRefresh = false) => {
         if (!currentCompany) return;
+        setLoading(true);
         if (isManualRefresh) setIsRefreshing(true);
         setError(null);
 
@@ -181,6 +182,7 @@ const Dashboard: React.FC = () => {
     };
 
     useEffect(() => {
+        if (!currentCompany) return;
         fetchDashboardData();
 
         // Check Notification Status (Permission + Token)

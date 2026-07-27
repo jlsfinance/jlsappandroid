@@ -99,6 +99,7 @@ const NewCustomer: React.FC = () => {
                 }
             });
 
+            await UsageService.incrementUsage(auth.currentUser.uid, 'customers', 1);
             alert("Customer Registered Successfully!");
             navigate('/customers');
 

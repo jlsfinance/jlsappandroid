@@ -241,51 +241,6 @@
 
 ---
 
-### M-4: `sendNotificationOnCreate` Broadcast Fetches All FCM Tokens
-
-**File:** `functions/index.js` lines 269–283
-**Lines:**
-```
-269:             if (recipientId === 'all') {
-270:                 console.log('Fetching all customer tokens for broadcast');
-271:                 const customersSnap = await db.collection('customers').get();
-272:                 customersSnap.forEach(doc => {
-273:                     const d = doc.data();
-274:                     if (d.fcmToken) tokens.push(d.fcmToken);
-275:                 });
-276:                 // Also fetch users (Staff)
-277:                 const usersSnap = await db.collection('users').get();
-278:                 usersSnap.forEach(doc => {
-279:                     const d = doc.data();
-280:                     if (d.fcmToken) tokens.push(d.fcmToken);
-281:                 });
-```
-
-**Issue:** When a notification is created with `recipientId === 'all'`, the cloud function reads **every document** from both the `customers` and `users` collections to collect FCM tokens. This is an unindexed scan of both collections that grows linearly with total users. It also means that any admin who creates an "all" notification triggers a full collection scan, which is expensive and potentially data-leaking if any collection contains documents the caller shouldn't normally see.
-
-**Impact:** Performance risk at scale (1000+ customers), and a potential information disclosure path if collection metadata is observable through execution timing.
-
-**Fix:** Store FCM tokens indexed by a `receiveBroadcast` flag, or maintain a dedicated `fcm_tokens` subcollection. Alternatively, use Firebase Cloud Messaging topics instead of manual token collection.
-
----
-
-### M-5: FCM Token Treated as Fallback Identifier
-
-**File:** `functions/index.js` lines 302–305
-**Lines:**
-```
-302:                 // Fallback: If "recipientId" is actually the raw token
-303:                 if (tokens.length === 0 && recipientId.length > 20) {
-304:                     tokens.push(recipientId);
-305:                 }
-```
-
-**Issue:** If a notification's `recipientId` is longer than 20 characters and no FCM token was found via customer/user lookup, the code treats `recipientId` as a raw FCM token and sends the notification to it directly. This means any string with length > 20 can be passed as a `recipientId` and will be interpreted as a push target. An attacker who can create notifications (via `notifications` collection `create` rule) could send push notifications to arbitrary FCM tokens.
-
-**Fix:** Remove this fallback entirely. The `recipientId` should always be a known entity (customer ID or user ID), never treated as a raw token.
-
----
-
 ### M-6: `users` Collection Write Rule Allows Any Authenticated User to Write Their Own Doc (Within Constraints)
 
 **File:** `firestore.rules` lines 126–129

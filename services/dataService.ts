@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, deleteDoc, updateDoc, runTransaction, getDocsFromCache, getDocsFromServer, getDocFromCache, getDocFromServer } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, query, where, deleteDoc, updateDoc, getDocsFromCache, getDocsFromServer, getDocFromCache, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Customer, Loan, Deposit } from '../types';
 

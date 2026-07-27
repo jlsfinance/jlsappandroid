@@ -57,13 +57,59 @@ service cloud.firestore {
       return request.auth.token.companyId;
     }
 
+    // ─── Plan enforcement helpers (ternary-only, CEL subset) ────────
+    function planOf(uid) {
+      return get(/databases/$(database)/documents/subscriptions/$(uid)).data != null
+        && get(/databases/$(database)/documents/subscriptions/$(uid)).data.status == 'active'
+        ? get(/databases/$(database)/documents/subscriptions/$(uid)).data.planId
+        : 'free';
+    }
+    function usageCount(uid, field) {
+      return get(/databases/$(database)/documents/usage/$(uid)).data != null
+        && field in get(/databases/$(database)/documents/usage/$(uid)).data
+        ? get(/databases/$(database)/documents/usage/$(uid)).data[field]
+        : 0;
+    }
+    function canAddCustomerForPlan(uid) {
+      return planOf(uid) == 'enterprise'
+        ? true
+        : planOf(uid) == 'pro'
+          ? usageCount(uid, 'customers') < 100
+          : planOf(uid) == 'starter'
+            ? usageCount(uid, 'customers') < 50
+            : usageCount(uid, 'customers') < 10;
+    }
+    function canCreateLoanForPlan(uid, tenure) {
+      return planOf(uid) == 'enterprise'
+        ? true
+        : planOf(uid) == 'pro'
+          ? tenure <= 60
+          : planOf(uid) == 'starter'
+            ? tenure <= 36
+            : tenure <= 24;
+    }
+    function canCreateDepositForPlan(uid, tenure) {
+      return planOf(uid) == 'enterprise' || planOf(uid) == 'pro'
+        ? tenure <= (planOf(uid) == 'enterprise' ? 9999 : 60)
+        : planOf(uid) == 'starter'
+          ? tenure <= 36
+          : false;
+    }
+    function canAddCompanyForPlan(uid) {
+      return planOf(uid) == 'enterprise'
+        ? true
+        : usageCount(uid, 'companies') < 1;
+    }
+    // ───────────────────────────────────────────────────────────
+
     // Companies: owner can read/create/update/delete, assigned company users can read
     match /companies/{document} {
       allow read: if request.auth != null
         && ((resource != null && resource.data.ownerEmail == request.auth.token.email)
             || canAccessCompany(document));
       allow create: if request.auth != null
-        && request.resource.data.ownerEmail == request.auth.token.email;
+        && request.resource.data.ownerEmail == request.auth.token.email
+        && canAddCompanyForPlan(request.auth.uid);
       allow update, delete: if request.auth != null
         && resource.data.ownerEmail == request.auth.token.email;
     }
@@ -72,7 +118,8 @@ service cloud.firestore {
     match /customers/{document} {
       allow read: if canReadBusinessData()
         || (isCustomer() && document == getCustomerDocId());
-      allow create: if canCreateBusinessData();
+      allow create: if canCreateBusinessData()
+        && canAddCustomerForPlan(request.auth.uid);
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }
@@ -80,14 +127,16 @@ service cloud.firestore {
     match /loans/{document} {
       allow read: if canReadBusinessData()
         || (isCustomer() && resource != null && resource.data.customerId == getCustomerDocId());
-      allow create: if canCreateBusinessData();
+      allow create: if canCreateBusinessData()
+        && canCreateLoanForPlan(request.auth.uid, request.resource.data.tenure);
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }
 
     match /deposits/{document} {
       allow read: if canReadBusinessData();
-      allow create: if canCreateBusinessData();
+      allow create: if canCreateBusinessData()
+        && canCreateDepositForPlan(request.auth.uid, request.resource.data.tenure);
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }
@@ -208,6 +257,17 @@ service cloud.firestore {
         || (resource != null && resource.data.userId == request.auth.uid)
       );
       allow write: if false;
+    }
+
+    // System subtree: internal metrics, audit logs, config — admin SDK only
+    match /companies/{companyId}/system/{document=**} {
+      allow read: if canReadBusinessData();
+      allow write: if false;
+    }
+
+    // Metrics dedup: Cloud Functions only (admin SDK), never client-accessible
+    match /_metricsDedup/{document} {
+      allow read, write: if false;
     }
 
     // Fallback: deny everything else

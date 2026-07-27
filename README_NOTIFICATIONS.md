@@ -17,64 +17,7 @@ firebase init functions
 # Install dependencies (yes)
 ```
 
-## Step 2: Add this Code to `functions/index.js` (or index.ts)
-
-```javascript
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-admin.initializeApp();
-
-exports.sendNotificationOnCreate = functions.firestore
-  .document('notifications/{notificationId}')
-  .onCreate(async (snap, context) => {
-    const data = snap.data();
-    const recipientId = data.recipientId;
-
-    if (!recipientId) return;
-
-    try {
-      let token = null;
-
-      // 1. Check if recipient is a Customer
-      const customerDoc = await admin.firestore().collection('customers').doc(recipientId).get();
-      if (customerDoc.exists && customerDoc.data().fcmToken) {
-        token = customerDoc.data().fcmToken;
-      }
-
-      // 2. If not customer, check if User (Admin/Staff)
-      if (!token) {
-        const userDoc = await admin.firestore().collection('users').doc(recipientId).get();
-        if (userDoc.exists && userDoc.data().fcmToken) {
-          token = userDoc.data().fcmToken;
-        }
-      }
-
-      if (!token) {
-        console.log('No FCM Token found for user:', recipientId);
-        return;
-      }
-
-      // 3. Send Push Notification
-      const payload = {
-        notification: {
-          title: data.title || 'New Notification',
-          body: data.message || 'You have a new alert',
-          sound: 'default',
-        },
-        data: {
-            // Add any extra data here
-            action: 'OPEN_APP'
-        }
-      };
-
-      await admin.messaging().sendToDevice(token, payload);
-      console.log('Notification sent successfully to:', recipientId);
-
-    } catch (error) {
-      console.error('Error sending notification:', error);
-    }
-  });
-```
+## Step 2: ~~Not implemented — `sendNotificationOnCreate` function has been removed from the codebase.~~
 
 ## Step 3: Deploy
 ```bash

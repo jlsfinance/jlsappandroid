@@ -71,6 +71,14 @@
         { "fieldPath": "recipientId", "order": "ASCENDING" },
         { "fieldPath": "companyId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "payment_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

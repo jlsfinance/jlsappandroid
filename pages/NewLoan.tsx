@@ -7,6 +7,7 @@ import { useCompany } from '../context/CompanyContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import UpgradeModal from '../components/UpgradeModal';
 import { WhatsappService } from '../services/whatsappService';
+import { UsageService } from '../services/UsageService';
 
 interface LoanFormState {
   amount: number;
@@ -163,6 +164,7 @@ const NewLoan: React.FC = () => {
         repaymentSchedule: []
       });
 
+      await UsageService.incrementUsage(auth.currentUser!.uid, 'loans', 1);
       alert(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
       // ponytail: notify customer on loan creation
       WhatsappService.sendLoanCreated(

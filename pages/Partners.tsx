@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, addDoc, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -275,6 +275,20 @@ const Partners: React.FC = () => {
         }
     };
     
+    const handleDeletePartner = async (partner: Partner) => {
+        if (!confirm(`Delete ${partner.name} and all their transactions? This cannot be undone.`)) return;
+        try {
+            const txQuery = query(collection(db, "partner_transactions"), where("partnerId", "==", partner.id), where("companyId", "==", currentCompany.id));
+            const txSnap = await getDocs(txQuery);
+            await Promise.all(txSnap.docs.map(txDoc => deleteDoc(doc(db, "partner_transactions", txDoc.id))));
+            await deleteDoc(doc(db, "partners", partner.id));
+            fetchData();
+        } catch (err) {
+            alert('Failed to delete partner');
+            console.error(err);
+        }
+    };
+
     const onTransactionSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!transactionForm.partnerId || !transactionForm.amount) return;
@@ -422,6 +436,12 @@ const Partners: React.FC = () => {
                                                         className="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 px-2 py-1 rounded font-bold"
                                                     >
                                                         Ledger
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeletePartner(p)}
+                                                        className="text-xs bg-red-50 dark:bg-red-950/30 text-red-600 hover:bg-red-100 px-2 py-1 rounded font-bold ml-1"
+                                                    >
+                                                        Delete
                                                     </button>
                                                 </td>
                                             </tr>

@@ -115,12 +115,13 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const newCompany = {
       name,
+      code: name.substring(0, 3).toLowerCase(),
       ownerEmail: user.email,
       createdAt: new Date().toISOString(),
       address: address || '',
       phone: phone || '',
       gstin: gstin || '',
-      upiId: upiId || '9413821007@superyes'
+      upiId: upiId || ''
     };
 
     const docRef = await addDoc(collection(db, "companies"), newCompany);

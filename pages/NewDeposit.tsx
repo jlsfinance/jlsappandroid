@@ -7,6 +7,7 @@ import { useCompany } from '../context/CompanyContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import UpgradeModal from '../components/UpgradeModal';
 import { WhatsappService } from '../services/whatsappService';
+import { UsageService } from '../services/UsageService';
 import { generateDepositSchedule, computeMaturity } from '../services/depositService';
 
 const DEPOSIT_TYPES: { value: DepositType; label: string; desc: string }[] = [
@@ -126,6 +127,7 @@ const NewDeposit: React.FC = () => {
         return nextId;
       });
 
+      await UsageService.incrementUsage(auth.currentUser.uid, 'deposits', 1);
       alert(`Deposit Created! Deposit ID: ${newId}`);
       // ponytail: notify customer on deposit creation
       WhatsappService.sendDepositCreated(

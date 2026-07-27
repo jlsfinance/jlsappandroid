@@ -74,7 +74,7 @@ export class RazorpayService {
       // Step 2: Open Razorpay Modal
       return new Promise((resolve) => {
         const options = {
-          key: keyId || 'rzp_test_jls_suite',
+          key: keyId,
           amount: amount,
           currency: currency || 'INR',
           name: 'JLS Finance Suite',

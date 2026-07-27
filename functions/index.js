@@ -12,7 +12,15 @@ const { getAuth } = require('firebase-admin/auth');
 const { JWT } = require('google-auth-library');
 const Razorpay = require('razorpay');
 const bcrypt = require('bcrypt');
+const express = require('express');
 const db = getFirestore();
+
+const requireAuth = (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+  }
+  return request.auth.uid;
+};
 
 // ─── WhatsApp auto-reminders (server-side, runs even if PC is off) ───
 const WASENDER_API_KEY = defineSecret('WASENDER_API_KEY');
@@ -278,94 +286,6 @@ exports.sendDailyEmiPushReminders = onSchedule(
   }
 );
 
-exports.sendNotificationOnCreate = onDocumentCreated('notifications/{notificationId}', async (event) => {
-        const snap = event.data;
-        const context = { params: { notificationId: event.params.notificationId } };
-        const data = snap.data();
-        const recipientId = data.recipientId;
-
-        if (!recipientId) {
-            console.log('No recipientId found in notification data');
-            return;
-        }
-
-        try {
-            let tokens = [];
-
-            if (recipientId === 'all') {
-                console.log('Fetching all customer tokens for broadcast');
-                const customersSnap = await db.collection('customers').get();
-                customersSnap.forEach(doc => {
-                    const d = doc.data();
-                    if (d.fcmToken) tokens.push(d.fcmToken);
-                });
-
-                // Also fetch users (Staff)
-                const usersSnap = await db.collection('users').get();
-                usersSnap.forEach(doc => {
-                    const d = doc.data();
-                    if (d.fcmToken) tokens.push(d.fcmToken);
-                });
-
-                console.log(`Found ${tokens.length} recipients for broadcast`);
-            } else {
-                // Single Recipient Logic
-                // 1. Check if recipient is a Customer
-                console.log(`Searching for FCM token for recipient: ${recipientId}`);
-                const customerDoc = await db.collection('customers').doc(recipientId).get();
-                if (customerDoc.exists && customerDoc.data().fcmToken) {
-                    tokens.push(customerDoc.data().fcmToken);
-                }
-
-                // 2. If not customer, check if User (Admin/Staff)
-                if (tokens.length === 0) {
-                    const userDoc = await db.collection('users').doc(recipientId).get();
-                    if (userDoc.exists && userDoc.data().fcmToken) {
-                        tokens.push(userDoc.data().fcmToken);
-                    }
-                }
-
-                // Fallback: If "recipientId" is actually the raw token
-                if (tokens.length === 0 && recipientId.length > 20) {
-                    tokens.push(recipientId);
-                }
-            }
-
-            if (tokens.length === 0) {
-                console.log('No FCM Tokens found for target:', recipientId);
-                return;
-            }
-
-            // 3. Send Push Notification (FCM v1)
-            const message = {
-                notification: {
-                    title: data.title || 'New Notification',
-                    body: data.message || 'You have a new alert',
-                },
-                data: {
-                    action: 'OPEN_APP',
-                    notificationId: context.params.notificationId
-                },
-                tokens: tokens
-            };
-
-            const response = await getMessaging().sendEachForMulticast(message);
-
-            if (response.failureCount > 0) {
-                response.responses.forEach((result) => {
-                    if (result.error) {
-                        console.error('Failure sending notification:', result.error);
-                    }
-                });
-            } else {
-                console.log('Notification sent successfully!');
-            }
-
-        } catch (error) {
-            console.error('Error in sendNotificationOnCreate:', error);
-        }
-    });
-
 // ─── Rate limiting helpers ───
 const crypto_rate = require('crypto');
 
@@ -432,9 +352,7 @@ const resetRateLimit = async (ref) => {
 
 // ─── WhatsApp send (client calls this; authenticated onCall) ───
 exports.sendWhatsapp = onCall({ secrets: [WASENDER_API_KEY] }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be signed in.');
-  }
+  requireAuth(request);
 
   const { phone, text, companyId } = request.data || {};
   if (!phone || !text) {
@@ -446,34 +364,6 @@ exports.sendWhatsapp = onCall({ secrets: [WASENDER_API_KEY] }, async (request) =
   }
   const ok = await sendWhatsApp(phone, text);
   return { success: ok };
-});
-
-// ─── Server-side Company Code Verification (Zero sensitive data exposure) ───
-exports.verifyCompanyCode = onCall(async (request) => {
-  const { companyId, companyCode } = request.data || {};
-  if (!companyId || !companyCode) {
-    throw new functions.https.HttpsError('invalid-argument', 'missing params');
-  }
-
-  try {
-    const companySnap = await db.collection('companies').doc(companyId).get();
-    if (!companySnap.exists) {
-      return { valid: false, error: 'company not found' };
-    }
-
-    const companyName = companySnap.data().name || '';
-    const prefix = companyName.substring(0, 3).toLowerCase();
-    const isValid = prefix === String(companyCode).toLowerCase();
-
-    // Return ONLY minimal data — no ownerEmail, gstin, upiId, phone, address
-    return {
-      valid: isValid,
-      companyName: isValid ? companyName : undefined
-    };
-  } catch (error) {
-    console.error('Error in verifyCompanyCode:', error);
-    throw new functions.https.HttpsError('internal', 'server error');
-  }
 });
 
 // ─── Public Company Info (Customer Portal only — returns name, phone, upiId ONLY) ───
@@ -527,14 +417,22 @@ exports.verifyCustomerPin = onCall({ secrets: [WASENDER_API_KEY] }, async (reque
       throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
     }
 
-    // Resolve company by code
-    const companiesSnap = await db.collection('companies').get();
+    // Resolve company by code (fast path via stored code field)
+    const code = companyCode.toLowerCase();
+    let companyQuery = await db.collection('companies').where('code', '==', code).limit(1).get();
     let matchedCompany = null;
-    for (const doc of companiesSnap.docs) {
-      const name = doc.data().name || '';
-      if (name.substring(0, 3).toLowerCase() === companyCode.toLowerCase()) {
-        matchedCompany = { id: doc.id, ...doc.data() };
-        break;
+    if (!companyQuery.empty) {
+      const doc = companyQuery.docs[0];
+      matchedCompany = { id: doc.id, ...doc.data() };
+    } else {
+      // Fallback: old companies without code field — scan prefix
+      const fallbackSnap = await db.collection('companies').get();
+      for (const doc of fallbackSnap.docs) {
+        const name = doc.data().name || '';
+        if (name.substring(0, 3).toLowerCase() === code) {
+          matchedCompany = { id: doc.id, ...doc.data() };
+          break;
+        }
       }
     }
 
@@ -652,11 +550,7 @@ exports.verifyCustomerPin = onCall({ secrets: [WASENDER_API_KEY] }, async (reque
  * Set initial PIN for customer (admin only)
  */
 exports.setCustomerPin = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
-  }
-
-  const callerUid = request.auth.uid;
+  const callerUid = requireAuth(request);
   const callerSnap = await db.collection('users').doc(callerUid).get();
   if (!callerSnap.exists || !['admin', 'owner'].includes((callerSnap.data().role || '').toLowerCase())) {
     throw new functions.https.HttpsError('permission-denied', 'Only admins can set customer PINs.');
@@ -704,9 +598,7 @@ exports.setCustomerPin = onCall(async (request) => {
  * Change customer PIN (customer must be authenticated)
  */
 exports.changeCustomerPin = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
-  }
+  requireAuth(request);
 
   const claims = request.auth.token;
   if (claims.role !== 'customer') {
@@ -751,53 +643,10 @@ exports.changeCustomerPin = onCall(async (request) => {
 });
 
 /**
- * Admin force-resets a customer PIN
- */
-exports.resetCustomerPin = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
-  }
-
-  const callerUid = request.auth.uid;
-  const callerSnap = await db.collection('users').doc(callerUid).get();
-  if (!callerSnap.exists || !['admin', 'owner'].includes((callerSnap.data().role || '').toLowerCase())) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins can reset customer PINs.');
-  }
-
-  const { customerId, newPin } = request.data || {};
-  if (!customerId || !newPin || !/^\d{6,}$/.test(newPin)) {
-    throw new functions.https.HttpsError('invalid-argument', 'Customer ID and 6-digit PIN are required.');
-  }
-
-  const customerRef = db.collection('customers').doc(customerId);
-  const customerSnap = await customerRef.get();
-  if (!customerSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Customer not found.');
-  }
-
-  const customerData = customerSnap.data();
-  const pinHash = await bcrypt.hash(newPin, 10);
-  const currentVersion = customerData.pinVersion || 0;
-
-  await customerRef.update({
-    pinHash,
-    pinVersion: currentVersion + 1,
-    pinFailedAttempts: 0,
-    pinLockedUntil: null,
-  });
-
-  return { success: true, message: 'PIN has been reset. Customer must login with new PIN.' };
-});
-
-/**
  * Update usage counters via Admin SDK (bypasses Firestore rules)
  */
 exports.updateUsage = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
-  }
-
-  const userId = request.auth.uid;
+  const userId = requireAuth(request);
   const { action, field, delta } = request.data || {};
 
   const validFields = ['customers', 'companies', 'loans', 'deposits', 'staff'];
@@ -888,7 +737,7 @@ const stampOwner = async (snap) => {
 };
 
 BUSINESS_COLLECTIONS.forEach((col) => {
-  exports[`stampOwner_${col}`] = onDocumentCreated(`{col}/{id}`, async (event) => {
+  exports[`stampOwner_${col}`] = onDocumentCreated(`${col}/{id}`, async (event) => {
     await stampOwner(event.data);
   });
 });
@@ -930,12 +779,7 @@ const canAccessCompany = async (companyId, callerUid, callerEmail) => {
 // the caller's client session. Caller must be authenticated AND an admin.
 exports.createUserByAdmin = onCall(async (request) => {
   // 1. Verify caller is authenticated
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
-  }
-
-  // 2. Verify caller is an admin (read caller's own users/{uid} doc)
-  const callerUid = request.auth.uid;
+  const callerUid = requireAuth(request);
   const callerSnap = await db.collection('users').doc(callerUid).get();
   if (!callerSnap.exists || !ADMIN_ROLES.includes(callerSnap.data().role)) {
     throw new functions.https.HttpsError('permission-denied', 'Only admins can create users.');
@@ -1027,11 +871,7 @@ exports.createUserByAdmin = onCall(async (request) => {
 
 // ─── Admin updates a user (server-side, consistent with createUserByAdmin) ───
 exports.updateUserByAdmin = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
-  }
-
-  const callerUid = request.auth.uid;
+  const callerUid = requireAuth(request);
   const callerSnap = await db.collection('users').doc(callerUid).get();
   if (!callerSnap.exists || !ADMIN_ROLES.includes(callerSnap.data().role)) {
     throw new functions.https.HttpsError('permission-denied', 'Only admins can edit users.');
@@ -1076,33 +916,6 @@ exports.updateUserByAdmin = onCall(async (request) => {
   return { success: true, uid };
 });
 
-exports.backfillOwnerEmails = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be signed in.');
-  }
-
-  const callerUid = request.auth.uid;
-  const callerSnap = await db.collection('users').doc(callerUid).get();
-  if (!callerSnap.exists || !ADMIN_ROLES.includes(callerSnap.data().role)) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins can run backfill operations.');
-  }
-
-  let total = 0;
-  for (const col of BUSINESS_COLLECTIONS) {
-    const snap = await db.collection(col).limit(500).get();
-    for (const doc of snap.docs) {
-      const d = doc.data();
-      if (d.ownerEmail) continue; // already stamped
-      if (!d.companyId) continue;
-      const companySnap = await db.collection('companies').doc(d.companyId).get();
-      if (!companySnap.exists) continue;
-      const ownerEmail = companySnap.data().ownerEmail;
-      if (ownerEmail) { await doc.ref.update({ ownerEmail }); total++; }
-    }
-  }
-  return { success: true, stamped: total };
-});
-
 // ─── Subscription Server-Side Management & Verification Cloud Functions ───
 
 const SERVER_SUBSCRIPTION_PLANS = {
@@ -1116,11 +929,7 @@ const SERVER_SUBSCRIPTION_PLANS = {
  * 3. Create Authentic Razorpay Order (Strict REST API call, NO fake order fallbacks)
  */
 exports.createRazorpayOrder = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-  }
-
-  const userId = request.auth.uid;
+  const userId = requireAuth(request);
   const userEmail = request.auth.token.email || '';
   const { planId, billingCycle } = request.data || {};
   const plan = SERVER_SUBSCRIPTION_PLANS[planId];
@@ -1179,11 +988,7 @@ exports.createRazorpayOrder = onCall(async (request) => {
  * 4. Verify Razorpay Payment (Strict pending_orders Transaction Verification + HMAC SHA256)
  */
 exports.verifyRazorpayPayment = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-  }
-
-  const userId = request.auth.uid;
+  const userId = requireAuth(request);
   const userEmail = request.auth.token.email || '';
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, billingCycle } = request.data || {};
 
@@ -1330,11 +1135,7 @@ async function getGoogleAccessToken(serviceAccount) {
  * 1, 3 & 4. Verify Google Play Subscription (Android Publisher API + Transaction Replay Protection)
  */
 exports.verifyGooglePlaySubscription = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-  }
-
-  const userId = request.auth.uid;
+  const userId = requireAuth(request);
   const userEmail = request.auth.token.email || '';
   const { purchaseToken, productId, planId, billingCycle } = request.data || {};
 
@@ -1437,7 +1238,9 @@ exports.verifyGooglePlaySubscription = onCall(async (request) => {
 /**
  * 8. Razorpay Webhook Verification
  */
-exports.razorpayWebhook = onRequest(async (req, res) => {
+const razorpayApp = express();
+razorpayApp.use(express.raw({ type: 'application/json' }));
+razorpayApp.post('/', async (req, res) => {
   const crypto = require('crypto');
   if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
     res.status(500).send('Razorpay webhook secret not configured on server');
@@ -1451,7 +1254,7 @@ exports.razorpayWebhook = onRequest(async (req, res) => {
     return;
   }
 
-  const bodyString = req.rawBody ? req.rawBody.toString() : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+  const bodyString = req.body.toString();
   const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(bodyString).digest('hex');
 
   if (signature !== expectedSignature) {
@@ -1459,8 +1262,9 @@ exports.razorpayWebhook = onRequest(async (req, res) => {
     return;
   }
 
-  const event = req.body?.event;
-  const payload = req.body?.payload?.payment?.entity || {};
+  const parsed = JSON.parse(bodyString);
+  const event = parsed.event;
+  const payload = parsed?.payload?.payment?.entity || {};
 
   if (event === 'payment.captured' || event === 'order.paid') {
     const { order_id, id: payment_id, notes } = payload;
@@ -1502,10 +1306,14 @@ exports.razorpayWebhook = onRequest(async (req, res) => {
         console.error('Razorpay Webhook transaction error:', whErr);
       }
     }
+  } else {
+    res.status(422).json({ status: 'ignored', reason: 'unknown event type' });
+    return;
   }
 
   res.status(200).json({ status: 'ok' });
 });
+exports.razorpayWebhook = onRequest(razorpayApp);
 
 /**
  * 9. Google Real-Time Developer Notifications (RTDN) Webhook
@@ -1548,18 +1356,20 @@ exports.googlePlayRtdnWebhook = onRequest(async (req, res) => {
         const userSubDoc = subQuery.docs[0];
         const subData = userSubDoc.data();
 
-        if (notificationType === 2) {
-          // SUBSCRIPTION_RENEWED (Type 2)
-          const days = subData.billingCycle === 'yearly' ? 365 : 30;
-          const newExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-          await userSubDoc.ref.update({ status: 'active', expiryDate: newExpiry, updatedAt: new Date().toISOString() });
-        } else if (notificationType === 3) {
-          // SUBSCRIPTION_CANCELED (Type 3)
-          await userSubDoc.ref.update({ autoRenewal: false, updatedAt: new Date().toISOString() });
-        } else if (notificationType === 13) {
-          // SUBSCRIPTION_EXPIRED (Type 13)
-          await userSubDoc.ref.update({ status: 'expired', planId: 'free', updatedAt: new Date().toISOString() });
-        }
+        await db.runTransaction(async (t) => {
+          const freshSnap = await t.get(userSubDoc.ref);
+          if (!freshSnap.exists) return;
+
+          if (notificationType === 2) {
+            const days = subData.billingCycle === 'yearly' ? 365 : 30;
+            const newExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+            t.update(userSubDoc.ref, { status: 'active', expiryDate: newExpiry, updatedAt: new Date().toISOString() });
+          } else if (notificationType === 3) {
+            t.update(userSubDoc.ref, { autoRenewal: false, updatedAt: new Date().toISOString() });
+          } else if (notificationType === 13) {
+            t.update(userSubDoc.ref, { status: 'expired', planId: 'free', updatedAt: new Date().toISOString() });
+          }
+        });
       }
     }
     res.status(200).send('Event processed');
@@ -1570,11 +1380,7 @@ exports.googlePlayRtdnWebhook = onRequest(async (req, res) => {
 });
 
 exports.adminUpdateSubscription = onCall(async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-  }
-
-  const callerUid = request.auth.uid;
+  const callerUid = requireAuth(request);
   const callerSnap = await db.collection('users').doc(callerUid).get();
   if (!callerSnap.exists || !['admin', 'owner'].includes((callerSnap.data().role || '').toLowerCase())) {
     throw new functions.https.HttpsError('permission-denied', 'Only Admins can update user subscriptions.');
@@ -1635,3 +1441,19 @@ exports.adminUpdateSubscription = onCall(async (request) => {
     expiryDate,
   };
 });
+
+// ─── Metrics ───────────────────────────────────────
+const {onLoanWrite} = require("./metrics/loanTriggers");
+exports.onLoanWrite = onLoanWrite;
+const {onExpenseWrite} = require("./metrics/expenseTriggers");
+exports.onExpenseWrite = onExpenseWrite;
+const {onDepositWrite} = require("./metrics/depositTriggers");
+exports.onDepositWrite = onDepositWrite;
+const {onLedgerWrite} = require("./metrics/ledgerTriggers");
+exports.onLedgerWrite = onLedgerWrite;
+const {rebuildMetrics} = require("./metrics/rebuildMetrics");
+exports.rebuildMetrics = rebuildMetrics;
+const {onCustomerWrite} = require("./metrics/customerTriggers");
+exports.onCustomerWrite = onCustomerWrite;
+const {onPartnerTxWrite} = require("./metrics/partnerTriggers");
+exports.onPartnerTxWrite = onPartnerTxWrite;

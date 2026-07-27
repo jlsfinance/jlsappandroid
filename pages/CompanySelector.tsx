@@ -157,7 +157,7 @@ const CompanySelector: React.FC = () => {
       setNewCompanyAddress('');
       setNewCompanyPhone('');
       setNewCompanyGstin('');
-      setNewCompanyUpi('9413821007@superyes');
+      setNewCompanyUpi('');
       alert("Company added successfully!");
     } catch (error: any) {
       console.error("Error adding company:", error);
