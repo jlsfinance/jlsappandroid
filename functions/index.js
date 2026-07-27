@@ -776,13 +776,19 @@ const enforcePlanLimit = async (snap, collectionName) => {
   if (userSnap.empty) return;
   const ownerUid = userSnap.docs[0].id;
 
+  // Determine effective tier: no subscription or expired → free; server-side transaction catches
+  // the race window between rules check and usage counter update
   const subSnap = await db.collection('subscriptions').doc(ownerUid).get();
-  if (!subSnap.exists) return;
-  const sub = subSnap.data();
-  const tier = getPlanTier(sub.planId);
+  let tier = 'free';
+  let status = null;
+  if (subSnap.exists) {
+    const sub = subSnap.data();
+    status = sub.status || null;
+    if (status === 'active' || status === 'trialing' || status === 'past_due' || status === 'cancelled') {
+      tier = getPlanTier(sub.planId);
+    }
+  }
   if (tier === 'enterprise') return;
-  const status = sub.status || 'free_tier';
-  if (!['active', 'trialing', 'past_due', 'cancelled'].includes(status)) return;
 
   const limit = LIMITS[tier];
   if (!limit) return;

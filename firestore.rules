@@ -165,7 +165,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // Unlimited — partner transactions track capital flow per partner; partner count is capped separately
+    // Unlimited — partner transactions track capital flow per partner; adding artificial caps would break capital-tracking workflows with no abuse-prevention benefit
     match /partner_transactions/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
