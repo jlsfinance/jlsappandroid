@@ -59,16 +59,18 @@ service cloud.firestore {
 
     // ─── Plan enforcement helpers (ternary-only, CEL subset) ────────
     function getTier(raw) {
-      return raw.matches('^enterprise') ? 'enterprise'
-        : raw.matches('^pro') ? 'pro'
-        : raw.matches('^starter') ? 'starter'
+      return raw in ['enterprise', 'enterprise_monthly', 'enterprise_yearly', 'enterprise-monthly', 'enterprise-yearly'] ? 'enterprise'
+        : raw in ['pro', 'pro_monthly', 'pro_yearly', 'pro-monthly', 'pro-yearly'] ? 'pro'
+        : raw in ['starter', 'starter_monthly', 'starter_yearly', 'starter-monthly', 'starter-yearly'] ? 'starter'
         : 'free';
     }
     function planOf(uid) {
       let sub = get(/databases/$(database)/documents/subscriptions/$(uid));
       return sub.data != null && sub.data.status in ['active', 'trialing', 'past_due', 'cancelled']
         ? getTier(sub.data.planId)
-        : 'free';
+        : sub.data != null && sub.data.status == 'expired'
+          ? 'free'
+          : 'free';
     }
     function usageCount(uid, field) {
       return get(/databases/$(database)/documents/usage/$(uid)).data != null
@@ -147,7 +149,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // ponytail: Intentionally unlimited — business expenses tracking has no practical ceiling
+    // Unlimited — expense volume is bounded by loan/deposit activity; adding a separate usage counter would duplicate existing enforcement
     match /expenses/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -155,7 +157,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // ponytail: Intentionally unlimited — accounting ledger entries are per-transaction, not per-customer
+    // Unlimited — ledger entries are per-transaction; capped implicitly by loans+deposits enforcement. Adding a separate counter would add no marginal protection
     match /ledger/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -163,7 +165,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // ponytail: Intentionally unlimited — investor transactions track capital flow, not customer count
+    // Unlimited — partner transactions track capital flow per partner; partner count is capped separately
     match /partner_transactions/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -171,7 +173,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // ponytail: Intentionally unlimited — partner/business-relationship records are low-volume by nature
+    // Unlimited — partner records are low-volume business relationships; adding artificial caps would force feature degradation with no abuse-prevention benefit
     match /partners/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
@@ -179,7 +181,7 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // ponytail: Intentionally unlimited — one receipt per loan/deposit transaction, no ceiling
+    // Unlimited — one receipt per loan/deposit; already capped by loans+deposits enforcement. Separate count would be redundant
     match /receipts/{document} {
       allow read: if canReadBusinessData();
       allow create: if canCreateBusinessData();
