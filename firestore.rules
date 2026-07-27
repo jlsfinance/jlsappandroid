@@ -17,13 +17,13 @@ service cloud.firestore {
 
     // Business Data Permission Helpers
     function canReadBusinessData() {
-      return request.auth != null && (
+      return request.auth != null && request.app.check != null && (
         resource == null || canAccessCompany(resource.data.companyId)
       );
     }
 
     function canCreateBusinessData() {
-      return request.auth != null
+      return request.auth != null && request.app.check != null
         && request.resource.data.companyId != null
         && canAccessCompany(request.resource.data.companyId)
         && (!('ownerEmail' in request.resource.data) || request.resource.data.ownerEmail == request.auth.token.email);
@@ -31,7 +31,7 @@ service cloud.firestore {
 
     // Task 1 & Task 2: Protect companyId and ownerEmail from post-creation modification
     function canUpdateBusinessData() {
-      return request.auth != null
+      return request.auth != null && request.app.check != null
         && resource != null
         && canAccessCompany(resource.data.companyId)
         && request.resource.data.companyId == resource.data.companyId
@@ -39,7 +39,7 @@ service cloud.firestore {
     }
 
     function canDeleteBusinessData() {
-      return request.auth != null && resource != null && canAccessCompany(resource.data.companyId);
+      return request.auth != null && request.app.check != null && resource != null && canAccessCompany(resource.data.companyId);
     }
 
     // Customer authentication via Custom Token (no email, no /users/{uid} doc)
@@ -112,13 +112,13 @@ service cloud.firestore {
 
     // Companies: owner can read/create/update/delete, assigned company users can read
     match /companies/{document} {
-      allow read: if request.auth != null
+      allow read: if request.auth != null && request.app.check != null
         && ((resource != null && resource.data.ownerEmail == request.auth.token.email)
             || canAccessCompany(document));
-      allow create: if request.auth != null
+      allow create: if request.auth != null && request.app.check != null
         && request.resource.data.ownerEmail == request.auth.token.email
         && canAddCompanyForPlan(request.auth.uid);
-      allow update, delete: if request.auth != null
+      allow update, delete: if request.auth != null && request.app.check != null
         && resource.data.ownerEmail == request.auth.token.email;
     }
 
@@ -191,18 +191,18 @@ service cloud.firestore {
 
     // Counters: Server-side Cloud Functions only for writes
     match /counters/{document} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && request.app.check != null;
       allow write: if false;
     }
 
     // Users: own doc by uid (read+write); lookup by email allowed for role/company resolution
     match /users/{document} {
-      allow read: if request.auth != null && (
+      allow read: if request.auth != null && request.app.check != null && (
         request.auth.uid == document
         || (resource != null && resource.data.email == request.auth.token.email)
         || (resource != null && resource.data.companyId != null && canAccessCompany(resource.data.companyId))
       );
-      allow write: if request.auth != null && request.auth.uid == document && (
+      allow write: if request.auth != null && request.app.check != null && request.auth.uid == document && (
         resource == null
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "fcmToken"])
       );
@@ -210,7 +210,7 @@ service cloud.firestore {
 
     // Task 3: Notifications (Strict existing document READ rule without resource == null)
     match /notifications/{document} {
-      allow read: if request.auth != null && resource != null && (
+      allow read: if request.auth != null && request.app.check != null && resource != null && (
         canAccessCompany(resource.data.companyId)
         || resource.data.recipientId == request.auth.uid
         || (isCustomer()
@@ -219,7 +219,7 @@ service cloud.firestore {
                 || resource.data.recipientId == getCustomerDocId()
                 || resource.data.recipientId == request.auth.uid))
       );
-      allow create: if request.auth != null && (
+      allow create: if request.auth != null && request.app.check != null && (
         request.resource.data.companyId != null
         && canAccessCompany(request.resource.data.companyId)
       );

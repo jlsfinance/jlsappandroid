@@ -990,7 +990,7 @@ exports.updateUserByAdmin = onCall(async (request) => {
     throw new functions.https.HttpsError('permission-denied', 'Only admins can edit users.');
   }
 
-  const { uid, name, permissions, active, companyId } = request.data || {};
+  const { uid, name, permissions, active, companyId, role } = request.data || {};
 
   if (!uid) {
     throw new functions.https.HttpsError('invalid-argument', 'uid is required.');
@@ -1019,6 +1019,7 @@ exports.updateUserByAdmin = onCall(async (request) => {
   if (name !== undefined) updateData.name = String(name).trim();
   if (permissions !== undefined) updateData.permissions = permissions;
   if (active !== undefined) updateData.active = active;
+  if (role !== undefined && ['admin', 'owner', 'agent', 'viewer'].includes(role)) updateData.role = role;
 
   if (Object.keys(updateData).length === 0) {
     throw new functions.https.HttpsError('invalid-argument', 'No updatable fields provided.');

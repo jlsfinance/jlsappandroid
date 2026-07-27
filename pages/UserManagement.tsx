@@ -176,6 +176,7 @@ const UserManagement: React.FC = () => {
       const updateUserByAdmin = httpsCallable<
         {
           uid: string;
+          role?: string;
           permissions?: Partial<UserPermissions>;
           companyId: string;
         },
@@ -184,6 +185,7 @@ const UserManagement: React.FC = () => {
 
       await updateUserByAdmin({
         uid: selectedUser.id,
+        role: editedRole || undefined,
         companyId: currentCompany.id,
         permissions: editedRole === 'agent' ? editedPermissions : {},
       });
