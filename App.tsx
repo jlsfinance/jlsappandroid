@@ -33,8 +33,6 @@ import Reports from './pages/Reports';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
-import CustomerLogin from './pages/CustomerLogin';
-import CustomerPortal from './pages/CustomerPortal';
 import CompanySelector from './pages/CompanySelector';
 import BottomNav from './components/BottomNav';
 import { SidebarProvider } from './context/SidebarContext';
@@ -124,7 +122,7 @@ const CustomerSessionRedirect: React.FC = () => {
       if (!user) return;
       user.getIdTokenResult().then((tokenResult) => {
         if (tokenResult.claims.role === 'customer') {
-          navigate('/customer-portal', { replace: true });
+          navigate('/login', { replace: true });
         }
       });
       unsubscribe();
@@ -189,8 +187,6 @@ const App: React.FC = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/customer-login" element={<CustomerLogin />} />
-                <Route path="/customer-portal" element={<CustomerPortal />} />
 
                 <Route path="/company-selector" element={
                   <ProtectedRoute>

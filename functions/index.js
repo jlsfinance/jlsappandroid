@@ -286,266 +286,6 @@ exports.sendDailyEmiPushReminders = onSchedule(
   }
 );
 
-// ─── Rate limiting helpers ───
-const crypto_rate = require('crypto');
-
-const getRateLimitKey = (ip, phone, companyCode) => {
-  const raw = `${ip}_${phone}_${companyCode}`;
-  return crypto_rate.createHash('sha256').update(raw).digest('hex');
-};
-
-const ms = (v) => v?.toMillis ? v.toMillis() : (v || 0);
-
-const checkRateLimit = async (ip, phone, companyCode) => {
-  const key = getRateLimitKey(ip, phone, companyCode);
-  const ref = db.collection('rate_limits').doc(`ip_${key}`);
-  const snap = await ref.get();
-  const now = Date.now();
-  const data = snap.data() || { attempts: 0, firstAttemptAt: now, lastAttemptAt: now, blockedUntil: null };
-
-  // Check if currently blocked
-  if (data.blockedUntil && now < ms(data.blockedUntil)) {
-    const remaining = Math.ceil((ms(data.blockedUntil) - now) / 1000);
-    return { blocked: true, remaining };
-  }
-
-  // Reset if window passed (15 min)
-  const windowMs = 15 * 60 * 1000;
-  if (now - ms(data.firstAttemptAt) > windowMs && data.attempts > 0) {
-    data.attempts = 0;
-    data.firstAttemptAt = now;
-  }
-
-  return { blocked: false, ref, data, key };
-};
-
-const incrementRateLimit = async (ref, data, key, phone) => {
-  const now = Date.now();
-  const newAttempts = (data.attempts || 0) + 1;
-  const update = {
-    attempts: newAttempts,
-    firstAttemptAt: data.firstAttemptAt || now,
-    lastAttemptAt: now,
-    blockedUntil: null,
-  };
-  if (newAttempts >= 5) {
-    update.blockedUntil = new Date(now + 15 * 60 * 1000);
-  }
-  await ref.set(update, { merge: true });
-
-  // Log suspicious activity if > 3 attempts
-  if (newAttempts > 3) {
-    await db.collection('suspicious_activity').add({
-      type: newAttempts >= 5 ? 'rate_limited' : 'failed_login',
-      ip: key.split('_')[0] || '',
-      phoneLast4: (phone || '').slice(-4),
-      attempts: newAttempts,
-      timestamp: new Date().toISOString(),
-      method: 'verifyCustomerPin',
-    });
-  }
-};
-
-const resetRateLimit = async (ref) => {
-  await ref.delete().catch(() => {});
-};
-
-// ─── WhatsApp send (client calls this; authenticated onCall) ───
-exports.sendWhatsapp = onCall({ secrets: [WASENDER_API_KEY] }, async (request) => {
-  requireAuth(request);
-
-  const { phone, text, companyId } = request.data || {};
-  if (!phone || !text) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing phone or text parameters.');
-  }
-  // Only the JLS company may send; ignore everything else.
-  if (companyId && companyId !== JLS_COMPANY_ID) {
-    return { success: false, error: 'ignored' };
-  }
-  const ok = await sendWhatsApp(phone, text);
-  return { success: ok };
-});
-
-// ─── Public Company Info (Customer Portal only — returns name, phone, upiId ONLY) ───
-exports.getCompanyPublicInfo = onCall(async (request) => {
-  const { companyId } = request.data || {};
-  if (!companyId) {
-    throw new functions.https.HttpsError('invalid-argument', 'missing companyId');
-  }
-
-  try {
-    const companySnap = await db.collection('companies').doc(companyId).get();
-    if (!companySnap.exists) {
-      throw new functions.https.HttpsError('not-found', 'company not found');
-    }
-
-    const data = companySnap.data();
-    // Return ONLY the 3 public-facing fields the Customer Portal needs.
-    // ownerEmail, gstin, address, createdAt are NEVER returned.
-    return {
-      name: data.name || '',
-      phone: data.phone || '',
-      upiId: data.upiId || ''
-    };
-  } catch (error) {
-    if (error instanceof functions.https.HttpsError) throw error;
-    console.error('Error in getCompanyPublicInfo:', error);
-    throw new functions.https.HttpsError('internal', 'server error');
-      }
-});
-
-/**
- * Verify Customer PIN and return Firebase Custom Token
- */
-exports.verifyCustomerPin = onCall({ secrets: [WASENDER_API_KEY] }, async (request) => {
-  const GENERIC_ERROR = 'Invalid phone number or PIN.';
-
-  try {
-    const { phone, companyCode, pin } = request.data || {};
-
-    // Validate input
-    if (!phone || !companyCode || !pin || pin.length < 6 || !/^\d{6,}$/.test(pin)) {
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    // Get client IP for rate limiting
-    const ip = request.rawRequest?.ip || request.rawRequest?.connection?.remoteAddress || 'unknown';
-
-    // Rate limit check
-    const { blocked, ref: rateRef, data: rateData, key } = await checkRateLimit(ip, phone, companyCode.toLowerCase());
-    if (blocked) {
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    // Resolve company by code (fast path via stored code field)
-    const code = companyCode.toLowerCase();
-    let companyQuery = await db.collection('companies').where('code', '==', code).limit(1).get();
-    let matchedCompany = null;
-    if (!companyQuery.empty) {
-      const doc = companyQuery.docs[0];
-      matchedCompany = { id: doc.id, ...doc.data() };
-    } else {
-      // Fallback: old companies without code field — scan prefix
-      const fallbackSnap = await db.collection('companies').get();
-      for (const doc of fallbackSnap.docs) {
-        const name = doc.data().name || '';
-        if (name.substring(0, 3).toLowerCase() === code) {
-          matchedCompany = { id: doc.id, ...doc.data() };
-          break;
-        }
-      }
-    }
-
-    if (!matchedCompany) {
-      await incrementRateLimit(rateRef, rateData, key, phone);
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    // Find customer by phone + companyId
-    const customersSnap = await db.collection('customers')
-      .where('phone', '==', phone)
-      .where('companyId', '==', matchedCompany.id)
-      .limit(1)
-      .get();
-
-    if (customersSnap.empty) {
-      await incrementRateLimit(rateRef, rateData, key, phone);
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    const customerDoc = customersSnap.docs[0];
-    const customerData = customerDoc.data();
-
-    // ALL validation failures return GENERIC_ERROR — never distinguish cause
-    if (customerData.active === false) {
-      await incrementRateLimit(rateRef, rateData, key, phone);
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    if (!customerData.pinHash) {
-      await incrementRateLimit(rateRef, rateData, key, phone);
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    // Re-read in transaction to prevent race conditions on pinFailedAttempts
-    let pinMatch = false;
-    await db.runTransaction(async (transaction) => {
-      const freshDoc = await transaction.get(customerDoc.ref);
-      const freshData = freshDoc.data();
-
-      // Check lockout inside transaction
-      const lockedUntil = freshData.pinLockedUntil ? new Date(freshData.pinLockedUntil).getTime() : 0;
-      const now = Date.now();
-      if ((freshData.pinFailedAttempts || 0) >= 5 && lockedUntil > now) {
-        throw new Error('LOCKED');
-      }
-
-      // Verify PIN
-      pinMatch = await bcrypt.compare(pin, freshData.pinHash);
-
-      if (pinMatch) {
-        transaction.update(customerDoc.ref, {
-          pinFailedAttempts: 0,
-          pinLockedUntil: null,
-        });
-      } else {
-        const newFailed = (freshData.pinFailedAttempts || 0) + 1;
-        const update = { pinFailedAttempts: newFailed };
-        if (newFailed >= 5) {
-          update.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        }
-        transaction.update(customerDoc.ref, update);
-      }
-    });
-
-    if (!pinMatch) {
-      await incrementRateLimit(rateRef, rateData, key, phone);
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-
-    // Success — reset rate limit
-    await resetRateLimit(rateRef);
-
-    // Ensure authUid exists (create Auth user if not)
-    let authUid = customerData.authUid;
-    if (!authUid) {
-      authUid = `cust_${customerDoc.id}`;
-      try {
-        await getAuth().createUser({ uid: authUid, displayName: customerData.name || '' });
-        await customerDoc.ref.update({ authUid });
-      } catch (authErr) {
-        if (authErr.code !== 'auth/uid-already-exists') throw authErr;
-      }
-    }
-
-    // Mint custom token
-    const pinVersion = customerData.pinVersion || 0;
-    const customToken = await getAuth().createCustomToken(authUid, {
-      role: 'customer',
-      customerDocId: customerDoc.id,
-      companyId: matchedCompany.id,
-      pinVersion,
-    });
-
-    return {
-      success: true,
-      customToken,
-      customerName: customerData.name || '',
-      companyName: matchedCompany.name || '',
-    };
-
-  } catch (error) {
-    // If it's already an HttpsError we threw, re-throw it
-    if (error instanceof functions.https.HttpsError) throw error;
-    // LOCKED error from transaction
-    if (error.message === 'LOCKED') {
-      throw new functions.https.HttpsError('permission-denied', GENERIC_ERROR);
-    }
-    console.error('verifyCustomerPin error:', error);
-    throw new functions.https.HttpsError('internal', 'Authentication service error.');
-  }
-});
-
 /**
  * Set initial PIN for customer (admin only)
  */
@@ -592,54 +332,6 @@ exports.setCustomerPin = onCall(async (request) => {
   });
 
   return { success: true };
-});
-
-/**
- * Change customer PIN (customer must be authenticated)
- */
-exports.changeCustomerPin = onCall(async (request) => {
-  requireAuth(request);
-
-  const claims = request.auth.token;
-  if (claims.role !== 'customer') {
-    throw new functions.https.HttpsError('permission-denied', 'Only customers can change their PIN.');
-  }
-
-  const { customerId, oldPin, newPin } = request.data || {};
-  if (!customerId || !oldPin || !newPin || !/^\d{6,}$/.test(newPin) || !/^\d{6,}$/.test(oldPin)) {
-    throw new functions.https.HttpsError('invalid-argument', 'Customer ID, old PIN, and new 6-digit PIN are required.');
-  }
-
-  if (claims.customerDocId !== customerId) {
-    throw new functions.https.HttpsError('permission-denied', 'You can only change your own PIN.');
-  }
-
-  const customerRef = db.collection('customers').doc(customerId);
-  const customerSnap = await customerRef.get();
-  if (!customerSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Customer not found.');
-  }
-
-  const customerData = customerSnap.data();
-  if (!customerData.pinHash) {
-    throw new functions.https.HttpsError('failed-precondition', 'PIN not set. Contact admin.');
-  }
-
-  const oldPinMatch = await bcrypt.compare(oldPin, customerData.pinHash);
-  if (!oldPinMatch) {
-    throw new functions.https.HttpsError('permission-denied', 'Current PIN is incorrect.');
-  }
-
-  const newPinHash = await bcrypt.hash(newPin, 10);
-  const currentVersion = customerData.pinVersion || 0;
-  await customerRef.update({
-    pinHash: newPinHash,
-    pinVersion: currentVersion + 1,
-    pinFailedAttempts: 0,
-    pinLockedUntil: null,
-  });
-
-  return { success: true, message: 'PIN changed successfully. Please login again.' };
 });
 
 /**
@@ -1554,6 +1246,31 @@ exports.adminUpdateSubscription = onCall(async (request) => {
     planId,
     expiryDate,
   };
+});
+
+/**
+ * Server-owned monotonic counter generator.
+ * Clients call this instead of writing to the `counters` collection
+ * (which is `allow write: if false` in rules). Admin SDK + transaction
+ * guarantee atomic, duplicate-free increments.
+ */
+exports.getNextCounterId = onCall(async (request) => {
+  requireAuth(request);
+  const { counterName } = request.data || {};
+  if (!counterName || typeof counterName !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'counterName is required.');
+  }
+
+  const ref = db.collection('counters').doc(counterName);
+  const nextId = await db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    const lastId = snap.exists ? snap.data().lastId || 0 : 0;
+    const next = lastId + 1;
+    t.set(ref, { lastId: next }, { merge: true });
+    return next;
+  });
+
+  return { nextId };
 });
 
 // ─── Metrics ───────────────────────────────────────

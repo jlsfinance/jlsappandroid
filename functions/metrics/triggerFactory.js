@@ -2,6 +2,13 @@ const {onDocumentWritten} = require("firebase-functions/firestore");
 const {tryAcquire, tryRelease} = require("./dedup");
 const metricsService = require("./metricsService");
 
+/**
+ * Factory for metric triggers.
+ * @param {string} collectionName
+ * @param {string} paramName
+ * @param {function(Object|null, Object|null): Object} computeDeltas
+ * @return {import('firebase-functions/v2/firestore').DocumentBuilder}
+ */
 function createTrigger(collectionName, paramName, computeDeltas) {
   const eventPrefix = collectionName.split("_")[0].replace(/s$/, "");
   const path = `${collectionName}/{${paramName}}`;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { db } from '../firebaseConfig';
+import { db, functions } from '../firebaseConfig';
 import { collection, query, where, getDocs, doc, runTransaction, getDoc } from "firebase/firestore";
+import { httpsCallable } from 'firebase/functions';
 import { format, parseISO, isPast, subMonths, addMonths } from 'date-fns';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -318,12 +319,15 @@ const DueList: React.FC = () => {
         try {
             let receiptDocId = '';
 
+            const getNextCounterId = httpsCallable(functions, 'getNextCounterId');
+            const counterRes = await getNextCounterId({ counterName: 'receiptId_counter' });
+            const nextReceiptId = (counterRes.data as any).nextId;
+            receiptDocId = `RCPT-${nextReceiptId}`;
+
             await runTransaction(db, async (transaction) => {
                 const loanRef = doc(db, "loans", selectedEmi.loanId);
-                const receiptCounterRef = doc(db, 'counters', 'receiptId_counter');
 
                 const loanDoc = await transaction.get(loanRef);
-                const counterDoc = await transaction.get(receiptCounterRef);
 
                 if (!loanDoc.exists()) throw new Error("Loan not found!");
 
@@ -349,17 +353,12 @@ const DueList: React.FC = () => {
                     return emi;
                 });
 
-                let nextReceiptId = 1;
-                if (counterDoc.exists()) {
-                    nextReceiptId = (counterDoc.data().lastId || 0) + 1;
-                }
-
-                receiptDocId = `RCPT-${nextReceiptId}`;
                 const receiptRef = doc(db, "receipts", receiptDocId);
 
                 transaction.update(loanRef, { repaymentSchedule: updatedSchedule });
                 transaction.set(receiptRef, {
                     receiptId: receiptDocId,
+                    companyId: loanData.companyId,
                     loanId: selectedEmi.loanId,
                     customerId: selectedEmi.customerId,
                     customerName: selectedEmi.customerName,
@@ -373,7 +372,6 @@ const DueList: React.FC = () => {
                     remark: remarkText,
                     createdAt: new Date().toISOString(),
                 });
-                transaction.set(receiptCounterRef, { lastId: nextReceiptId }, { merge: true });
             });
 
             const finalRemark = isExtraPayment

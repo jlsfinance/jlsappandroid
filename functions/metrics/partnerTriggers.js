@@ -77,4 +77,5 @@ function computeDeltas(before, after) {
   return d;
 }
 
-exports.onPartnerTxWrite = createTrigger("partner_transactions", "partnerTxId", computeDeltas);
+exports.onPartnerTxWrite = createTrigger(
+    "partner_transactions", "partnerTxId", computeDeltas);

@@ -16,12 +16,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 if (typeof self !== 'undefined' && typeof self.location !== 'undefined') {
+  if (import.meta.env.DEV) {
+    // Local dev: fixed debug token so App-Check-enforced Firestore rules pass.
+    // Register this EXACT string in Firebase console → App Check → Debug tokens (project jls-finance-company).
+    (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = 'jls-dev-debug-token';
+  }
   const appCheckKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_KEY;
-  if (appCheckKey) {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(appCheckKey),
-      isTokenAutoRefreshEnabled: true,
-    });
+  if (appCheckKey || import.meta.env.DEV) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(appCheckKey || 'dev-no-key'),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch {
+      // App Check already initialized (e.g. Vite HMR re-run) — safe to ignore
+    }
   }
 }
 

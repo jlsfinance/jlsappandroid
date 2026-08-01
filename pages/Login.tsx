@@ -183,11 +183,6 @@ const Login: React.FC = () => {
             </svg>
             <span className="text-xs">Google Account</span>
           </button>
-
-          <Link to="/customer-login" className="w-full border border-white/20 bg-white/5 py-3 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-all text-xs font-bold hover:bg-white/10">
-            <span className="material-symbols-outlined text-[16px]">person_pin</span>
-            Customer Portal Login
-          </Link>
         </div>
 
         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-2">

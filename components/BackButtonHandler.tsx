@@ -8,8 +8,8 @@ const BackButtonHandler: React.FC = () => {
 
     useEffect(() => {
         const handleBackButton = async () => {
-            const exitRoutes = ['/login', '/customer-login', '/company-selector'];
-            const isRoot = location.pathname === '/' || location.pathname === '/customer-portal';
+            const exitRoutes = ['/login', '/company-selector'];
+            const isRoot = location.pathname === '/';
 
             if (exitRoutes.includes(location.pathname)) {
                 await CapacitorApp.exitApp();

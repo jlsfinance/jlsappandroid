@@ -89,7 +89,7 @@ const Sidebar: React.FC = () => {
         }
     };
 
-    if (['/login', '/register', '/forgot-password', '/customer-login', '/customer-portal'].includes(location.pathname)) {
+    if (['/login', '/register', '/forgot-password'].includes(location.pathname)) {
         return null;
     }
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, where, doc, runTransaction } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { db, auth, functions } from '../firebaseConfig';
+import { httpsCallable } from 'firebase/functions';
 import { Customer, DepositType } from '../types';
 import { useCompany } from '../context/CompanyContext';
 import { useSubscription } from '../context/SubscriptionContext';
@@ -91,14 +92,11 @@ const NewDeposit: React.FC = () => {
         form.type, form.principal, form.monthlyAmount, form.interestRate, form.tenure, startDate, 1
       );
 
+      const getNextCounterId = httpsCallable(functions, 'getNextCounterId');
+      const counterRes = await getNextCounterId({ counterName: 'depositId_counter' });
+      const nextId = (counterRes.data as any).nextId;
+
       const newId = await runTransaction(db, async (transaction) => {
-        const counterRef = doc(db, 'counters', 'depositId_counter');
-        const counterDoc = await transaction.get(counterRef);
-        let nextId = 50110;
-        if (counterDoc.exists()) {
-          const lastId = counterDoc.data().lastId;
-          nextId = typeof lastId === 'number' ? lastId + 10 : 50110;
-        }
         const newRef = doc(db, 'deposits', nextId.toString());
         transaction.set(newRef, {
           id: nextId.toString(),
@@ -123,7 +121,6 @@ const NewDeposit: React.FC = () => {
           createdAt: new Date().toISOString(),
           depositSchedule: schedule,
         });
-        transaction.set(counterRef, { lastId: nextId }, { merge: true });
         return nextId;
       });
 

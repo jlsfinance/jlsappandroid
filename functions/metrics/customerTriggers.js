@@ -33,4 +33,5 @@ function computeDeltas(before, after) {
  * Cloud Function trigger for customer writes (create/update/delete).
  * Computes metric deltas from before/after and applies them atomically.
  */
-exports.onCustomerWrite = createTrigger("customers", "customerId", computeDeltas);
+exports.onCustomerWrite = createTrigger(
+    "customers", "customerId", computeDeltas);
