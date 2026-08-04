@@ -583,7 +583,7 @@ const Loans: React.FC = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 pb-safe bg-slate-50 dark:bg-slate-950 font-sans">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-safe-32 bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none -z-10">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-blue-50/50 via-indigo-50/30 to-transparent dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-transparent"></div>

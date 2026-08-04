@@ -107,13 +107,22 @@ h6,
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Safe Area Utilities */
+/* Safe Area Utilities
+   NOTE: use max() so a 0px safe-area (non-notch devices / browsers) NEVER
+   overrides a base utility like pb-32 — that made the last list card slide
+   under the fixed bottom nav (visible as amount text overlapping "Clients"). */
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+}
+
+/* Combines a base bottom padding with the safe-area inset in one class.
+   Replace `pb-32 pb-safe` pairs with this to avoid the CSS-order override. */
+.pb-safe-32 {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8rem);
 }
 
 .min-h-safe {

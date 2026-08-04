@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, where, doc, documentId } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { useSidebar } from '../context/SidebarContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { NotificationService } from '../services/NotificationService';
 import { WhatsappService } from '../services/whatsappService';
-import { getDocsSmart } from '../services/dataService';
+import { getDocsFresh, getDocFresh } from '../services/dataService';
 import LazyImage from '../components/LazyImage';
 import ErrorDisplay from '../components/ErrorDisplay';
 import jsPDF from 'jspdf';
@@ -37,6 +37,7 @@ const Dashboard: React.FC = () => {
     const [expenses, setExpenses] = useState<any[]>([]);
     const [ledger, setLedger] = useState<any[]>([]);
     const [deposits, setDeposits] = useState<any[]>([]);
+    const [metricsDoc, setMetricsDoc] = useState<Record<string, any> | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -144,32 +145,84 @@ const Dashboard: React.FC = () => {
 
             const companyId = currentCompany.id;
 
-            // Phase 1 (fast): loans, customers, deposits, partner, expenses, ledger — drives cards + balance
-            const [loansSnap, customersSnap, depositsSnap, partnerTxSnap, expensesSnap, ledgerSnap] = await Promise.all([
-                getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "deposits"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId)))
-            ]);
+            // ponytail: cards + balance come from backend-maintained metrics doc (1 read).
+            // Render cards the instant the doc arrives; loans/customers/deposits fill the
+            // activity list when they land (fast-first, no page-level spinner).
+            let metricsData: Record<string, any> | null = null;
+            try {
+                const metricsSnap = await getDocFresh(doc(db, "companies", companyId, "system", "dashboardMetrics"));
+                if (metricsSnap.exists()) metricsData = metricsSnap.data() as Record<string, any>;
+            } catch (e) { /* doc missing/denied → fall back to client calc */ }
+            setMetricsDoc(metricsData);
+            const hasMetrics = metricsData !== null && metricsData.availableBalance !== undefined;
+            if (hasMetrics) setLoading(false);
 
+            // ── Optimized reads (networking fix) ────────────────────────────
+            // When the backend metrics doc exists, the dashboard needs ONLY:
+            //   1) loans (limit 6, for the Recent Activity list)
+            //   2) the customers shown in that activity (photo/name)
+            // The old code fetched ALL loans + customers + deposits +
+            // partner_transactions + expenses + ledger on every load (~90 reads).
+            // balanceQueries (partner/expenses/ledger) run ONLY as fallback
+            // when the metrics doc is missing.
+            const loansQuery = hasMetrics
+                ? query(collection(db, "loans"), where("companyId", "==", companyId), orderBy("date", "desc"), limit(6))
+                : query(collection(db, "loans"), where("companyId", "==", companyId));
+
+            const loansSnap = await getDocsFresh(loansQuery);
             const loansData = loansSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-            const customersData = customersSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-            const depositsData = depositsSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
-
             loansData.sort((a: any, b: any) => {
                 const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
                 const dateB = b.date?.toDate?.() || new Date(b.date) || new Date(0);
                 return dateB.getTime() - dateA.getTime();
             });
-
             setLoans(loansData);
+
+            // Customers: only the ones referenced by the activity loans.
+            const activityCustomerIds = Array.from(new Set(
+                loansData.slice(0, 6).map((l: any) => l.customerId).filter(Boolean)
+            ));
+            let customersData: Record<string, any>[] = [];
+            if (hasMetrics && activityCustomerIds.length > 0) {
+                try {
+                    const customersSnap = await getDocsFresh(query(
+                        collection(db, "customers"),
+                        where(documentId(), "in", activityCustomerIds.slice(0, 10))                    ));
+                    customersData = customersSnap.docs.map((d: any) => ({ id: d.id, ...(d.data() as Record<string, any>) }));
+                } catch (e) {
+                    // "in" queries can hit index limits on very old SDKs — fall back to company query
+                    const customersSnap = await getDocsFresh(query(collection(db, "customers"), where("companyId", "==", companyId)));
+                    customersData = customersSnap.docs.map((d: any) => ({ id: d.id, ...(d.data() as Record<string, any>) }));
+                }
+            } else if (!hasMetrics) {
+                const customersSnap = await getDocsFresh(query(collection(db, "customers"), where("companyId", "==", companyId)));
+                customersData = customersSnap.docs.map((d: any) => ({ id: d.id, ...(d.data() as Record<string, any>) }));
+            }
             setCustomers(customersData);
+
+            // Deposits + balance queries: ONLY in fallback mode (metrics doc missing).
+            let depositsData: Record<string, any>[] = [];
+            let balanceSnaps: any[] = [];
+            if (!hasMetrics) {
+                const [depositsSnap, ...bSnaps] = await Promise.all([
+                    getDocsFresh(query(collection(db, "deposits"), where("companyId", "==", companyId))),
+                    getDocsFresh(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                    getDocsFresh(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                    getDocsFresh(query(collection(db, "ledger"), where("companyId", "==", companyId)))
+                ]);
+                depositsData = depositsSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+                balanceSnaps = bSnaps;
+            }
             setDeposits(depositsData);
-            setPartnerTransactions(partnerTxSnap.docs.map((doc: any) => doc.data()));
-            setExpenses(expensesSnap.docs.map((doc: any) => doc.data()));
-            setLedger(ledgerSnap.docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
+            if (balanceSnaps.length === 3) {
+                setPartnerTransactions(balanceSnaps[0].docs.map((doc: any) => doc.data()));
+                setExpenses(balanceSnaps[1].docs.map((doc: any) => doc.data()));
+                setLedger(balanceSnaps[2].docs.map((doc: any) => ({ id: doc.id, ...(doc.data() as Record<string, any>) })));
+            } else {
+                setPartnerTransactions([]);
+                setExpenses([]);
+                setLedger([]);
+            }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
       setError('Failed to load dashboard data. Please check your connection.');
@@ -214,6 +267,23 @@ const Dashboard: React.FC = () => {
     }, [currentCompany]);
 
     const metrics = useMemo(() => {
+        // ponytail: prefer backend-computed metrics doc — cards render with 1 read, no client recalculation.
+        if (metricsDoc && metricsDoc.availableBalance !== undefined) {
+            const n = (v: any) => Number(v) || 0;
+            return {
+                totalDisbursedCount: n(metricsDoc.totalDisbursedLoans),
+                totalDisbursedPrincipal: n(metricsDoc.totalDisbursedAmount),
+                activeLoansCount: n(metricsDoc.activeLoans),
+                activeLoansPrincipal: n(metricsDoc.totalDisbursedAmount),
+                activeLoansOutstandingPI: n(metricsDoc.totalOutstanding),
+                customerCount: n(metricsDoc.totalCustomers),
+                cashBalance: n(metricsDoc.availableBalance),
+                netDisbursed: n(metricsDoc.netDisbursed),
+                totalCollections: n(metricsDoc.totalCollections),
+                totalProcessingFees: n(metricsDoc.totalProcessingFees)
+            };
+        }
+
         let totalDisbursedCount = 0;
         let totalDisbursedPrincipal = 0;
         let activeLoansCount = 0;
@@ -368,7 +438,7 @@ const Dashboard: React.FC = () => {
             totalCollections,
             totalProcessingFees
         };
-    }, [loans, customers, partnerTransactions, expenses, ledger]);
+    }, [loans, customers, partnerTransactions, expenses, ledger, metricsDoc]);
 
     const getModalContent = () => {
         let modalData: any[] = [];
@@ -589,7 +659,7 @@ const Dashboard: React.FC = () => {
 
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 pb-safe bg-slate-50 dark:bg-slate-950 font-sans">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-safe-32 bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-indigo-50/50 via-purple-50/30 to-transparent dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-transparent"></div>

@@ -1273,6 +1273,139 @@ exports.getNextCounterId = onCall(async (request) => {
   return { nextId };
 });
 
+/**
+ * collectEmi — server-side EMI collection.
+ * WHY: the client-side Firestore transaction repeatedly failed with
+ * "Missing or insufficient permissions" because (a) transaction reads are
+ * re-checked against rules, and (b) rules referencing users/companies docs
+ * via get()/exists() can evaluate to false depending on the caller's claims.
+ * This callable uses the Admin SDK (rules bypassed) with its own access
+ * control, so collection is reliable for owners, admins AND agents.
+ *
+ * Input: { loanId, emiNumber, amountPaid, paymentMethod, remark }
+ * Output: { receiptId, receiptData, success }
+ */
+exports.collectEmi = onCall(async (request) => {
+  const callerUid = requireAuth(request);
+
+  const { loanId, emiNumber, amountPaid, paymentMethod, remark } = request.data || {};
+  if (!loanId || typeof loanId !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'loanId is required.');
+  }
+  if (typeof emiNumber !== 'number' || emiNumber < 1) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid emiNumber is required.');
+  }
+  if (typeof amountPaid !== 'number' || amountPaid <= 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid amountPaid is required.');
+  }
+
+  // ── Access control (server-side) ───────────────────────────────
+  const loanRef = db.collection('loans').doc(loanId);
+  const loanSnap = await loanRef.get();
+  if (!loanSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Loan not found.');
+  }
+  const loanData = loanSnap.data();
+  const companyId = loanData.companyId;
+
+  const userSnap = await db.collection('users').doc(callerUid).get();
+  const userData = userSnap.exists ? userSnap.data() : null;
+  const userRole = (userData && userData.role || '').toLowerCase();
+
+  // Allowed: owner of the company, admin/agent assigned to it, or the customer paying their own EMI.
+  const companySnap = await db.collection('companies').doc(companyId).get();
+  const isOwner = companySnap.exists && companySnap.data().ownerEmail === request.auth.token.email;
+  const isAssigned =
+    userData &&
+    (userData.companyId === companyId ||
+      (Array.isArray(userData.companies) && userData.companies.includes(companyId)));
+  const isAdminOrAgent = ['admin', 'agent', 'owner'].includes(userRole);
+
+  const isCustomerSelf =
+    loanData.customerId &&
+    (callerUid === loanData.customerId ||
+      callerUid === `cust_${loanData.customerId}` ||
+      (userData && userData.customerId === loanData.customerId));
+
+  if (!(isOwner || (isAssigned && isAdminOrAgent) || isCustomerSelf)) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'You do not have permission to collect this EMI.'
+    );
+  }
+
+  // ── Execute atomic transaction ─────────────────────────────────
+  const receiptRef = db.collection('receipts').doc();
+  const result = await db.runTransaction(async (t) => {
+    const loanDoc = await t.get(loanRef);
+    if (!loanDoc.exists) throw new Error('Loan not found in transaction.');
+    const current = loanDoc.data();
+
+    // Prevent double-collection: EMI must be pending/unpaid.
+    const schedule = current.repaymentSchedule || [];
+    const target = schedule.find((e) => e.emiNumber === emiNumber);
+    if (!target) {
+      throw new Error(`EMI #${emiNumber} not found in schedule.`);
+    }
+    if (target.status === 'Paid') {
+      throw new Error(`EMI #${emiNumber} is already paid.`);
+    }
+
+    const isExtra = amountPaid > target.amount;
+    const paymentDate = new Date().toISOString().slice(0, 10);
+    const remarkText = isExtra
+      ? `Extra Payment: ${amountPaid - target.amount}${remark ? ' - ' + remark : ''}`
+      : (remark || '');
+
+    const updatedSchedule = schedule.map((e) =>
+      e.emiNumber === emiNumber
+        ? { ...e, status: 'Paid', paymentDate, paymentMethod, amountPaid, remark: remarkText }
+        : e
+    );
+
+    t.update(loanRef, { repaymentSchedule: updatedSchedule });
+    const receiptId = receiptRef.id;
+    t.set(receiptRef, {
+      receiptId,
+      companyId,
+      loanId,
+      customerId: current.customerId || loanData.customerId || null,
+      customerName: current.customerName || loanData.customerName || '',
+      amount: amountPaid,
+      emiAmount: target.amount,
+      isExtraPayment: isExtra,
+      extraAmount: isExtra ? amountPaid - target.amount : 0,
+      paymentDate,
+      paymentMethod: paymentMethod || 'cash',
+      emiNumber,
+      remark: remarkText,
+      collectedBy: callerUid,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      receiptId,
+      receiptData: {
+        receiptId,
+        customerName: current.customerName || loanData.customerName || '',
+        customerId: current.customerId || loanData.customerId || null,
+        loanId,
+        emiNumber,
+        tenure: current.tenure || loanData.tenure || 0,
+        emiAmount: target.amount,
+        amountPaid,
+        paymentDate,
+        paymentMethod: paymentMethod || 'cash',
+        remark: remarkText,
+        isExtraPayment: isExtra,
+        phoneNumber: current.phoneNumber || loanData.phoneNumber || '',
+      },
+    };
+  });
+
+  return { success: true, ...result };
+});
+
 // ─── Metrics ───────────────────────────────────────
 const {onLoanWrite} = require("./metrics/loanTriggers");
 exports.onLoanWrite = onLoanWrite;

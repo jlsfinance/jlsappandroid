@@ -27,7 +27,7 @@ const Login: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       console.error(err);
-      setError('Invalid email or password.');
+      setError('Login failed: ' + (err?.message || err));
     } finally {
       setLoading(false);
     }

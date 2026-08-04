@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, addDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { getDocsSmart } from '../services/dataService';
+import { getDocsFresh } from '../services/dataService';
 import { useCompany } from '../context/CompanyContext';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -67,10 +67,10 @@ const FinanceOverview: React.FC = () => {
         try {
             const companyId = currentCompany.id;
             const [partnerTxSnap, loansSnap, expensesSnap, customersSnap] = await Promise.all([
-                getDocsSmart(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
-                getDocsSmart(query(collection(db, "expenses"), where("companyId", "==", companyId))),
-                getDocsSmart(query(collection(db, "customers"), where("companyId", "==", companyId)))
+                getDocsFresh(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
+                getDocsFresh(query(collection(db, "loans"), where("companyId", "==", companyId), where("status", "in", ["Disbursed", "Active", "Completed", "Overdue"]))),
+                getDocsFresh(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                getDocsFresh(query(collection(db, "customers"), where("companyId", "==", companyId)))
             ]);
 
             const partnerTxs = partnerTxSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as PartnerTransaction));
@@ -88,7 +88,7 @@ const FinanceOverview: React.FC = () => {
             // Let's fetch all 'ledger' generally or filter by date?
             // For now, let's fetch 'ledger' collection.
             // Fetch ledger entries for the current company
-            const ledgerSnap = await getDocsSmart(query(collection(db, "ledger"), where("companyId", "==", companyId)));
+            const ledgerSnap = await getDocsFresh(query(collection(db, "ledger"), where("companyId", "==", companyId)));
             const manualLedger = ledgerSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as any));
 
 
@@ -260,10 +260,12 @@ const FinanceOverview: React.FC = () => {
 
             flatLedgerEntries.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-            // Apply UI filters
+            // Apply UI filters — EXCEPT month, so opening balance correctly
+            // carries forward from previous months (bug: month filter was applied
+            // here first, making the selected month look like the first month
+            // with Op: Rs.0 even when earlier months had balance).
             const filteredEntries = flatLedgerEntries.filter(e => {
                 if (filterCustomer !== 'all' && (e.customerId || 'none') !== filterCustomer) return false;
-                if (filterMonth && format(e.date, 'yyyy-MM') !== filterMonth) return false;
                 if (filterCategory === 'loan' && !['loan', 'emi', 'fee', 'foreclosure'].includes(e.category)) return false;
                 if (filterCategory === 'deposit' && !['deposit', 'maturity'].includes(e.category)) return false;
                 if (filterCategory === 'expense' && e.category !== 'expense') return false;
@@ -309,14 +311,20 @@ const FinanceOverview: React.FC = () => {
                 runningBalance = monthEndBalance;
             }
 
-            setMonthlyLedgers(ledgers.reverse()); // Show newest months first
+            // Month filter applies to DISPLAY only — the ledger chain above is
+            // always computed in full so opening/closing balances stay correct.
+            let displayLedgers = ledgers;
+            if (filterMonth) {
+                displayLedgers = ledgers.filter(l => format(l.month, 'yyyy-MM') === filterMonth);
+            }
+            setMonthlyLedgers(displayLedgers.reverse()); // Show newest months first
 
         } catch (error) {
             console.error("Error generating ledger:", error);
         } finally {
             setLoading(false);
         }
-    }, [currentCompany]);
+    }, [currentCompany, filterCustomer, filterCategory, filterMonth]);
 
     useEffect(() => {
         generateLedger();

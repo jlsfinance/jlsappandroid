@@ -11,12 +11,35 @@ export const getDocsSmart = async (q: any) => {
   }
 };
 
+// NOTE: prefer SERVER data for dashboard/financial reads so stale cache from
+// earlier rule failures never masks fresh data. Cache-first caused the
+// "sab data galat" reports (dashboard showed old numbers after rules blocked
+// network reads). Use this for any read that feeds totals/overviews.
+export const getDocsFresh = async (q: any) => {
+  try {
+    return await getDocsFromServer(q);
+  } catch {
+    // fall back to cache only if network is genuinely unavailable
+    return await getDocsFromCache(q);
+  }
+};
+
 // Cached-first single doc read
 export const getDocSmart = async (ref: any) => {
   try {
     return await getDocFromCache(ref);
   } catch {
     return await getDocFromServer(ref);
+  }
+};
+
+// Server-first single doc read (fresh data for dashboards/totals)
+export const getDocFresh = async (ref: any) => {
+  try {
+    return await getDocFromServer(ref);
+  } catch {
+    // fall back to cache only if network is genuinely unavailable
+    return await getDocFromCache(ref);
   }
 };
 

@@ -43,3 +43,4 @@ firebase-error.log
 *.aab
 android/local.properties
 .firebase/
+nul

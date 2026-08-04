@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { db, functions } from '../firebaseConfig';
-import { collection, query, where, getDocs, doc, runTransaction, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from 'firebase/functions';
 import { format, parseISO, isPast, subMonths, addMonths } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -89,6 +89,7 @@ const DueList: React.FC = () => {
             });
 
             const pendingEmisList: PendingEmi[] = [];
+            const seenEmis = new Set<string>(); // dedupe: loanId + emiNumber
 
             loansSnapshot.docs.forEach(loanDoc => {
                 const loan = loanDoc.data();
@@ -97,6 +98,9 @@ const DueList: React.FC = () => {
                 if (loan.repaymentSchedule) {
                     loan.repaymentSchedule.forEach((emi: any) => {
                         if (emi.status === 'Pending') {
+                            const key = `${loanDoc.id}:${emi.emiNumber}`;
+                            if (seenEmis.has(key)) return; // skip duplicate schedule entry
+                            seenEmis.add(key);
                             pendingEmisList.push({
                                 loanId: loanDoc.id,
                                 customerId: loan.customerId,
@@ -317,85 +321,23 @@ const DueList: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            let receiptDocId = '';
-
-            const getNextCounterId = httpsCallable(functions, 'getNextCounterId');
-            const counterRes = await getNextCounterId({ counterName: 'receiptId_counter' });
-            const nextReceiptId = (counterRes.data as any).nextId;
-            receiptDocId = `RCPT-${nextReceiptId}`;
-
-            await runTransaction(db, async (transaction) => {
-                const loanRef = doc(db, "loans", selectedEmi.loanId);
-
-                const loanDoc = await transaction.get(loanRef);
-
-                if (!loanDoc.exists()) throw new Error("Loan not found!");
-
-                const loanData = loanDoc.data();
-                const today = new Date();
-                const paymentDate = format(today, 'yyyy-MM-dd');
-
-                const remarkText = isExtraPayment
-                    ? `Extra Payment: ${formatCurrency(amountToPay - selectedEmi.amount)}${paymentRemark ? ' - ' + paymentRemark : ''}`
-                    : paymentRemark;
-
-                const updatedSchedule = loanData.repaymentSchedule.map((emi: any) => {
-                    if (emi.emiNumber === selectedEmi.emiNumber) {
-                        return {
-                            ...emi,
-                            status: 'Paid',
-                            paymentDate: paymentDate,
-                            paymentMethod: paymentMethod,
-                            amountPaid: amountToPay,
-                            remark: remarkText,
-                        };
-                    }
-                    return emi;
-                });
-
-                const receiptRef = doc(db, "receipts", receiptDocId);
-
-                transaction.update(loanRef, { repaymentSchedule: updatedSchedule });
-                transaction.set(receiptRef, {
-                    receiptId: receiptDocId,
-                    companyId: loanData.companyId,
-                    loanId: selectedEmi.loanId,
-                    customerId: selectedEmi.customerId,
-                    customerName: selectedEmi.customerName,
-                    amount: amountToPay,
-                    emiAmount: selectedEmi.amount,
-                    isExtraPayment: isExtraPayment,
-                    extraAmount: isExtraPayment ? amountToPay - selectedEmi.amount : 0,
-                    paymentDate: paymentDate,
-                    paymentMethod: paymentMethod,
-                    emiNumber: selectedEmi.emiNumber,
-                    remark: remarkText,
-                    createdAt: new Date().toISOString(),
-                });
-            });
-
-            const finalRemark = isExtraPayment
-                ? `Extra Payment: ${formatCurrency(amountToPay - selectedEmi.amount)}${paymentRemark ? ' - ' + paymentRemark : ''}`
-                : paymentRemark;
-
-            const receiptData = {
-                receiptId: receiptDocId,
-                customerName: selectedEmi.customerName,
-                customerId: selectedEmi.customerId,
+            // Server-side collection via callable Cloud Function (Admin SDK).
+            // This bypasses Firestore rules entirely, so the
+            // "Missing or insufficient permissions" failure is eliminated.
+            const collectEmiFn = httpsCallable(functions, 'collectEmi');
+            const res = await collectEmiFn({
                 loanId: selectedEmi.loanId,
                 emiNumber: selectedEmi.emiNumber,
-                tenure: selectedEmi.tenure,
-                emiAmount: selectedEmi.amount,
                 amountPaid: amountToPay,
-                paymentDate: format(new Date(), 'yyyy-MM-dd'),
                 paymentMethod: paymentMethod,
-                remark: finalRemark,
-                isExtraPayment: isExtraPayment,
-                phoneNumber: selectedEmi.phoneNumber
-            };
+                remark: paymentRemark,
+            });
+
+            const { receiptId, receiptData } = (res.data || {}) as any;
+            if (!receiptId) throw new Error("No receipt returned from server.");
 
             const pdfDoc = generatePaymentReceiptPDF(receiptData);
-            pdfDoc.save(`Receipt_${receiptDocId}.pdf`);
+            pdfDoc.save(`Receipt_${receiptId}.pdf`);
 
             setLastCollectedEmi({ ...selectedEmi, amount: amountToPay });
             setAllPendingEmis(prev => prev.filter(e => !(e.emiNumber === selectedEmi.emiNumber && e.loanId === selectedEmi.loanId)));

@@ -189,9 +189,13 @@ service cloud.firestore {
       allow delete: if canDeleteBusinessData();
     }
 
-    // Counters: Server-side Cloud Functions only for writes
+    // Counters: Server-side Cloud Functions only for writes (temp: allow client writes for legacy APK)
     match /counters/{document} {
       allow read: if request.auth != null;
+      // Security fix: counters are server-owned. Only the getNextCounterId
+      // callable (Admin SDK) may write — Admin bypasses rules, so this NEVER
+      // breaks receipt/deposit ID generation. Direct client writes are
+      // blocked so a logged-in user can't reset/overwrite a counter.
       allow write: if false;
     }
 
