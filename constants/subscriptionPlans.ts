@@ -37,10 +37,10 @@ export const SUBSCRIPTION_PLANS: Record<PlanId, SubscriptionPlan> = {
     description: 'Essential ledger for micro-lenders starting out.',
     limits: {
       maxCompanies: 1,
-      maxCustomers: 10,
-      maxLoanTenureMonths: 24, // 2 Years
-      maxDepositTenureMonths: 0, // Disabled
-      allowDepositModule: false,
+      maxCustomers: 500, // raised from 10 — small finance businesses exceed 10 quickly
+      maxLoanTenureMonths: 60, // 5 Years (raised from 2)
+      maxDepositTenureMonths: 60, // 5 Years (raised from disabled)
+      allowDepositModule: true, // RD/FD enabled on free tier
       allowExcelExport: false,
       allowAdvancedReports: false,
       allowCustomLogoAndStamp: false,
@@ -51,9 +51,9 @@ export const SUBSCRIPTION_PLANS: Record<PlanId, SubscriptionPlan> = {
     },
     features: [
       '1 Company Profile',
-      'Up to 10 Active Customers',
-      'Loan Module Only',
-      'Loan Tenure up to 2 Years',
+      'Up to 500 Active Customers',
+      'Loan & Deposit (RD/FD) Modules',
+      'Loan Tenure up to 5 Years',
       'Basic PDF Receipt',
       'Manual WhatsApp Share',
     ],

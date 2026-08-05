@@ -82,10 +82,10 @@ service cloud.firestore {
       return planOf(uid) == 'enterprise'
         ? true
         : planOf(uid) == 'pro'
-          ? usageCount(uid, 'customers') < 100
+          ? usageCount(uid, 'customers') < 500
           : planOf(uid) == 'starter'
-            ? usageCount(uid, 'customers') < 50
-            : usageCount(uid, 'customers') < 10;
+            ? usageCount(uid, 'customers') < 500
+            : usageCount(uid, 'customers') < 500;
     }
     function canCreateLoanForPlan(uid, tenure) {
       return planOf(uid) == 'enterprise'
@@ -93,15 +93,15 @@ service cloud.firestore {
         : planOf(uid) == 'pro'
           ? tenure <= 60
           : planOf(uid) == 'starter'
-            ? tenure <= 36
-            : tenure <= 24;
+            ? tenure <= 60
+            : tenure <= 60;
     }
     function canCreateDepositForPlan(uid, tenure) {
       return planOf(uid) == 'enterprise' || planOf(uid) == 'pro'
         ? tenure <= (planOf(uid) == 'enterprise' ? 9999 : 60)
         : planOf(uid) == 'starter'
           ? tenure <= 36
-          : false;
+          : tenure <= 60;
     }
     function canAddCompanyForPlan(uid) {
       return planOf(uid) == 'enterprise'

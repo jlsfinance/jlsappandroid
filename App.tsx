@@ -181,7 +181,7 @@ const App: React.FC = () => {
           <SidebarProvider>
           <div className="flex h-screen bg-background-light dark:bg-background-dark">
             <Sidebar />
-            <div className="flex-1 flex flex-col h-full overflow-y-auto relative">
+            <div className="flex-1 flex flex-col h-full overflow-y-auto relative pt-safe">
               <ErrorBoundary>
                 <Routes>
                 <Route path="/login" element={<Login />} />

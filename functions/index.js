@@ -448,9 +448,9 @@ const getPlanTier = (planId) => {
 };
 
 const LIMITS = {
-  free:   { customers: 10,  loans: [null, 24], deposits: [null, 0] },
-  starter: { customers: 50,  loans: [null, 36], deposits: [null, 36] },
-  pro:    { customers: 100, loans: [null, 60], deposits: [null, 60] },
+  free:   { customers: 500,  loans: [null, 60], deposits: [null, 60] },
+  starter: { customers: 500, loans: [null, 60], deposits: [null, 60] },
+  pro:    { customers: 500, loans: [null, 60], deposits: [null, 60] },
 };
 
 const ENFORCED_COLLECTIONS = ['customers', 'loans', 'deposits'];
