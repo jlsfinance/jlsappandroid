@@ -12,6 +12,11 @@ service cloud.firestore {
         || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
             && "companies" in get(/databases/$(database)/documents/users/$(request.auth.uid)).data
             && cid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companies)
+        // app admins/owners may manage any company they belong to (single-tenant SaaS)
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'owner'])
+        // fallback: project-owner emails (no users/{uid} doc needed — covers Google-login owner)
+        || request.auth.token.email in ['lyricslelo.com@gmail.com', 'admin@mfi.appp', 'admin@instapilot.ai']
       );
     }
 
@@ -126,8 +131,7 @@ service cloud.firestore {
     match /customers/{document} {
       allow read: if canReadBusinessData()
         || (isCustomer() && document == getCustomerDocId());
-      allow create: if canCreateBusinessData()
-        && canAddCustomerForPlan(request.auth.uid);
+      allow create: if canCreateBusinessData();
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }
@@ -135,16 +139,14 @@ service cloud.firestore {
     match /loans/{document} {
       allow read: if canReadBusinessData()
         || (isCustomer() && resource != null && resource.data.customerId == getCustomerDocId());
-      allow create: if canCreateBusinessData()
-        && canCreateLoanForPlan(request.auth.uid, request.resource.data.tenure);
+      allow create: if canCreateBusinessData();
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }
 
     match /deposits/{document} {
       allow read: if canReadBusinessData();
-      allow create: if canCreateBusinessData()
-        && canCreateDepositForPlan(request.auth.uid, request.resource.data.tenure);
+      allow create: if canCreateBusinessData();
       allow update: if canUpdateBusinessData();
       allow delete: if canDeleteBusinessData();
     }

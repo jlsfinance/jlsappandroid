@@ -119,6 +119,18 @@ h6,
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
 }
 
+/* Bottom-nav clearance: always reserves room for the fixed BottomNav (FAB = ~96px)
+   PLUS the device safe-area inset, so content (incl. submit buttons) never hides
+   behind the nav on notch or non-notch devices. */
+.pb-nav {
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Nav's own bottom padding: at least 0.75rem, plus the device safe-area inset. */
+.pb-nav-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+}
+
 /* Combines a base bottom padding with the safe-area inset in one class.
    Replace `pb-32 pb-safe` pairs with this to avoid the CSS-order override. */
 .pb-safe-32 {

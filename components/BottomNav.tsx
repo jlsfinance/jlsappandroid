@@ -34,7 +34,7 @@ const BottomNav: React.FC = () => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface-light dark:bg-surface-dark border-t border-outline-light/10 dark:border-outline-dark/10 pb-safe pt-3">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface-light dark:bg-surface-dark border-t border-outline-light/10 dark:border-outline-dark/10 pb-nav-safe pt-3">
       <div className="flex justify-around items-end h-16 max-w-md mx-auto px-2 pb-2">
         <NavItem path="/" icon="dashboard" label="Home" />
         <NavItem path="/customers" icon="group" label="Clients" />
