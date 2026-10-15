@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, doc, runTransaction, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, runTransaction, getDoc, setDoc } from "firebase/firestore";
 import { format, parseISO, isPast } from 'date-fns';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -144,7 +144,11 @@ const DueList: React.FC = () => {
         setFilteredEmis(allPendingEmis);
         const groups = groupDueEmisByLoan(allPendingEmis);
         setCustomerGroups(groups);
-        const totalRemaining = allPendingEmis.reduce((sum, item) => sum + Math.max(0, item.amount - (item.amountPaid || 0)), 0);
+        const totalRemaining = allPendingEmis.reduce((sum, item) => {
+            const amt = Number(item.amount) || 0;
+            const paid = Number(item.amountPaid) || 0;
+            return sum + Math.max(0, amt - paid);
+        }, 0);
         setTotalDue(totalRemaining);
         setOverdueCount(allPendingEmis.filter(emi => isPast(parseLocalDate(emi.dueDate))).length);
     }, [allPendingEmis]);
@@ -411,13 +415,13 @@ const DueList: React.FC = () => {
         try {
             let receiptDocId = '';
 
+            // ── Transaction 1 (CRITICAL): update loan repaymentSchedule only ──
+            // Receipt creation is separate/best-effort so a counters/receipts
+            // rule can never block an actual EMI collection.
             await runTransaction(db, async (transaction) => {
                 const loanRef = doc(db, "loans", expandedGroup.loanId);
-                const receiptCounterRef = doc(db, 'counters', 'receiptId_counter');
 
                 const loanDoc = await transaction.get(loanRef);
-                const counterDoc = await transaction.get(receiptCounterRef);
-
                 if (!loanDoc.exists()) throw new Error("Loan not found!");
 
                 const loanData = loanDoc.data();
@@ -464,33 +468,34 @@ const DueList: React.FC = () => {
                 remarkText = remarkTextLocal;
                 amountLeftAfter = amountLeft;
 
-                let nextReceiptId = 1;
-                if (counterDoc.exists()) {
-                    nextReceiptId = (counterDoc.data().lastId || 0) + 1;
-                }
+                let nextReceiptId = Date.now(); // unique, no counters read needed
+                receiptDocId = `RCPT-${expandedGroup.loanId}-${nextReceiptId}`;
 
-                receiptDocId = `RCPT-${nextReceiptId}`;
-                const receiptRef = doc(db, "receipts", receiptDocId);
-
+                // Only the loan update is inside the transaction
                 transaction.update(loanRef, { repaymentSchedule: updatedSchedule });
-                transaction.set(receiptRef, {
+            });
+
+            // ── Best-effort: receipt save (never blocks the payment) ──
+            try {
+                await setDoc(doc(db, "receipts", receiptDocId), {
                     receiptId: receiptDocId,
                     loanId: expandedGroup.loanId,
                     customerId: expandedGroup.customerId,
                     customerName: expandedGroup.customerName,
                     amount: amountToPay,
                     emiAmount: selectedEmis.length === 1 ? selectedEmis[0].amount : totalRemaining,
-                    isExtraPayment: amountLeft > 0,
-                    extraAmount: amountLeft > 0 ? amountLeft : 0,
-                    paymentDate: paymentDate,
+                    isExtraPayment: amountLeftAfter > 0,
+                    extraAmount: amountLeftAfter > 0 ? amountLeftAfter : 0,
+                    paymentDate: format(new Date(), 'yyyy-MM-dd'),
                     paymentMethod: paymentMethod,
                     emiNumber: paymentLog[0]?.emiNumber ?? selectedEmis[0].emiNumber,
                     emisCovered: paymentLog.map(p => p.emiNumber),
                     remark: remarkText,
                     createdAt: new Date().toISOString(),
                 });
-                transaction.set(receiptCounterRef, { lastId: nextReceiptId }, { merge: true });
-            });
+            } catch (receiptErr) {
+                console.warn("Receipt save skipped (permission) — payment was saved:", receiptErr);
+            }
 
             // ── PDF receipt (single-EMI layout if one, summary if many) ──
             const receiptData = {

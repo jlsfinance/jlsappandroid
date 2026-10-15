@@ -17,7 +17,8 @@ import {
     applyPaymentToEmi,
     parseLocalDate,
     groupDueEmisByLoan,
-    previewAllocation
+    previewAllocation,
+    toNumber
 } from '../services/emiSchedule.ts';
 
 let passed = 0, failed = 0;
@@ -355,6 +356,36 @@ console.log('\n[Scenario 12] previewAllocation — unselected untouched:');
     const excess = previewAllocation(selected, 10000);
     eq('excess: all allocated 8454', excess.totalAllocated, 8454);
     eq('excess: leftover 1546 flagged', excess.leftover, 1546);
+}
+
+// ─── Scenario 13: NaN-safe coercion (corrupt DB values) ───
+console.log('\n[Scenario 13] toNumber — corrupt/missing amounts never produce NaN:');
+{
+    eq('number passes through', toNumber(4227), 4227);
+    eq('string coerced', toNumber('4227'), 4227);
+    eq('undefined → 0', toNumber(undefined), 0);
+    eq('null → 0', toNumber(null), 0);
+    eq('NaN → 0', toNumber(NaN), 0);
+    eq('empty string → 0', toNumber(''), 0);
+    eq('object → 0', toNumber({}), 0);
+
+    // EMI with missing amount is SKIPPED, not pushed with NaN remaining
+    const now = new Date(2026, 9, 15);
+    const loans = [
+        { id: 'LX', customerId: 'CX', customerName: 'Corrupt', tenure: 24, repaymentSchedule: [
+            emi(10, '2026-08-05'),
+            { emiNumber: 11, dueDate: '2026-09-05', amount: undefined, status: 'Pending' },
+            { emiNumber: 12, dueDate: '2026-10-05', amount: '4227', status: 'Pending' },
+            emi(13, '2026-11-05'),
+        ] },
+    ];
+    const due = getAllDueEmis(loans, now);
+    eq('corrupt-amount EMI skipped → 2 due', due.length, 2);
+    ok('no NaN remaining anywhere', due.every(d => Number.isFinite(d.remaining)));
+    ok('no NaN amount anywhere', due.every(d => Number.isFinite(d.amount)));
+    ok('string amount coerced to 4227', due.find(d => d.emiNumber === 12)?.amount === 4227);
+    const groups = groupDueEmisByLoan(due, now);
+    ok('group total is finite (not NaN)', Number.isFinite(groups[0].totalRemaining) && groups[0].totalRemaining === 14227);
 }
 
 // ─── Summary ───

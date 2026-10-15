@@ -46,6 +46,12 @@ export interface DueEmi {
     isPreviousMonth: boolean; // due date before the 1st of the current month
 }
 
+/** Coerce any DB value to a finite number (NaN-safe). */
+export const toNumber = (v: unknown, fallback = 0): number => {
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : fallback;
+};
+
 /** Parse 'yyyy-MM-dd' as a LOCAL date (avoids UTC-midnight timezone shift). */
 export const parseLocalDate = (dateStr: string): Date => {
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -78,8 +84,11 @@ export const getDueEmisForLoan = (loan: LoanData, now: Date = new Date()): DueEm
         // Future-month / not-yet-arrived → NEVER shown
         if (dueObj.getTime() > todayEnd.getTime()) continue;
 
-        const amountPaid = Number(emi.amountPaid) || 0;
-        const remaining = Math.max(0, emi.amount - amountPaid);
+        const amountPaid = toNumber(emi.amountPaid, 0);
+        const emiAmount = toNumber(emi.amount, 0);
+        // Skip entries with a corrupt/missing amount — they can't be collected
+        if (emiAmount <= 0) continue;
+        const remaining = Math.max(0, emiAmount - amountPaid);
         // Fully settled through partial payments → excluded
         if (remaining <= 0) continue;
 
@@ -87,13 +96,13 @@ export const getDueEmisForLoan = (loan: LoanData, now: Date = new Date()): DueEm
             loanId: loan.id,
             customerId: loan.customerId,
             customerName: loan.customerName,
-            emiNumber: emi.emiNumber,
+            emiNumber: toNumber(emi.emiNumber, 0),
             dueDate: emi.dueDate,
-            amount: emi.amount,
-            tenure: loan.tenure,
+            amount: emiAmount,
+            tenure: toNumber(loan.tenure, 0),
             amountPaid,
             remaining,
-            isFinalEmi: loan.tenure > 0 && emi.emiNumber >= loan.tenure,
+            isFinalEmi: toNumber(loan.tenure, 0) > 0 && toNumber(emi.emiNumber, 0) >= toNumber(loan.tenure, 0),
             isOverdue: dueObj.getTime() < endOfDay(now).getTime() && dueObj.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
             isPreviousMonth: dueObj.getTime() < thisMonthStart.getTime(),
         });
