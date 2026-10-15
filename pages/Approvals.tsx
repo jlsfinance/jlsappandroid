@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useCompany } from '../context/CompanyContext';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 interface LoanApplication {
     id: string;
@@ -15,6 +17,7 @@ interface LoanApplication {
 const Approvals: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { success, error: toastError } = useToast();
     const [applications, setApplications] = useState<LoanApplication[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -83,12 +86,12 @@ const Approvals: React.FC = () => {
             await updateDoc(loanRef, updateData);
 
             setApplications(prev => prev.filter(app => app.id !== selectedApp.id));
-            alert(`Application ${newStatus} Successfully`);
+            success(`Application ${newStatus} Successfully`);
             closeModal();
 
         } catch (error) {
             console.error(`Failed to update application:`, error);
-            alert("An error occurred while updating the loan.");
+            toastError("An error occurred while updating the loan.");
         } finally {
             setProcessing(false);
         }
@@ -127,8 +130,9 @@ const Approvals: React.FC = () => {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center">
-                                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                                        <td colSpan={5} className="px-4 py-6">
+                                            <SkeletonStyles />
+                                            <SkeletonList count={6} />
                                         </td>
                                     </tr>
                                 ) : applications.length > 0 ? (

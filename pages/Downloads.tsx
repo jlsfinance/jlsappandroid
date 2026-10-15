@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Filesystem, Directory, FileInfo } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 const Downloads: React.FC = () => {
     const [files, setFiles] = useState<FileInfo[]>([]);
     const [loading, setLoading] = useState(true);
+    const { error: toastError } = useToast();
 
     const loadFiles = async () => {
         try {
@@ -54,7 +57,7 @@ const Downloads: React.FC = () => {
             loadFiles(); // Refresh
         } catch (error) {
             console.error('Delete failed:', error);
-            alert('Could not delete file.');
+            toastError('Could not delete file.');
         }
     };
 
@@ -63,7 +66,10 @@ const Downloads: React.FC = () => {
             <h1 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Downloads</h1>
 
             {loading ? (
-                <div className="text-center p-10 text-slate-500">Loading files...</div>
+                <div className="p-2">
+                    <SkeletonStyles />
+                    <SkeletonList count={5} />
+                </div>
             ) : files.length === 0 ? (
                 <div className="text-center p-10 bg-slate-100 dark:bg-slate-800 rounded-xl">
                     <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">folder_open</span>

@@ -6,6 +6,8 @@ import { db } from '../firebaseConfig';
 import { addMonths, format, parseISO, differenceInDays, startOfDay, isPast, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
 import { useCompany } from '../context/CompanyContext';
+import { SkeletonHero, SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 // --- Icons ---
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -55,6 +57,7 @@ const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat("en-IN", 
 const LegalNotice: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { success, error: toastError, info } = useToast();
 
     const companyDetails = useMemo(() => ({
         name: currentCompany?.name || "Finance Company",
@@ -291,7 +294,7 @@ For ${companyDetails.name}`;
 
     // Templates
     const saveTemplate = () => {
-        if (!newTemplateName) return alert("Enter a template name");
+        if (!newTemplateName) return toastError("Enter a template name");
         const newTemp = { templateName: newTemplateName, ...form };
         const updated = [...templates, newTemp];
         setTemplates(updated);
@@ -346,7 +349,10 @@ For ${companyDetails.name}`;
                             </div>
 
                             {loadingData ? (
-                                <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>
+                                <div className="py-2 space-y-3">
+                                    <SkeletonStyles />
+                                    <SkeletonList count={5} />
+                                </div>
                             ) : customers.length > 0 ? (
                                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                                     {customers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(customer => (
@@ -507,7 +513,7 @@ For ${companyDetails.name}`;
                                 const msg = `🚨 *FINAL REMINDER* 🚨\n\nDear ${form.customerName},\nYour EMI of *${formatCurrency(totalAmountDue)}* due on ${calculatedDueDate} is overdue.\nPlease pay within ${form.paymentDeadlineHours} hours to avoid legal action.\n\nUPI: ${form.paymentDetails.split('\n')[0].split(':')[1] || 'As per notice'}`;
                                 const phone = selectedCustomer.phone?.replace(/\D/g, '').slice(-10);
                                 if (phone) window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                else alert("Customer phone number not available.");
+                                else info("Customer phone number not available.");
                             }}
                             className="mt-3 w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors"
                         >

@@ -12,6 +12,7 @@ import { format, parseISO, subMonths, startOfMonth, endOfMonth, isWithinInterval
 import { Loan } from '../types';
 import ChartsSection from './dashboard/ChartsSection';
 import { buildLedgerEntries, buildMonthlyLedgers, getCurrentCashBalance } from '../services/cashLedger';
+import { useToast } from '../components/Toast';
 
 // Type definitions for the dashboard
 
@@ -27,6 +28,7 @@ const Dashboard: React.FC = () => {
     const { openSidebar } = useSidebar();
     const [activeCard, setActiveCard] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const { success, error, info, toast } = useToast();
 
     const [loans, setLoans] = useState<any[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
@@ -44,7 +46,7 @@ const Dashboard: React.FC = () => {
     const [sending, setSending] = useState(false);
 
     const handleSendNotification = async () => {
-        if (!notifTitle || !notifBody) return alert("Please enter title and message");
+        if (!notifTitle || !notifBody) return error("Please enter title and message");
         setSending(true);
         try {
             const { addDoc, serverTimestamp, collection } = await import('firebase/firestore');
@@ -60,12 +62,12 @@ const Dashboard: React.FC = () => {
                 type: 'admin_push',
                 recipientName: selectedCustomerId === 'all' ? 'All Customers' : (targetCustomer?.name || 'User')
             });
-            alert("Notification Sent Successfully! 🚀");
+            success("Notification Sent Successfully! 🚀");
             setShowReminderModal(false);
             setNotifTitle('');
             setNotifBody('');
         } catch (e: any) {
-            alert("Error sending: " + e.message);
+            error("Error sending: " + e.message);
         } finally {
             setSending(false);
         }
@@ -523,7 +525,7 @@ const Dashboard: React.FC = () => {
     const handleExportPDF = async () => {
         if (!activeCard) return;
         const { data, columns } = getModalContent();
-        if (!data || data.length === 0) { alert("No data available."); return; }
+        if (!data || data.length === 0) { error("No data available."); return; }
         const doc = new jsPDF('l', 'mm', 'a4');
         doc.text((currentCompany?.name || "Finance Company") + " Report - " + activeCard, 14, 15);
 
@@ -660,33 +662,33 @@ const Dashboard: React.FC = () => {
 
             <div className="relative px-4 sm:px-6 space-y-6 sm:space-y-8 mt-4 sm:mt-6 max-w-7xl mx-auto w-full">
 
-                {/* Hero Balance Card - Premium 3D Effect */}
-                <div className="group relative overflow-hidden rounded-[2rem] bg-slate-900 text-white shadow-2xl shadow-indigo-500/25 transition-all hover:scale-[1.01]">
+                {/* Hero Balance Card - Compact Premium */}
+                <div className="group relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-xl shadow-indigo-500/20 transition-all">
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-700 to-indigo-800"></div>
                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
 
                     {/* Animated Glows */}
-                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-purple-500/30 rounded-full blur-3xl group-hover:bg-purple-500/40 transition-colors duration-500"></div>
-                    <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-500/30 rounded-full blur-3xl group-hover:bg-indigo-500/40 transition-colors duration-500"></div>
+                    <div className="absolute -top-20 -right-20 w-48 h-48 bg-purple-500/30 rounded-full blur-3xl group-hover:bg-purple-500/40 transition-colors duration-500"></div>
+                    <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-indigo-500/30 rounded-full blur-3xl group-hover:bg-indigo-500/40 transition-colors duration-500"></div>
 
-                    <div className="relative z-10 p-8">
-                        <div className="flex justify-between items-start mb-8">
-                            <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
+                    <div className="relative z-10 p-5">
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
                                 <span className="material-symbols-outlined text-indigo-200 text-sm">account_balance_wallet</span>
-                                <span className="text-xs font-semibold text-indigo-100 tracking-wide uppercase">Available Balance</span>
+                                <span className="text-[10px] font-semibold text-indigo-100 tracking-wide uppercase">Available Balance</span>
                             </div>
-                            <Link to="/finance" className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20">
-                                <span className="material-symbols-outlined">arrow_outward</span>
+                            <Link to="/finance" className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all active:scale-90 ring-1 ring-white/20">
+                                <span className="material-symbols-outlined text-lg">arrow_outward</span>
                             </Link>
                         </div>
 
-                        <div className="text-center sm:text-left">
-                            <span className="text-5xl font-black tracking-tight block mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-indigo-200">
+                        <div className="flex items-end justify-between gap-3">
+                            <span className="text-3xl font-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-indigo-200">
                                 {loading ? '...' : formatCurrency(metrics.cashBalance)}
                             </span>
-                            <div className="flex items-center gap-2 mt-4 text-indigo-200 text-sm font-medium">
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-400/20 text-emerald-300">
-                                    <span className="material-symbols-outlined text-sm">trending_up</span>
+                            <div className="flex items-center gap-1.5 text-indigo-200 text-xs font-medium pb-0.5 shrink-0">
+                                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-400/20 text-emerald-300">
+                                    <span className="material-symbols-outlined text-[12px]">trending_up</span>
                                 </span>
                                 <span>Total Liquid Assets</span>
                             </div>
@@ -700,7 +702,7 @@ const Dashboard: React.FC = () => {
                         <div className="h-6 w-1 rounded-full bg-indigo-600"></div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Quick Actions</h3>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
                             { link: "/loans/new", icon: "add", isKadak: true, label: "New Loan" },
                             { link: "/due-list", icon: "payments", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Collect EMI" },
@@ -756,7 +758,7 @@ const Dashboard: React.FC = () => {
                         {/* Feature Card */}
                         <div
                             onClick={() => setActiveCard('Total Disbursed Loans')}
-                            className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-slate-100 dark:border-slate-800"
+                            className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-lg cursor-pointer border border-slate-100 dark:border-slate-800"
                         >
                             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
 
@@ -768,7 +770,7 @@ const Dashboard: React.FC = () => {
                                         </div>
                                         <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400">Total Disbursed</h3>
                                     </div>
-                                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{loading ? '...' : formatCurrency(metrics.totalDisbursedPrincipal)}</h2>
+                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{loading ? '...' : formatCurrency(metrics.totalDisbursedPrincipal)}</h2>
                                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{metrics.totalDisbursedCount} Loans in total</p>
                                 </div>
                                 <div className="p-2 rounded-full border border-slate-100 dark:border-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
@@ -777,12 +779,12 @@ const Dashboard: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <div
                                 onClick={() => setActiveCard('Active Loans')}
-                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
-                                <div className="p-2.5 w-fit rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-3 group-hover:scale-110 transition-transform">
+                                <div className="p-2 w-fit rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-2 group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-lg">trending_up</span>
                                 </div>
                                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.activeLoansCount}</h2>
@@ -791,9 +793,9 @@ const Dashboard: React.FC = () => {
 
                             <div
                                 onClick={() => setActiveCard('Active Loan Value')}
-                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
-                                <div className="p-2.5 w-fit rounded-xl bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 mb-3 group-hover:scale-110 transition-transform">
+                                <div className="p-2 w-fit rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 mb-2 group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-lg">analytics</span>
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.activeLoansOutstandingPI)}</h2>
@@ -818,12 +820,12 @@ const Dashboard: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <div
                                 onClick={() => setActiveCard('Portfolio Outstanding')}
-                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
-                                <div className="p-2.5 w-fit rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                                <div className="p-2 w-fit rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-2 group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-lg">pending_actions</span>
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.activeLoansOutstandingPI)}</h2>
@@ -831,9 +833,9 @@ const Dashboard: React.FC = () => {
                             </div>
                             <div
                                 onClick={() => setActiveCard('Total Collections')}
-                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                             >
-                                <div className="p-2.5 w-fit rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 mb-3 group-hover:scale-110 transition-transform">
+                                <div className="p-2 w-fit rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 mb-2 group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-lg">savings</span>
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : formatCurrency(metrics.totalCollections)}</h2>
@@ -861,11 +863,11 @@ const Dashboard: React.FC = () => {
                     <div className="h-6 w-1 rounded-full bg-emerald-600"></div>
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white">Loan Metrics</h3>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {/* Active Loans */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                       onClick={() => setActiveCard('Active Loans')}>
-                      <div className="p-2.5 w-fit rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-3 group-hover:scale-110 transition-transform">
+                      <div className="p-2 w-fit rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">payments</span>
                       </div>
                       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.activeLoansCount}</h2>
@@ -876,9 +878,9 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Amount Disbursed */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800"
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800"
                       onClick={() => setActiveCard('Total Disbursed Loans')}>
-                      <div className="p-2.5 w-fit rounded-xl bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 mb-3 group-hover:scale-110 transition-transform">
+                      <div className="p-2 w-fit rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">account_balance</span>
                       </div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{loading ? '...' : `₹${(metrics.totalDisbursedPrincipal / 10000000).toFixed(1)}Cr`}</h2>
@@ -887,8 +889,8 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* NPA Ratio */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
-                      <div className={`p-2.5 w-fit rounded-xl mb-3 group-hover:scale-110 transition-transform ${loanMetrics.npaRatio > 5 ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800">
+                      <div className={`p-2 w-fit rounded-lg mb-2 group-hover:scale-110 transition-transform ${loanMetrics.npaRatio > 5 ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
                         <span className="material-symbols-outlined text-lg">warning</span>
                       </div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `${loanMetrics.npaRatio}%`}</h2>
@@ -899,8 +901,8 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Avg Ticket Size */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
-                      <div className="p-2.5 w-fit rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2 w-fit rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">receipt_long</span>
                       </div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `₹${(loanMetrics.avgTicket / 100000).toFixed(2)}L`}</h2>
@@ -915,10 +917,10 @@ const Dashboard: React.FC = () => {
                     <div className="h-6 w-1 rounded-full bg-purple-600"></div>
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white">Customer Metrics</h3>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {/* Total Customers */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
-                      <div className="p-2.5 w-fit rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 mb-3 group-hover:scale-110 transition-transform">
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2 w-fit rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">people</span>
                       </div>
                       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.customerCount}</h2>
@@ -927,8 +929,8 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* New Registrations */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
-                      <div className="p-2.5 w-fit rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 mb-3 group-hover:scale-110 transition-transform">
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2 w-fit rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">person_add</span>
                       </div>
                       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : loanMetrics.todayRegistrations}</h2>
@@ -937,8 +939,8 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Avg Ticket (duplicate of above but as standalone card) */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
-                      <div className="p-2.5 w-fit rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2 w-fit rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">trending_up</span>
                       </div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `₹${(loanMetrics.avgTicket / 100000).toFixed(2)}L`}</h2>
@@ -946,8 +948,8 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* KYC Completion Rate */}
-                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
-                      <div className="p-2.5 w-fit rounded-xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 mb-3 group-hover:scale-110 transition-transform">
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2 w-fit rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 mb-2 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-lg">verified</span>
                       </div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `${metrics.customerCount > 0 ? Math.round((loanMetrics.kycCompleted / metrics.customerCount) * 100) : 0}%`}</h2>
@@ -1117,10 +1119,10 @@ const Dashboard: React.FC = () => {
                                 if (loans.length > 0) {
                                     if (confirm("Send automated reminders to all active loan customers?")) {
                                         NotificationService.scheduleLoanNotifications(loans as any);
-                                        alert("One-Click Sync Activated!");
+                                        success("One-Click Sync Activated!");
                                     }
                                 } else {
-                                    alert("No active loans.");
+                                    error("No active loans.");
                                 }
                             }}
                                 className="group p-5 rounded-3xl text-white cursor-pointer active:scale-[0.98] transition-all shadow-xl shadow-indigo-500/20 flex items-center justify-between border border-white/20"

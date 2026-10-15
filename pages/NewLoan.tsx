@@ -4,6 +4,7 @@ import { collection, getDocs, query, orderBy, where, doc, runTransaction } from 
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import { useToast } from '../components/Toast';
 
 interface LoanFormState {
   amount: number;
@@ -18,6 +19,7 @@ const NewLoan: React.FC = () => {
   const { currentCompany } = useCompany();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +69,7 @@ const NewLoan: React.FC = () => {
 
       } catch (err) {
         console.error("Error loading data:", err);
-        alert("Failed to load customer data.");
+        error("Failed to load customer data.");
       } finally {
         setLoading(false);
       }
@@ -98,7 +100,7 @@ const NewLoan: React.FC = () => {
 
   const handleCustomerSelect = (customerId: string) => {
     if (customersWithActiveLoans.has(customerId)) {
-      alert("This customer already has an active loan.");
+      error("This customer already has an active loan.");
       return;
     }
     setSelectedCustomerId(customerId);
@@ -123,8 +125,8 @@ const NewLoan: React.FC = () => {
     if (!selectedCustomer || !auth.currentUser) return;
 
     // Validation
-    if (form.amount < 1000) return alert("Minimum loan amount is 1000");
-    if (form.tenure < 1) return alert("Minimum tenure is 1 month");
+    if (form.amount < 1000) return error("Minimum loan amount is 1000");
+    if (form.tenure < 1) return error("Minimum tenure is 1 month");
 
     setIsSubmitting(true);
 
@@ -171,12 +173,12 @@ const NewLoan: React.FC = () => {
         return nextId;
       });
 
-      alert(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
+      success(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
       navigate('/loans');
 
     } catch (error) {
       console.error("Submission failed:", error);
-      alert("Failed to submit loan application. Please try again.");
+      toast("Failed to submit loan application. Please try again.", 'error');
     } finally {
       setIsSubmitting(false);
     }

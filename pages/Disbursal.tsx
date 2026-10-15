@@ -4,6 +4,7 @@ import { collection, getDocs, query, where, doc, updateDoc, getDoc } from "fireb
 import { db } from "../firebaseConfig";
 import { addMonths, startOfMonth, format, parse, isValid } from 'date-fns';
 import { useCompany } from '../context/CompanyContext';
+import { useToast } from '../components/Toast';
 
 interface ApprovedLoan {
     id: string;
@@ -21,6 +22,7 @@ const Disbursal: React.FC = () => {
     const { currentCompany } = useCompany();
     const [approvedLoans, setApprovedLoans] = useState<ApprovedLoan[]>([]);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
 
     const companyName = useMemo(() => currentCompany?.name || "Finance Company", [currentCompany]);
     
@@ -58,7 +60,7 @@ const Disbursal: React.FC = () => {
 
     const handleDisburse = async () => {
         if (!selectedLoan || !disbursalDate) {
-            alert("Please select a valid date.");
+            error("Please select a valid date.");
             return;
         }
         setProcessing(true);
@@ -120,12 +122,12 @@ const Disbursal: React.FC = () => {
                 console.error("WhatsApp redirect failed", e);
             }
 
-            alert("Loan Disbursed Successfully!");
+            success("Loan Disbursed Successfully!");
             setSelectedLoan(null);
 
         } catch (error) {
             console.error(`Failed to disburse loan:`, error);
-            alert("Disbursal failed. Please try again.");
+            toast("Disbursal failed. Please try again.", 'error');
         } finally {
             setProcessing(false);
         }

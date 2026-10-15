@@ -6,10 +6,12 @@ import { auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { NotificationService } from '../services/NotificationService';
 import AboutModal from '../components/AboutModal';
+import { useToast } from '../components/Toast';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
+  const { info } = useToast();
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -191,7 +193,7 @@ const Settings: React.FC = () => {
           </Link>
 
           <div
-            onClick={() => alert("Please contact support or admin to request permanent account deletion.")}
+            onClick={() => info("Please contact support or admin to request permanent account deletion.")}
             className="flex items-center gap-4 px-4 py-3.5 hover:bg-red-50 dark:hover:bg-red-900/10 cursor-pointer transition-colors group"
           >
             <div className="flex items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 shrink-0 size-9 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">

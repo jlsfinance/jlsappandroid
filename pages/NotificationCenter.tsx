@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } f
 import { db } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { format } from 'date-fns';
+import { useToast } from '../components/Toast';
 
 interface NotificationLog {
     id: string;
@@ -16,6 +17,7 @@ interface NotificationLog {
 
 const NotificationCenter: React.FC = () => {
     const { currentCompany } = useCompany();
+    const { success, error: toastError } = useToast();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [recipient, setRecipient] = useState('all');
@@ -84,12 +86,12 @@ const NotificationCenter: React.FC = () => {
             setTitle('');
             setMessage('');
             setRecipient('all');
-            alert('Notification sent successfully!');
+            success('Notification sent successfully!');
             fetchHistory(); // Refresh history
             setActiveTab('history');
         } catch (error) {
             console.error("Error sending notification", error);
-            alert('Failed to send notification.');
+            toastError('Failed to send notification.');
         } finally {
             setLoading(false);
         }

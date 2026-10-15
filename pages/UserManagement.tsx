@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
+import { useToast } from '../components/Toast';
 
 interface UserPermissions {
   canViewLoans: boolean;
@@ -30,6 +31,7 @@ const UserManagement: React.FC = () => {
   const { currentCompany } = useCompany();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,12 +81,12 @@ const UserManagement: React.FC = () => {
 
       await updateDoc(userRef, updateData);
 
-      alert(`User profile for ${selectedUser.name || selectedUser.email} has been updated and assigned to ${currentCompany.name}.`);
+      success(`User profile for ${selectedUser.name || selectedUser.email} has been updated and assigned to ${currentCompany.name}.`);
       await fetchUsers();
       setSelectedUser(null);
     } catch (error) {
       console.error("Error updating user:", error);
-      alert('Update failed');
+      toast('Update failed', 'error');
     } finally {
       setIsSubmitting(false);
     }

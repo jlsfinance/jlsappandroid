@@ -4,6 +4,8 @@ import { fetchCustomerById, fetchLoansByCustomerId, deleteCustomer } from '../se
 import { Customer, Loan } from '../types';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { SkeletonHero, SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 const CustomerProfile: React.FC = () => {
   const { id } = useParams();
@@ -11,6 +13,7 @@ const CustomerProfile: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
+  const { error: toastError } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -68,8 +71,12 @@ const CustomerProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+      <div className="flex flex-col h-screen w-full items-center justify-center gap-4 bg-background-light dark:bg-background-dark p-4">
+        <SkeletonStyles />
+        <div className="w-full max-w-md space-y-3">
+          <SkeletonHero />
+          <SkeletonList count={4} />
+        </div>
       </div>
     );
   }
@@ -316,7 +323,7 @@ const CustomerProfile: React.FC = () => {
                     navigate('/customers');
                   } catch (error) {
                     console.error('Error deleting customer:', error);
-                    alert('Failed to delete customer');
+                    toastError('Failed to delete customer');
                   } finally {
                     setIsDeleting(false);
                     setShowDeleteConfirm(false);

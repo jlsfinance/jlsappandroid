@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
+import { useToast } from '../components/Toast';
 
 const IMGBB_API_KEY = "c9f4edabbd1fe1bc3a063e26bc6a2ecd";
 
@@ -10,6 +11,7 @@ const NewCustomer: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { success, error, info, toast } = useToast();
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
 
@@ -59,7 +61,7 @@ const NewCustomer: React.FC = () => {
             }
         } catch (error) {
             console.error("Image upload error:", error);
-            alert("Photo upload failed. Proceeding without photo.");
+            toast("Photo upload failed. Proceeding without photo.", 'error');
             return "";
         }
     };
@@ -67,10 +69,10 @@ const NewCustomer: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!auth.currentUser) return;
-        if (!currentCompany) return alert("Please select a company first");
+        if (!currentCompany) return error("Please select a company first");
 
-        if (!formData.fullName) return alert("Full Name is required");
-        if (!formData.mobile) return alert("Mobile Number is required");
+        if (!formData.fullName) return error("Full Name is required");
+        if (!formData.mobile) return error("Mobile Number is required");
 
         setIsSubmitting(true);
 
@@ -101,12 +103,12 @@ const NewCustomer: React.FC = () => {
                 }
             });
 
-            alert("Customer Registered Successfully!");
+            success("Customer Registered Successfully!");
             navigate('/customers');
 
         } catch (error) {
             console.error("Registration failed:", error);
-            alert("Failed to register customer. Please try again.");
+            toast("Failed to register customer. Please try again.", 'error');
         } finally {
             setIsSubmitting(false);
         }

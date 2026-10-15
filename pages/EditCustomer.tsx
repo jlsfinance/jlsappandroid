@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useToast } from '../components/Toast';
 
 const IMGBB_API_KEY = "c9f4edabbd1fe1bc3a063e26bc6a2ecd";
 
@@ -9,6 +10,7 @@ const EditCustomer: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -50,7 +52,7 @@ const EditCustomer: React.FC = () => {
           });
           if (data.photo_url) setPhotoPreview(data.photo_url);
         } else {
-          alert('Customer not found');
+          error('Customer not found');
           navigate('/customers');
         }
       } catch (error) {
@@ -102,8 +104,8 @@ const EditCustomer: React.FC = () => {
     e.preventDefault();
     if (!auth.currentUser || !id) return;
     
-    if (!formData.fullName) return alert("Full Name is required");
-    if (!formData.mobile) return alert("Mobile Number is required");
+    if (!formData.fullName) return error("Full Name is required");
+    if (!formData.mobile) return error("Mobile Number is required");
 
     setIsSubmitting(true);
 
@@ -133,12 +135,12 @@ const EditCustomer: React.FC = () => {
 
       await updateDoc(doc(db, 'customers', id), updateData);
 
-      alert("Customer Details Updated Successfully!");
+      success("Customer Details Updated Successfully!");
       navigate(`/customers/${id}`);
 
     } catch (error) {
       console.error("Update failed:", error);
-      alert("Failed to update customer. Please try again.");
+      toast("Failed to update customer. Please try again.", 'error');
     } finally {
       setIsSubmitting(false);
     }

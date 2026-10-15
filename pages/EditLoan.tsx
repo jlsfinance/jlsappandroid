@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useToast } from '../components/Toast';
 
 interface Customer {
   id: string;
@@ -45,6 +46,7 @@ const EditLoan: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loan, setLoan] = useState<LoanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState<FormState>({
@@ -64,7 +66,7 @@ const EditLoan: React.FC = () => {
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
-        alert("Loan not found");
+        error("Loan not found");
         navigate('/loans');
         return;
       }
@@ -91,7 +93,7 @@ const EditLoan: React.FC = () => {
       }
     } catch (err) {
       console.error("Error loading loan:", err);
-      alert("Failed to load loan data");
+      error("Failed to load loan data");
       navigate('/loans');
     } finally {
       setLoading(false);
@@ -130,12 +132,12 @@ const EditLoan: React.FC = () => {
     e.preventDefault();
 
     if (!loanId || !loan) {
-      alert("Loan information is missing");
+      error("Loan information is missing");
       return;
     }
 
     if (form.amount < 1000) {
-      alert("Minimum loan amount is ₹1,000");
+      error("Minimum loan amount is ₹1,000");
       return;
     }
 
@@ -154,11 +156,11 @@ const EditLoan: React.FC = () => {
         notes: form.notes || null,
       });
 
-      alert("Loan updated successfully!");
+      success("Loan updated successfully!");
       navigate(`/loans/${loanId}`);
     } catch (err) {
       console.error("Update failed:", err);
-      alert("Failed to update loan. Please try again.");
+      error("Failed to update loan. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

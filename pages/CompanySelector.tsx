@@ -4,11 +4,13 @@ import { useCompany } from '../context/CompanyContext';
 import { Company } from '../types';
 import { collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useToast } from '../components/Toast';
 
 const CompanySelector: React.FC = () => {
   const navigate = useNavigate();
   const { companies, currentCompany, setCurrentCompany, addCompany, deleteCompany, updateCompany, loading, refreshCompanies } = useCompany();
   const [showAddModal, setShowAddModal] = useState(false);
+  const { success, error, info, toast } = useToast();
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyAddress, setNewCompanyAddress] = useState('');
   const [newCompanyPhone, setNewCompanyPhone] = useState('');
@@ -119,13 +121,13 @@ const CompanySelector: React.FC = () => {
 
       setOrphanedData({ customers: 0, loans: 0, partners: 0, expenses: 0 });
       setShowMigrateModal(false);
-      alert("Data successfully migrated to " + selectedCompanyForMigration.name);
+      success("Data successfully migrated to " + selectedCompanyForMigration.name);
 
       setCurrentCompany(selectedCompanyForMigration);
       navigate('/');
     } catch (error) {
       console.error("Error migrating data:", error);
-      alert("Failed to migrate data. Please try again.");
+      toast("Failed to migrate data. Please try again.", 'error');
     } finally {
       setIsMigrating(false);
     }
@@ -158,7 +160,7 @@ const CompanySelector: React.FC = () => {
   const handleEditCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyToEdit || !editCompanyName.trim()) {
-      alert("Company name is required");
+      error("Company name is required");
       return;
     }
 
@@ -173,10 +175,10 @@ const CompanySelector: React.FC = () => {
       });
       setShowEditModal(false);
       setCompanyToEdit(null);
-      alert("Company updated successfully!");
+      success("Company updated successfully!");
     } catch (error) {
       console.error("Error updating company:", error);
-      alert("Failed to update company");
+      toast("Failed to update company", 'error');
     } finally {
       setIsUpdating(false);
     }
@@ -200,7 +202,7 @@ const CompanySelector: React.FC = () => {
       }, 5000);
     } catch (error) {
       console.error("Error deleting company:", error);
-      alert("Failed to delete company");
+      toast("Failed to delete company", 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -221,14 +223,14 @@ const CompanySelector: React.FC = () => {
       setDeletedCompany(null);
     } catch (error) {
       console.error("Error restoring company:", error);
-      alert("Failed to restore company");
+      toast("Failed to restore company", 'error');
     }
   };
 
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompanyName.trim()) {
-      alert("Company name is required");
+      error("Company name is required");
       return;
     }
 
@@ -241,10 +243,10 @@ const CompanySelector: React.FC = () => {
       setNewCompanyPhone('');
       setNewCompanyGstin('');
       setNewCompanyUpi('9413821007@superyes');
-      alert("Company added successfully!");
+      success("Company added successfully!");
     } catch (error) {
       console.error("Error adding company:", error);
-      alert("Failed to add company");
+      toast("Failed to add company", 'error');
     } finally {
       setIsSubmitting(false);
     }

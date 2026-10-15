@@ -9,15 +9,16 @@ import { useCompany } from '../context/CompanyContext';
 import { Capacitor } from '@capacitor/core';
 import LazyImage from '../components/LazyImage';
 import { DownloadService } from '../services/DownloadService';
+import { useToast } from '../components/Toast';
 
 // Helper function to save/download PDF using the centralized service
-const savePdf = async (pdfDoc: jsPDF, fileName: string) => {
+const savePdf = async (pdfDoc: jsPDF, fileName: string, onError?: (msg: string) => void) => {
     try {
         const base64Data = pdfDoc.output('datauristring').split(',')[1];
         await DownloadService.downloadPDF(fileName, base64Data);
     } catch (e: any) {
         console.error('File save error', e);
-        alert('Error saving file: ' + e.message);
+        if (onError) onError('Error saving file: ' + e.message);
     }
 };
 
@@ -270,6 +271,7 @@ const LoanDetails: React.FC = () => {
     const [loan, setLoan] = useState<Loan | null>(null);
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
 
     // Modals
     const [isPrecloseModalOpen, setIsPrecloseModalOpen] = useState(false);
@@ -314,6 +316,12 @@ const LoanDetails: React.FC = () => {
                     loanData.status = 'Completed';
                     await updateDoc(loanRef, { status: 'Completed' });
                 }
+                // Auto-revert to Disbursed if pending found (Self-healing for Undo)
+                if (!allPaid && loanData.status === 'Completed') {
+                    loanData.status = 'Disbursed';
+                    await updateDoc(loanRef, { status: 'Disbursed' });
+                }
+
                 setLoan(loanData);
                 if (loanData.interestRate) setTopUpInterestRate(loanData.interestRate);
 
@@ -581,7 +589,7 @@ const LoanDetails: React.FC = () => {
                 if (win) {
                     win.document.write('<iframe src="' + base64 + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
                 } else {
-                    savePdf(pdfDoc, `Foreclosure_Preview_${loan.id}.pdf`);
+                    savePdf(pdfDoc, `Foreclosure_Preview_${loan.id}.pdf`, (m) => toast(m, 'error'));
                 }
             } else {
                 window.open(pdfDoc.output('bloburl'), '_blank');
@@ -589,7 +597,7 @@ const LoanDetails: React.FC = () => {
             // pdfDoc.save(`Foreclosure_Preview_${loan.id}.pdf`);
         } catch (error) {
             console.error("Failed to generate preview PDF:", error);
-            alert('Error generating preview PDF.');
+            toast('Error generating preview PDF.', 'error');
         } finally {
             setIsPreviewingForeclosure(false);
         }
@@ -619,14 +627,14 @@ const LoanDetails: React.FC = () => {
             });
 
             const pdfDoc = await generateForeclosurePDF({ ...loan, repaymentSchedule: updatedSchedule }, foreclosureData);
-            await savePdf(pdfDoc, `Foreclosure_Certificate_${loan.id}.pdf`);
+            await savePdf(pdfDoc, `Foreclosure_Certificate_${loan.id}.pdf`, (m) => toast(m, 'error'));
 
-            alert('Loan Pre-closed successfully. Certificate downloaded.');
+            success('Loan Pre-closed successfully. Certificate downloaded.');
             setIsPrecloseModalOpen(false);
             fetchLoanAndCustomer();
         } catch (error) {
             console.error("Failed to pre-close loan:", error);
-            alert('Error pre-closing loan.');
+            toast('Error pre-closing loan.', 'error')
         } finally {
             setIsPreclosing(false);
         }
@@ -648,11 +656,11 @@ const LoanDetails: React.FC = () => {
                 foreclosureDetails: null
             });
 
-            alert('Foreclosure undone successfully. Loan is now active again.');
+            success('Foreclosure undone successfully. Loan is now active again.');
             fetchLoanAndCustomer();
         } catch (error) {
             console.error("Failed to undo foreclosure:", error);
-            alert('Error undoing foreclosure.');
+            toast('Error undoing foreclosure.', 'error')
         } finally {
             setIsUndoingForeclosure(false);
         }
@@ -795,7 +803,7 @@ const LoanDetails: React.FC = () => {
                 ]
             });
 
-            alert(`Top-up successful! New EMI: Rs. ${newEmi}`);
+            success(`Top-up successful! New EMI: Rs. ${newEmi}`);
 
             // Generate Message
             const message = generateTopUpMessage({
@@ -823,7 +831,7 @@ const LoanDetails: React.FC = () => {
             fetchLoanAndCustomer();
         } catch (err) {
             console.error(err);
-            alert("Top-up failed");
+            error("Top-up failed");
         } finally {
             setIsToppingUp(false);
         }
@@ -987,11 +995,11 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `Loan_Agreement_${loan.id}.pdf`);
+                await savePdf(pdfDoc, `Loan_Agreement_${loan.id}.pdf`, (m) => toast(m, 'error'));
             }
         } catch (error) {
             console.error("Failed to generate agreement PDF:", error);
-            alert("Failed to generate Agreement PDF");
+            toast("Failed to generate Agreement PDF", 'error')
         } finally {
             setIsGeneratingAgreement(false);
         }
@@ -1109,7 +1117,7 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `TopUp_Agreement_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+                await savePdf(pdfDoc, `TopUp_Agreement_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`, (m) => toast(m, 'error'));
             }
         } catch (error) {
             console.error("Failed to generate agreement PDF:", error);
@@ -1208,7 +1216,7 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `LoanCard_${loan.id}.pdf`);
+                await savePdf(pdfDoc, `LoanCard_${loan.id}.pdf`, (m) => toast(m, 'error'));
             }
         } catch (error) {
             console.error("Failed to generate loan card:", error);
@@ -1250,7 +1258,7 @@ const LoanDetails: React.FC = () => {
             if (mode === 'preview' && !Capacitor.isNativePlatform()) {
                 window.open(pdfDoc.output('bloburl'), '_blank');
             } else {
-                await savePdf(pdfDoc, `LoanCard_TopUp_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+                await savePdf(pdfDoc, `LoanCard_TopUp_${loan.id}_${format(new Date(), 'yyyyMMdd')}.pdf`, (m) => toast(m, 'error'));
             }
         } catch (error) {
             console.error("Failed to generate updated loan card:", error);
@@ -1324,10 +1332,10 @@ const LoanDetails: React.FC = () => {
                 pdfDoc.text(`Page ${i} of ${pageCount}`, pdfDoc.internal.pageSize.getWidth() - 20, 287);
             }
 
-            await savePdf(pdfDoc, `Payment_Schedule_${loan.id}.pdf`);
+            await savePdf(pdfDoc, `Payment_Schedule_${loan.id}.pdf`, (m) => toast(m, 'error'));
         } catch (error) {
             console.error("Failed to generate PDF:", error);
-            alert('Download failed.');
+            toast('Download failed.', 'error')
         } finally {
             setIsDownloadingSchedule(false);
         }
@@ -1339,7 +1347,7 @@ const LoanDetails: React.FC = () => {
         try {
             const receiptData = loan.repaymentSchedule.find(e => e.emiNumber === emi.month);
             if (!receiptData || !loan.customerId || !loan.customerName) {
-                alert('Cannot generate receipt: Missing data.');
+                error('Cannot generate receipt: Missing data.');
                 setIsDownloadingReceipt(null);
                 return;
             }
@@ -1420,14 +1428,52 @@ const LoanDetails: React.FC = () => {
                 pdfDoc.text(`Page ${i} of ${pageCount}`, pdfDoc.internal.pageSize.getWidth() - 20, 287);
             }
 
-            await savePdf(pdfDoc, `Receipt_${loan.id}_EMI_${emi.month}.pdf`);
+            await savePdf(pdfDoc, `Receipt_${loan.id}_EMI_${emi.month}.pdf`, (m) => toast(m, 'error'));
         } catch (error: any) {
             console.error("Failed to generate PDF:", error);
-            alert('Receipt download failed.');
+            toast('Receipt download failed.', 'error')
         } finally {
             setIsDownloadingReceipt(null);
         }
     }
+
+    const handleUndoCollection = async (emi: any) => {
+        if (!loan) return;
+        if (!confirm(`Are you sure you want to UNDO the collection for repayment #${emi.month}?`)) return;
+
+        try {
+            const updatedSchedule = loan.repaymentSchedule.map((e: any) => {
+                if (e.emiNumber === emi.month) {
+                    return {
+                        ...e,
+                        status: 'Pending',
+                        paymentDate: null, // Reset fields
+                        paymentMethod: null,
+                        amountPaid: null,
+                        remark: null
+                    };
+                }
+                return e;
+            });
+
+            const updatePayload: any = {
+                repaymentSchedule: updatedSchedule
+            };
+
+            // If loan was completed, reopen it so it appears in Due List
+            if (loan.status === 'Completed') {
+                updatePayload.status = 'Disbursed';
+            }
+
+            await updateDoc(doc(db, "loans", loan.id), updatePayload);
+
+            success(`Collection for EMI #${emi.month} undone.`);
+            fetchLoanAndCustomer();
+        } catch (error: any) {
+            console.error("Failed to undo collection:", error);
+            toast("Undo failed: " + error.message, 'error')
+        }
+    };
 
     const StatusBadge = ({ status }: { status: string }) => {
         let classes = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset ";
@@ -1442,7 +1488,7 @@ const LoanDetails: React.FC = () => {
 
     const downloadAmortizationPDF = async () => {
         if (!loan || !loan.amortizationSchedule) {
-            alert("Amortization data not found");
+            error("Amortization data not found");
             return;
         }
 
@@ -1507,12 +1553,12 @@ const LoanDetails: React.FC = () => {
             );
         }
 
-        savePdf(pdf, `Amortization_${loan.id}.pdf`);
+        savePdf(pdf, `Amortization_${loan.id}.pdf`, (m) => toast(m, 'error'));
     };
 
     const undoLastTopUp = async () => {
         if (!loan || !loan.topUpHistory || loan.topUpHistory.length === 0) {
-            alert("No top-up to undo");
+            error("No top-up to undo");
             return;
         }
 
@@ -1638,12 +1684,12 @@ const LoanDetails: React.FC = () => {
                 ]
             });
 
-            alert("Last top-up successfully undone");
+            success("Last top-up successfully undone");
             fetchLoanAndCustomer();
 
         } catch (err) {
             console.error(err);
-            alert("Undo failed: " + err);
+            error("Undo failed: " + err);
         }
     };
 
@@ -1875,18 +1921,30 @@ const LoanDetails: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-center no-print">
-                                            {emi.receiptDownloadable ? (
-                                                <button
-                                                    onClick={() => handleDownloadReceipt(emi)}
-                                                    disabled={isDownloadingReceipt === emi.month}
-                                                    className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
-                                                >
-                                                    {isDownloadingReceipt === emi.month ?
-                                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div> :
-                                                        <span className="material-symbols-outlined text-[18px]">download</span>
-                                                    }
-                                                </button>
-                                            ) : <span className="text-slate-300">-</span>}
+                                            <div className="flex items-center justify-center gap-2">
+                                                {emi.receiptDownloadable ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleDownloadReceipt(emi)}
+                                                            disabled={isDownloadingReceipt === emi.month}
+                                                            className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                                                            title="Download Receipt"
+                                                        >
+                                                            {isDownloadingReceipt === emi.month ?
+                                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div> :
+                                                                <span className="material-symbols-outlined text-[18px]">download</span>
+                                                            }
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleUndoCollection(emi)}
+                                                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+                                                            title="Undo Collection"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[18px]">undo</span>
+                                                        </button>
+                                                    </>
+                                                ) : <span className="text-slate-300">-</span>}
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (

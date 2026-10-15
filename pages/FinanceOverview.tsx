@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, addDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -12,6 +12,7 @@ import {
     type LedgerEntry,
     type MonthlyLedger
 } from '../services/cashLedger';
+import { useToast } from '../components/Toast';
 
 // Interfaces
 interface PartnerTransaction { id: string; date: string; partnerName: string; type: 'investment' | 'withdrawal'; amount: number; }
@@ -29,6 +30,7 @@ const FinanceOverview: React.FC = () => {
     const [allEntries, setAllEntries] = useState<LedgerEntry[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
 
     // Date Filters for Download
     const [startDate, setStartDate] = useState<string>('');
@@ -101,8 +103,8 @@ const FinanceOverview: React.FC = () => {
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!expenseForm.amount || !expenseForm.narration) return alert("Please fill all fields");
-        if (!currentCompany) return alert("No company selected");
+        if (!expenseForm.amount || !expenseForm.narration) return error("Please fill all fields");
+        if (!currentCompany) return error("No company selected");
 
         setIsSubmittingExpense(true);
         try {
@@ -113,13 +115,13 @@ const FinanceOverview: React.FC = () => {
                 companyId: currentCompany.id,
                 createdAt: new Date().toISOString()
             });
-            alert("Expense recorded successfully.");
+            success("Expense recorded successfully.");
             setShowExpenseModal(false);
             setExpenseForm({ date: format(new Date(), 'yyyy-MM-dd'), amount: '', narration: '' });
             generateLedger();
         } catch (err) {
             console.error(err);
-            alert("Failed to save expense.");
+            error("Failed to save expense.");
         } finally {
             setIsSubmittingExpense(false);
         }
@@ -136,7 +138,7 @@ const FinanceOverview: React.FC = () => {
 
     const handleDownloadPdf = () => {
         if (!startDate || !endDate) {
-            alert("Please select both From and To dates for the report.");
+            error("Please select both From and To dates for the report.");
             return;
         }
 

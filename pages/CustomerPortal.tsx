@@ -9,6 +9,7 @@ import { PdfGenerator } from '../services/PdfGenerator';
 import { NotificationService } from '../services/NotificationService';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION, SUPPORT_EMAIL, SUPPORT_PHONE, APP_NAME, DEVELOPER_NAME } from '../constants';
+import { useToast } from '../components/Toast';
 
 interface Emi {
   emiNumber: number;
@@ -51,6 +52,7 @@ const CustomerPortal: React.FC = () => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [currentTab, setCurrentTab] = useState<'home' | 'loans' | 'history' | 'profile'>('home');
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -196,7 +198,7 @@ const CustomerPortal: React.FC = () => {
         {/* Quick Actions Panel */}
         <div className="mx-6 -mt-10 bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-3 relative z-30">
           {[
-            { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI found!"); } },
+            { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else error("No pending EMI found!"); } },
             { label: 'History', icon: 'history', bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => setCurrentTab('history') },
             // Replaced Support with Test Notif for debugging
             {
@@ -302,7 +304,7 @@ const CustomerPortal: React.FC = () => {
                 <div key={i}
                   onClick={async () => {
                     try {
-                      if (!customer || !company) return alert("Please wait for data to load.");
+                      if (!customer || !company) return info("Please wait for data to load.");
                       if (log.type === 'loan') {
                         const lData = loans.find(l => l.id === log.id);
                         if (lData) await PdfGenerator.generateLoanAgreement(lData as any, customer as any, company as any);
@@ -311,7 +313,7 @@ const CustomerPortal: React.FC = () => {
                         const tEmi = tLoan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
                         if (tLoan && tEmi) await PdfGenerator.generateReceipt(tLoan as any, tEmi as any, customer as any, company as any);
                       }
-                    } catch (err) { alert("Generation failed."); }
+                    } catch (err) { error("Generation failed."); }
                   }}
                   className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group active:bg-gray-50 dark:active:bg-gray-700 transition-all cursor-pointer"
                 >
@@ -361,29 +363,29 @@ const CustomerPortal: React.FC = () => {
                     label: 'Download Account Statement',
                     icon: 'description',
                     action: async () => {
-                      if (!customer || !company) return alert("Please wait, data is still loading...");
+                      if (!customer || !company) return info("Please wait, data is still loading...");
                       try {
                         await PdfGenerator.generateAccountStatement(loans as any, customer as any, company as any);
-                      } catch (err) { alert("Download failed. Try again."); }
+                      } catch (err) { error("Download failed. Try again."); }
                     }
                   },
                   {
                     label: 'Loan Clearance Certificate',
                     icon: 'workspace_premium',
                     action: async () => {
-                      if (!customer || !company) return alert("Please wait, data is still loading...");
+                      if (!customer || !company) return info("Please wait, data is still loading...");
                       try {
                         const closedLoan = loans.find(l => l.status === 'Closed' || l.status === 'Paid');
                         if (closedLoan) {
                           await PdfGenerator.generateNoDuesCertificate(closedLoan as any, customer as any, company as any);
                         } else {
-                          alert("No closed records found to generate a certificate.");
+                          error("No closed records found to generate a certificate.");
                         }
-                      } catch (err) { alert("Generation failed."); }
+                      } catch (err) { error("Generation failed."); }
                     }
                   },
                   { label: 'Payment Receipts', icon: 'receipt_long', action: () => setCurrentTab('history') },
-                  { label: 'Update Personal Details', icon: 'manage_accounts', action: () => alert('Contact admin to update profile.') },
+                  { label: 'Update Personal Details', icon: 'manage_accounts', action: () => info('Contact admin to update profile.') },
                   {
                     label: 'Refer a Friend & Earn',
                     icon: 'card_giftcard',
@@ -446,7 +448,7 @@ const CustomerPortal: React.FC = () => {
                   setSelectedLoan(primaryLoan);
                   setSelectedEmi(nextEmi);
                   setShowPaymentModal(true);
-                } else alert("No due EMI at this moment!");
+                } else error("No due EMI at this moment!");
               } else {
                 setCurrentTab(tab.id as any);
               }
@@ -530,7 +532,7 @@ const CustomerPortal: React.FC = () => {
                     }
                   } catch (e) {
                     console.error("Payment trigger failed:", e);
-                    alert("Could not open payment app.");
+                    error("Could not open payment app.");
                   }
                 }}
                 className="w-full py-5 btn-kadak text-sm rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mb-6 uppercase tracking-widest"
@@ -558,23 +560,23 @@ const CustomerPortal: React.FC = () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
                   await PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any);
-                } catch (e) { alert("Failed to download."); }
+                } catch (e) { error("Failed to download."); }
               }} className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-2 text-indigo-700 dark:text-indigo-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-indigo-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
 
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
                   await PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any);
-                } catch (e) { alert("Failed to download."); }
+                } catch (e) { error("Failed to download."); }
               }} className="p-4 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-2 text-amber-700 dark:text-amber-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-amber-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">contact_emergency</span> Card</button>
 
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 const latestPaid = selectedLoan.repaymentSchedule?.filter(e => e.status?.toLowerCase() === 'paid').sort((a, b) => b.emiNumber - a.emiNumber)[0];
-                if (!latestPaid) return alert("No paid installments found.");
+                if (!latestPaid) return error("No paid installments found.");
                 try {
                   await PdfGenerator.generateReceipt(selectedLoan as any, latestPaid as any, customer as any, company as any);
-                } catch (e) { alert("Failed to download."); }
+                } catch (e) { error("Failed to download."); }
               }} className="p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex flex-col items-center gap-2 text-emerald-700 dark:text-emerald-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-emerald-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">receipt_long</span> Receipt</button>
             </div>
 
@@ -599,7 +601,7 @@ const CustomerPortal: React.FC = () => {
                             if (!customer || !company || !selectedLoan) return;
                             try {
                               await PdfGenerator.generateReceipt(selectedLoan as any, e as any, customer as any, company as any);
-                            } catch (err) { alert("Download failed."); }
+                            } catch (err) { error("Download failed."); }
                           }}
                           className="px-4 py-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200 font-black text-[9px] rounded-lg uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5"
                         >

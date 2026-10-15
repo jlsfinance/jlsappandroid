@@ -5,6 +5,7 @@ import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'da
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useToast } from '../components/Toast';
 
 // Interfaces
 interface Partner { id: string; name: string; }
@@ -21,6 +22,7 @@ const Partners: React.FC = () => {
     const [loans, setLoans] = useState<Loan[]>([]);
     const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
     
     // Form State
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -67,7 +69,7 @@ const Partners: React.FC = () => {
 
         } catch (error) {
             console.error(error);
-            alert('Failed to load data');
+            toast('Failed to load data', 'error');
         } finally {
             setLoading(false);
         }
@@ -266,7 +268,7 @@ const Partners: React.FC = () => {
             setShowPartnerModal(false);
             fetchData();
         } catch (error) {
-            alert('Failed to add partner');
+            toast('Failed to add partner', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -285,7 +287,7 @@ const Partners: React.FC = () => {
             setShowTransactionModal(false);
             fetchData();
         } catch (error) {
-            alert('Failed to record transaction');
+            toast('Failed to record transaction', 'error');
         } finally {
             setIsSubmitting(false);
         }
