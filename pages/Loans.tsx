@@ -7,6 +7,8 @@ import { format, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import LazyImage from '../components/LazyImage';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 import { useCompany } from '../context/CompanyContext';
 import { DownloadService } from '../services/DownloadService';
 
@@ -120,6 +122,7 @@ async function toBase64(url: string, maxWidth: number = 200, quality: number = 0
 const Loans: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { success, error } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [loans, setLoans] = useState<Loan[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
@@ -220,10 +223,10 @@ const Loans: React.FC = () => {
 
             fetchLoans();
             setShowDeleteConfirm(false);
-            alert("Loan and associated records deleted permanently.");
+            success("Loan and associated records deleted permanently.");
         } catch (error) {
             console.error("Failed to delete loan:", error);
-            alert("Failed to delete loan. Please try again.");
+            error("Failed to delete loan. Please try again.");
         } finally {
             setDeletingId(null);
             setLoanToDelete(null);
@@ -619,8 +622,9 @@ const Loans: React.FC = () => {
             {/* List */}
             <main className="flex flex-col gap-3 px-4 pt-4">
                 {loading ? (
-                    <div className="flex justify-center p-10">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
+                    <div className="p-4">
+                        <SkeletonStyles />
+                        <SkeletonList count={6} />
                     </div>
                 ) : filteredLoans.length > 0 ? (
                     filteredLoans.map((loan) => (
@@ -680,6 +684,13 @@ const Loans: React.FC = () => {
                         </div>
                         <p className="font-medium">No loans found</p>
                         <p className="text-sm opacity-60">Try adjusting your search</p>
+                        <Link
+                          to="/loans/new"
+                          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">add</span>
+                          Create New Loan
+                        </Link>
                     </div>
                 )}
             </main >

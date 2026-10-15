@@ -4,6 +4,7 @@ import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
 
 const Customers: React.FC = () => {
   const { currentCompany } = useCompany();
@@ -146,13 +147,21 @@ const Customers: React.FC = () => {
       {/* List */}
       <main className="flex flex-col gap-3 px-4 pt-2">
         {loading ? (
-          <div className="flex justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="p-4">
+            <SkeletonStyles />
+            <SkeletonList count={6} />
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-            <span className="material-symbols-outlined text-4xl mb-2">person_search</span>
-            <p>No customers found.</p>
+          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+            <span className="material-symbols-outlined text-5xl mb-3 opacity-50">person_search</span>
+            <p className="font-medium">No customers found.</p>
+            <Link
+              to="/customers/new"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">person_add</span>
+              Add Customer
+            </Link>
           </div>
         ) : (
           filteredCustomers.map((customer) => (
