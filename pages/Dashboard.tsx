@@ -8,8 +8,10 @@ import { NotificationService } from '../services/NotificationService';
 import LazyImage from '../components/LazyImage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Loan } from '../types';
+import ChartsSection from './dashboard/ChartsSection';
+import { buildLedgerEntries, buildMonthlyLedgers, getCurrentCashBalance } from '../services/cashLedger';
 
 // Type definitions for the dashboard
 
@@ -30,6 +32,7 @@ const Dashboard: React.FC = () => {
     const [customers, setCustomers] = useState<any[]>([]);
     const [partnerTransactions, setPartnerTransactions] = useState<any[]>([]);
     const [expenses, setExpenses] = useState<any[]>([]);
+    const [ledgerDocs, setLedgerDocs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('Admin');
     const [isNotifEnabled, setIsNotifEnabled] = useState(false);
@@ -90,17 +93,19 @@ const Dashboard: React.FC = () => {
 
                 const companyId = currentCompany.id;
 
-                const [loansSnap, customersSnap, partnerTxSnap, expensesSnap] = await Promise.all([
+                const [loansSnap, customersSnap, partnerTxSnap, expensesSnap, ledgerSnap] = await Promise.all([
                     getDocs(query(collection(db, "loans"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "customers"), where("companyId", "==", companyId))),
                     getDocs(query(collection(db, "partner_transactions"), where("companyId", "==", companyId))),
-                    getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId)))
+                    getDocs(query(collection(db, "expenses"), where("companyId", "==", companyId))),
+                    getDocs(query(collection(db, "ledger"), where("companyId", "==", companyId)))
                 ]);
 
                 const loansData = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const partnerData = partnerTxSnap.docs.map(doc => doc.data());
                 const expensesData = expensesSnap.docs.map(doc => doc.data());
+                const ledgerDocsData = ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 loansData.sort((a: any, b: any) => {
                     const dateA = a.date?.toDate?.() || new Date(a.date) || new Date(0);
@@ -112,6 +117,7 @@ const Dashboard: React.FC = () => {
                 setCustomers(customersData);
                 setPartnerTransactions(partnerData);
                 setExpenses(expensesData);
+                setLedgerDocs(ledgerDocsData);
 
                 // Schedule notifications
                 NotificationService.scheduleLoanNotifications(loansData as unknown as Loan[]);
@@ -160,46 +166,36 @@ const Dashboard: React.FC = () => {
         let activeLoansCount = 0;
         let activeLoansPrincipal = 0;
         let activeLoansOutstandingPI = 0;
-        let calculatedBalance = 0;
 
-        partnerTransactions.forEach(tx => {
-            if (tx.type === 'investment') calculatedBalance += Number(tx.amount || 0);
-            else if (tx.type === 'withdrawal') calculatedBalance -= Number(tx.amount || 0);
-        });
-
-        expenses.forEach(exp => {
-            calculatedBalance -= Number(exp.amount || 0);
-        });
+        // ── Cash Balance: single source of truth (same as Cash Account screen) ──
+        // Uses the shared cash ledger so the Dashboard "Available Balance"
+        // matches FinanceOverview's Month Closing on initial load.
+        const monthlyLedgers = buildMonthlyLedgers(buildLedgerEntries({
+            partnerTransactions: partnerTransactions as any,
+            loans: loans as any,
+            expenses: expenses as any,
+            ledgerDocs: ledgerDocs as any
+        }));
+        const cashBalance = getCurrentCashBalance(monthlyLedgers);
 
         loans.forEach(loan => {
             const amount = Number(loan.amount) || 0;
             const emi = Number(loan.emi) || 0;
             const tenure = Number(loan.tenure) || 0;
-            const processingFee = Number(loan.processingFee) || 0;
             const status = loan.status;
 
             if (['Disbursed', 'Active', 'Completed', 'Overdue'].includes(status)) {
                 totalDisbursedCount++;
                 totalDisbursedPrincipal += amount;
-                calculatedBalance -= amount;
-                calculatedBalance += processingFee;
             }
 
             let paidAmount = 0;
             if (loan.repaymentSchedule && Array.isArray(loan.repaymentSchedule)) {
                 loan.repaymentSchedule.forEach((e: any) => {
                     if (e.status === 'Paid') {
-                        const collected = Number(e.amount) || 0;
-                        paidAmount += collected;
-                        calculatedBalance += collected;
+                        paidAmount += Number(e.amount) || 0;
                     }
                 });
-            }
-
-            // Add foreclosure payment if amountReceived is true
-            const foreclosureDetails = (loan as any).foreclosureDetails;
-            if (foreclosureDetails && foreclosureDetails.amountReceived) {
-                calculatedBalance += Number(foreclosureDetails.totalPaid) || 0;
             }
 
             if (['Disbursed', 'Active', 'Overdue'].includes(status)) {
@@ -242,12 +238,151 @@ const Dashboard: React.FC = () => {
             activeLoansPrincipal,
             activeLoansOutstandingPI,
             customerCount: customers.length,
-            cashBalance: calculatedBalance,
+            cashBalance,
             netDisbursed,
             totalCollections,
             totalProcessingFees
         };
-    }, [loans, customers, partnerTransactions, expenses]);
+    }, [loans, customers, partnerTransactions, expenses, ledgerDocs]);
+
+    /* ─── Chart Data Computation ─── */
+    const chartData = useMemo(() => {
+      // Revenue trend: last 6 months
+      const months: { month: string; revenue: number; expenses: number }[] = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const m = subMonths(now, i);
+        const label = format(m, 'MMM');
+        const monthStart = startOfMonth(m);
+        const monthEnd = endOfMonth(m);
+
+        const monthRevenue = loans
+          .filter(l => {
+            const d = l.date?.toDate?.() || new Date(l.date || 0);
+            return isWithinInterval(d, { start: monthStart, end: monthEnd }) && ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status);
+          })
+          .reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
+
+        const monthExpenses = expenses
+          .filter(e => {
+            const d = e.date?.toDate?.() || new Date(e.date || 0);
+            return isWithinInterval(d, { start: monthStart, end: monthEnd });
+          })
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+        months.push({ month: label, revenue: monthRevenue, expenses: monthExpenses });
+      }
+
+      // Expense distribution by category
+      const expenseMap: Record<string, number> = {};
+      expenses.forEach(e => {
+        const cat = e.category || 'Other';
+        expenseMap[cat] = (expenseMap[cat] || 0) + (Number(e.amount) || 0);
+      });
+      const expenseColors: Record<string, string> = {
+        'Salary': '#6366f1', 'Rent': '#a855f7', 'Utilities': '#10b981',
+        'Marketing': '#f59e0b', 'Travel': '#f43f5e', 'Office': '#06b6d4',
+        'Legal': '#ec4899', 'Other': '#94a3b8'
+      };
+      const expenseDist = Object.entries(expenseMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([category, amount]) => ({
+          category,
+          amount: Math.round(amount),
+          color: expenseColors[category] || '#94a3b8'
+        }));
+
+      // Collections Status (donut)
+      let collectedEMI = 0, collectedForeclosure = 0, pendingCollection = 0;
+      loans.forEach(loan => {
+        if (loan.repaymentSchedule && Array.isArray(loan.repaymentSchedule)) {
+          loan.repaymentSchedule.forEach((e: any) => {
+            if (e.status === 'Paid') collectedEMI += Number(e.amount) || 0;
+            else pendingCollection += Number(e.amount) || 0;
+          });
+        }
+        const fd = loan.foreclosureDetails;
+        if (fd?.amountReceived) collectedForeclosure += Number(fd.totalPaid) || 0;
+      });
+      const collectionStatusData = [
+        { name: 'Collected (EMI)', value: Math.round(collectedEMI / 1000), color: '#10b981' },
+        { name: 'Foreclosure', value: Math.round(collectedForeclosure / 1000), color: '#6366f1' },
+        { name: 'Pending', value: Math.round(pendingCollection / 1000), color: '#f43f5e' },
+      ].filter(d => d.value > 0);
+      const collectionTotalVal = collectedEMI + collectedForeclosure;
+
+      // P&L Trend
+      const pnlData = months.map(m => ({
+        month: m.month,
+        income: m.revenue,
+        expense: m.expenses
+      }));
+
+      // Profit Margin
+      const marginData = months.map(m => ({
+        month: m.month,
+        margin: m.revenue > 0 ? parseFloat((((m.revenue - m.expenses) / m.revenue) * 100).toFixed(1)) : 0
+      }));
+
+      return { revenueTrend: months, expenseDist, collectionStatus: collectionStatusData, collectionTotal: collectionTotalVal, pnlTrend: pnlData, profitMargin: marginData };
+    }, [loans, expenses]);
+
+    /* ─── Additional Calculated Metrics ─── */
+    const loanMetrics = useMemo(() => {
+      // NPA Ratio: loans overdue > 90 days / total active loans
+      const now = new Date();
+      const activeLoansList = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status));
+      const overdueLoans = activeLoansList.filter(l => {
+        const lastEMI = l.repaymentSchedule?.filter((e: any) => e.status === 'Pending');
+        if (!lastEMI?.length) return false;
+        const latestDue = lastEMI[lastEMI.length - 1];
+        const dueDate = latestDue.dueDate?.toDate?.() || new Date(latestDue.dueDate || 0);
+        const daysDiff = (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysDiff > 90;
+      });
+      const npaRatio = activeLoansList.length > 0
+        ? parseFloat(((overdueLoans.length / activeLoansList.length) * 100).toFixed(2))
+        : 0;
+
+      // Avg Ticket Size
+      const disbursedLoans = loans.filter(l => ['Disbursed', 'Active', 'Completed', 'Overdue'].includes(l.status));
+      const avgTicket = disbursedLoans.length > 0
+        ? Math.round(disbursedLoans.reduce((sum, l) => sum + (Number(l.amount) || 0), 0) / disbursedLoans.length)
+        : 0;
+
+      // New registrations this month
+      const thisMonthStart = startOfMonth(now);
+      const newCustomers = customers.filter(c => {
+        const d = c.createdAt?.toDate?.() || new Date(c.createdAt || 0);
+        return isWithinInterval(d, { start: thisMonthStart, end: now });
+      });
+
+      // KYC completion
+      const kycCompleted = customers.filter(c => c.kycStatus === 'completed' || c.kycVerified === true).length;
+
+      // Today's new registrations
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayRegistrations = customers.filter(c => {
+        const d = c.createdAt?.toDate?.() || new Date(c.createdAt || 0);
+        return d >= todayStart;
+      });
+
+      // EMI overdue alerts (loans with overdue EMIs in last 7 days)
+      const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const overdueAlerts = loans.filter(l => ['Disbursed', 'Active', 'Overdue'].includes(l.status)).filter(l => {
+        const schedule = l.repaymentSchedule || [];
+        return schedule.some((e: any) => {
+          if (e.status === 'Pending') {
+            const dueDate = e.dueDate?.toDate?.() || new Date(e.dueDate || 0);
+            return dueDate < now && dueDate >= last7Days;
+          }
+          return false;
+        });
+      });
+
+      return { npaRatio, avgTicket, newCustomersCount: newCustomers.length, kycCompleted, todayRegistrations: todayRegistrations.length, overdueAlerts };
+    }, [loans, customers]);
 
     const getModalContent = () => {
         let modalData: any[] = [];
@@ -708,6 +843,159 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
+                </div>
+
+                {/* ─── Analytics Charts Section ─── */}
+                <ChartsSection
+                  revenueTrend={chartData.revenueTrend}
+                  expenseDist={chartData.expenseDist}
+                  collectionStatus={chartData.collectionStatus}
+                  collectionTotal={chartData.collectionTotal}
+                  pnlTrend={chartData.pnlTrend}
+                  profitMargin={chartData.profitMargin}
+                />
+
+                {/* ─── Loan Stats & Customer Metrics ─── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-6 w-1 rounded-full bg-emerald-600"></div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">Loan Metrics</h3>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {/* Active Loans */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                      onClick={() => setActiveCard('Active Loans')}>
+                      <div className="p-2.5 w-fit rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">payments</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.activeLoansCount}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Active Loans</p>
+                      <p className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 mt-1">
+                        {loading ? '' : `₹${(metrics.activeLoansPrincipal / 100000).toFixed(1)}L Portfolio`}
+                      </p>
+                    </div>
+
+                    {/* Amount Disbursed */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800"
+                      onClick={() => setActiveCard('Total Disbursed Loans')}>
+                      <div className="p-2.5 w-fit rounded-xl bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">account_balance</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{loading ? '...' : `₹${(metrics.totalDisbursedPrincipal / 10000000).toFixed(1)}Cr`}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Amount Disbursed</p>
+                      <p className="text-[10px] font-bold text-violet-500 dark:text-violet-400 mt-1">{metrics.totalDisbursedCount} Loans</p>
+                    </div>
+
+                    {/* NPA Ratio */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
+                      <div className={`p-2.5 w-fit rounded-xl mb-3 group-hover:scale-110 transition-transform ${loanMetrics.npaRatio > 5 ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
+                        <span className="material-symbols-outlined text-lg">warning</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `${loanMetrics.npaRatio}%`}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">NPA Ratio</p>
+                      <p className={`text-[10px] font-bold mt-1 ${loanMetrics.npaRatio > 5 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {loanMetrics.npaRatio > 5 ? '⚠ Needs Attention' : '✓ Healthy Portfolio'}
+                      </p>
+                    </div>
+
+                    {/* Avg Ticket Size */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2.5 w-fit rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">receipt_long</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `₹${(loanMetrics.avgTicket / 100000).toFixed(2)}L`}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Avg Ticket Size</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── Customer Metrics ─── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-6 w-1 rounded-full bg-purple-600"></div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">Customer Metrics</h3>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {/* Total Customers */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2.5 w-fit rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">people</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : metrics.customerCount}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Total Customers</p>
+                      <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 mt-1">{loanMetrics.kycCompleted} KYC Completed</p>
+                    </div>
+
+                    {/* New Registrations */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2.5 w-fit rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">person_add</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '...' : loanMetrics.todayRegistrations}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">New Today</p>
+                      <p className="text-[10px] font-bold text-teal-500 dark:text-teal-400 mt-1">{loanMetrics.newCustomersCount} This Month</p>
+                    </div>
+
+                    {/* Avg Ticket (duplicate of above but as standalone card) */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2.5 w-fit rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">trending_up</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `₹${(loanMetrics.avgTicket / 100000).toFixed(2)}L`}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Avg Ticket Size</p>
+                    </div>
+
+                    {/* KYC Completion Rate */}
+                    <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800">
+                      <div className="p-2.5 w-fit rounded-xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 mb-3 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-lg">verified</span>
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{loading ? '...' : `${metrics.customerCount > 0 ? Math.round((loanMetrics.kycCompleted / metrics.customerCount) * 100) : 0}%`}</h2>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">KYC Rate</p>
+                      <p className="text-[10px] font-bold text-green-500 dark:text-green-400 mt-1">{loanMetrics.kycCompleted}/{metrics.customerCount}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── Daily Briefing ─── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-6 w-1 rounded-full bg-amber-500"></div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">Daily Briefing</h3>
+                  </div>
+                  <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-5 border border-amber-100 dark:border-amber-800/30 shadow-sm">
+                    <div className="flex flex-wrap gap-6">
+                      <div className="flex items-center gap-3">
+                        <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                          <span className="material-symbols-outlined text-xl">today</span>
+                        </span>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">New Registrations</p>
+                          <p className="text-lg font-black text-slate-900 dark:text-white">{loanMetrics.todayRegistrations} today</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                          <span className="material-symbols-outlined text-xl">check_circle</span>
+                        </span>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">KYC Completed</p>
+                          <p className="text-lg font-black text-slate-900 dark:text-white">{loanMetrics.kycCompleted} customers</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="p-2 rounded-xl bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                          <span className="material-symbols-outlined text-xl">warning</span>
+                        </span>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">Overdue Alerts</p>
+                          <p className="text-lg font-black text-slate-900 dark:text-white">{loanMetrics.overdueAlerts.length} this week</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Modern Recent Activity */}
                 <div>
                     <div className="flex items-center justify-between mb-4">
@@ -760,8 +1048,6 @@ const Dashboard: React.FC = () => {
                         })}
                     </div>
                 </div>
-
-            </div>
 
             {/* Modal */}
             {
