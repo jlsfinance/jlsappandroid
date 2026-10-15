@@ -136,3 +136,90 @@ export const applyPaymentToEmi = (
         isFullyPaid,
     };
 };
+
+export interface CustomerDueGroup {
+    loanId: string;
+    customerId: string;
+    customerName: string;
+    tenure: number;
+    emis: DueEmi[];                    // sorted oldest first
+    totalRemaining: number;
+    pendingCount: number;
+    overdueCount: number;
+    previousMonthCount: number;
+    oldestDueDate: string;
+}
+
+/**
+ * Group due EMIs into ONE group per (loanId) — one Due List card per loan.
+ * Multiple loans for the same customer stay separate (by loanId).
+ */
+export const groupDueEmisByLoan = (dueEmis: DueEmi[], now: Date = new Date()): CustomerDueGroup[] => {
+    const map = new Map<string, DueEmi[]>();
+    for (const d of dueEmis) {
+        const arr = map.get(d.loanId) || [];
+        arr.push(d);
+        map.set(d.loanId, arr);
+    }
+
+    const groups: CustomerDueGroup[] = [];
+    map.forEach((emis, loanId) => {
+        emis.sort((a, b) => a.emiNumber - b.emiNumber);
+        const totalRemaining = emis.reduce((s, e) => s + e.remaining, 0);
+        const overdueCount = emis.filter(e => e.isOverdue).length;
+        const previousMonthCount = emis.filter(e => e.isPreviousMonth).length;
+        groups.push({
+            loanId,
+            customerId: emis[0].customerId,
+            customerName: emis[0].customerName,
+            tenure: emis[0].tenure,
+            emis,
+            totalRemaining,
+            pendingCount: emis.length,
+            overdueCount,
+            previousMonthCount,
+            oldestDueDate: emis[0].dueDate,
+        });
+    });
+
+    // Most urgent loan first (oldest overdue EMI first)
+    groups.sort((a, b) => parseLocalDate(a.oldestDueDate).getTime() - parseLocalDate(b.oldestDueDate).getTime());
+    return groups;
+};
+
+/**
+ * Preview allocation of `amount` across SELECTED emis only, oldest-first.
+ * Unselected emis are never touched. Returns per-EMI allocation.
+ */
+export interface AllocationLine {
+    emiNumber: number;
+    allocated: number;      // amount applied to this EMI
+    remainingAfter: number; // remaining balance after this allocation
+    fullyPaid: boolean;
+}
+
+export const previewAllocation = (
+    selectedEmis: { emiNumber: number; remaining: number }[],
+    amount: number
+): { lines: AllocationLine[]; totalAllocated: number; leftover: number } => {
+    // Oldest first: selectedEmis should already be sorted by emiNumber/dueDate
+    const sorted = [...selectedEmis].sort((a, b) => a.emiNumber - b.emiNumber);
+    let amountLeft = Math.max(0, amount);
+    const lines: AllocationLine[] = [];
+    for (const e of sorted) {
+        if (amountLeft <= 0) {
+            lines.push({ emiNumber: e.emiNumber, allocated: 0, remainingAfter: e.remaining, fullyPaid: false });
+            continue;
+        }
+        const payNow = Math.min(e.remaining, amountLeft);
+        amountLeft -= payNow;
+        lines.push({
+            emiNumber: e.emiNumber,
+            allocated: payNow,
+            remainingAfter: e.remaining - payNow,
+            fullyPaid: e.remaining - payNow <= 1, // 1-rupee tolerance
+        });
+    }
+    const totalAllocated = lines.reduce((s, l) => s + l.allocated, 0);
+    return { lines, totalAllocated, leftover: amountLeft };
+};

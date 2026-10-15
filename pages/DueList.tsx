@@ -8,7 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../components/Toast';
 import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
-import { getAllDueEmis, parseLocalDate } from '../services/emiSchedule';
+import { getAllDueEmis, parseLocalDate, groupDueEmisByLoan, previewAllocation, CustomerDueGroup, AllocationLine } from '../services/emiSchedule';
 
 // WhatsApp Icon Component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -35,6 +35,10 @@ const DueList: React.FC = () => {
     const { currentCompany } = useCompany();
     const [allPendingEmis, setAllPendingEmis] = useState<PendingEmi[]>([]);
     const [filteredEmis, setFilteredEmis] = useState<PendingEmi[]>([]);
+    const [customerGroups, setCustomerGroups] = useState<CustomerDueGroup[]>([]);
+    const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
+    const [selectedEmiKeys, setSelectedEmiKeys] = useState<Set<string>>(new Set());
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const { success, error, info, toast } = useToast();
     const [loading, setLoading] = useState(true);
 
@@ -42,16 +46,11 @@ const DueList: React.FC = () => {
     const [totalDue, setTotalDue] = useState(0);
     const [overdueCount, setOverdueCount] = useState(0); // EMIs past due date
 
-    // Modal State
-    const [selectedEmi, setSelectedEmi] = useState<PendingEmi | null>(null);
-    const [customerDueEmis, setCustomerDueEmis] = useState<PendingEmi[]>([]);
-    const [selectedEmiKeys, setSelectedEmiKeys] = useState<Set<string>>(new Set());
+    // Collection State
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [customAmount, setCustomAmount] = useState<number>(0);
     const [paymentRemark, setPaymentRemark] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [pendingReceiptData, setPendingReceiptData] = useState<any>(null);
 
     const [lastCollectedEmi, setLastCollectedEmi] = useState<PendingEmi | null>(null);
     const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
@@ -143,9 +142,11 @@ const DueList: React.FC = () => {
         // All unpaid installments whose due date has arrived (previous + current month).
         // Future-month EMIs were already excluded in fetchPendingEmis.
         setFilteredEmis(allPendingEmis);
+        const groups = groupDueEmisByLoan(allPendingEmis);
+        setCustomerGroups(groups);
         const totalRemaining = allPendingEmis.reduce((sum, item) => sum + Math.max(0, item.amount - (item.amountPaid || 0)), 0);
         setTotalDue(totalRemaining);
-        setOverdueCount(allPendingEmis.filter(emi => isPast(parseISO(emi.dueDate))).length);
+        setOverdueCount(allPendingEmis.filter(emi => isPast(parseLocalDate(emi.dueDate))).length);
     }, [allPendingEmis]);
 
     // --- Actions ---
@@ -190,21 +191,27 @@ const DueList: React.FC = () => {
         }
     };
 
-    // ── Month-wise collection: open modal with ALL of this customer's due EMIs ──
-    const openCollectModal = (emi: PendingEmi) => {
-        // Same customer + same loan: all due installments (previous + current month)
-        const related = allPendingEmis
-            .filter(e => e.customerId === emi.customerId && e.loanId === emi.loanId)
-            .sort((a, b) => a.emiNumber - b.emiNumber);
-        setCustomerDueEmis(related);
-        setSelectedEmi(emi);
-        setSelectedEmiKeys(new Set([`${emi.loanId}-${emi.emiNumber}`]));
-        setCustomAmount(0);
-        setPaymentRemark('');
-    };
-
+    // ── Expandable card: one card per loan, month-wise EMI selection inside ──
     const emiKey = (e: PendingEmi) => `${e.loanId}-${e.emiNumber}`;
     const emiRemaining = (e: PendingEmi) => Math.max(0, e.amount - (e.amountPaid || 0));
+
+    const expandedGroup = customerGroups.find(g => g.loanId === expandedLoanId) || null;
+
+    const toggleExpand = (loanId: string) => {
+        if (expandedLoanId === loanId) {
+            // Collapse — clear selection
+            setExpandedLoanId(null);
+            setSelectedEmiKeys(new Set());
+            setCustomAmount(0);
+            setPaymentRemark('');
+        } else {
+            // Expand — NO auto-selection (spec: don't select any month automatically)
+            setExpandedLoanId(loanId);
+            setSelectedEmiKeys(new Set());
+            setCustomAmount(0);
+            setPaymentRemark('');
+        }
+    };
 
     const toggleEmiSelection = (emi: PendingEmi) => {
         setSelectedEmiKeys(prev => {
@@ -215,14 +222,42 @@ const DueList: React.FC = () => {
         });
     };
 
-    const selectedEmis = customerDueEmis.filter(e => selectedEmiKeys.has(emiKey(e)));
+    const selectAllInExpanded = () => {
+        if (!expandedGroup) return;
+        // Select every eligible pending EMI in the expanded group
+        const allKeys = new Set(expandedGroup.emis.map(e => emiKey(e)));
+        const allSelected = expandedGroup.emis.every(e => selectedEmiKeys.has(emiKey(e)));
+        setSelectedEmiKeys(allSelected ? new Set() : allKeys);
+    };
+
+    // Selected EMIs scoped to the EXPANDED group only (never mix loans)
+    const expandedEmis = expandedGroup?.emis || [];
+    const selectedEmis = expandedEmis.filter(e => selectedEmiKeys.has(emiKey(e)));
     const selectedTotalRemaining = selectedEmis.reduce((s, e) => s + emiRemaining(e), 0);
 
-    // Highlight helpers — previous-month unpaid (rose) vs final EMI (amber)
-    const isLastMonthEmi = (emi: PendingEmi) => {
-        const due = parseLocalDate(emi.dueDate);
-        const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-        return due.getTime() < thisMonthStart.getTime();
+    // Allocation preview for the amount the user entered (default = selected total)
+    const enteredAmount = customAmount > 0 ? customAmount : selectedTotalRemaining;
+    const allocationPreview: { lines: AllocationLine[]; totalAllocated: number; leftover: number } | null =
+        selectedEmis.length > 0 && enteredAmount > 0
+            ? previewAllocation(selectedEmis.map(e => ({ emiNumber: e.emiNumber, remaining: emiRemaining(e) })), enteredAmount)
+            : null;
+
+    // Validation
+    const amountError: string | null = (() => {
+        if (selectedEmis.length === 0) return 'Kam se kam ek EMI select karo.';
+        if (enteredAmount <= 0) return 'Amount 0 se zyada hona chahiye.';
+        if (enteredAmount > selectedTotalRemaining) return `Selected total (${formatCurrency(selectedTotalRemaining)}) se zyada nahi de sakte.`;
+        return null;
+    })();
+
+    const canCollect = selectedEmis.length > 0 && !amountError && !isSubmitting;
+
+    const closeExpanded = () => {
+        setExpandedLoanId(null);
+        setSelectedEmiKeys(new Set());
+        setCustomAmount(0);
+        setPaymentRemark('');
+        setShowConfirmDialog(false);
     };
 
     const handleBulkSendReminders = () => {
@@ -355,46 +390,19 @@ const DueList: React.FC = () => {
         return pdfDoc;
     };
 
-    const handlePreviewPdf = () => {
-        if (!selectedEmi) return;
-
-        const amountToPay = customAmount > 0 ? customAmount : selectedTotalRemaining;
-        const isExtra = amountToPay > selectedTotalRemaining;
-
-        const receiptData = {
-            receiptId: `RCPT-PREVIEW`,
-            customerName: selectedEmi.customerName,
-            customerId: selectedEmi.customerId,
-            loanId: selectedEmi.loanId,
-            emiNumber: selectedEmis[0]?.emiNumber ?? selectedEmi.emiNumber,
-            tenure: selectedEmi.tenure,
-            emiAmount: selectedEmis.length === 1 ? selectedEmis[0].amount : selectedTotalRemaining,
-            amountPaid: amountToPay,
-            paymentDate: format(new Date(), 'yyyy-MM-dd'),
-            paymentMethod: paymentMethod,
-            remark: paymentRemark,
-            isExtraPayment: isExtra,
-            phoneNumber: selectedEmi.phoneNumber
-        };
-
-        const pdfDoc = generatePaymentReceiptPDF(receiptData as any);
-        pdfDoc.save(`Receipt_Preview_${selectedEmi.loanId}_EMI_${receiptData.emiNumber}.pdf`);
-    };
-
     const handleCollectEmi = async () => {
-        if (!selectedEmi || isSubmitting) return;
+        if (!expandedGroup || isSubmitting) return;
         if (selectedEmis.length === 0) {
             error("Kam se kam ek EMI select karo.");
             return;
         }
-
-        const totalRemaining = selectedTotalRemaining;
-        const amountToPay = customAmount > 0 ? customAmount : totalRemaining;
-
-        if (amountToPay <= 0) {
-            error("Enter a valid amount.");
+        if (amountError) {
+            error(amountError);
             return;
         }
+
+        const totalRemaining = selectedTotalRemaining;
+        const amountToPay = enteredAmount;
 
         setIsSubmitting(true);
         let paymentLog: { emiNumber: number; paid: number; fullyPaid: boolean }[] = [];
@@ -404,7 +412,7 @@ const DueList: React.FC = () => {
             let receiptDocId = '';
 
             await runTransaction(db, async (transaction) => {
-                const loanRef = doc(db, "loans", selectedEmi.loanId);
+                const loanRef = doc(db, "loans", expandedGroup.loanId);
                 const receiptCounterRef = doc(db, 'counters', 'receiptId_counter');
 
                 const loanDoc = await transaction.get(loanRef);
@@ -467,16 +475,16 @@ const DueList: React.FC = () => {
                 transaction.update(loanRef, { repaymentSchedule: updatedSchedule });
                 transaction.set(receiptRef, {
                     receiptId: receiptDocId,
-                    loanId: selectedEmi.loanId,
-                    customerId: selectedEmi.customerId,
-                    customerName: selectedEmi.customerName,
+                    loanId: expandedGroup.loanId,
+                    customerId: expandedGroup.customerId,
+                    customerName: expandedGroup.customerName,
                     amount: amountToPay,
                     emiAmount: selectedEmis.length === 1 ? selectedEmis[0].amount : totalRemaining,
                     isExtraPayment: amountLeft > 0,
                     extraAmount: amountLeft > 0 ? amountLeft : 0,
                     paymentDate: paymentDate,
                     paymentMethod: paymentMethod,
-                    emiNumber: paymentLog[0]?.emiNumber ?? selectedEmi.emiNumber,
+                    emiNumber: paymentLog[0]?.emiNumber ?? selectedEmis[0].emiNumber,
                     emisCovered: paymentLog.map(p => p.emiNumber),
                     remark: remarkText,
                     createdAt: new Date().toISOString(),
@@ -487,29 +495,28 @@ const DueList: React.FC = () => {
             // ── PDF receipt (single-EMI layout if one, summary if many) ──
             const receiptData = {
                 receiptId: receiptDocId,
-                customerName: selectedEmi.customerName,
-                customerId: selectedEmi.customerId,
-                loanId: selectedEmi.loanId,
-                emiNumber: paymentLog[0]?.emiNumber ?? selectedEmi.emiNumber,
-                tenure: selectedEmi.tenure,
+                customerName: expandedGroup.customerName,
+                customerId: expandedGroup.customerId,
+                loanId: expandedGroup.loanId,
+                emiNumber: paymentLog[0]?.emiNumber ?? selectedEmis[0].emiNumber,
+                tenure: expandedGroup.tenure,
                 emiAmount: selectedEmis.length === 1 ? selectedEmis[0].amount : totalRemaining,
                 amountPaid: amountToPay,
                 paymentDate: format(new Date(), 'yyyy-MM-dd'),
                 paymentMethod: paymentMethod,
                 remark: remarkText,
                 isExtraPayment: amountLeftAfter > 0,
-                phoneNumber: selectedEmi.phoneNumber
+                phoneNumber: selectedEmis[0].phoneNumber
             };
 
             const pdfDoc = generatePaymentReceiptPDF(receiptData as any);
             pdfDoc.save(`Receipt_${receiptDocId}.pdf`);
 
-            setLastCollectedEmi({ ...selectedEmi, amount: amountToPay });
+            setLastCollectedEmi({ ...selectedEmis[0], amount: amountToPay });
 
             // Refresh the whole list from source of truth
             await fetchPendingEmis();
-            setSelectedEmi(null);
-            setCustomerDueEmis([]);
+            setExpandedLoanId(null);
             setSelectedEmiKeys(new Set());
             setCustomAmount(0);
             setPaymentRemark('');
@@ -638,86 +645,209 @@ const DueList: React.FC = () => {
                     </div>
                 </div>
 
-                {/* List View */}
+                {/* List View — ONE card per customer/loan */}
                 <div className="space-y-3">
                     {loading ? (
                         <div className="p-4">
                             <SkeletonStyles />
                             <SkeletonList count={6} />
                         </div>
-                    ) : filteredEmis.length > 0 ? (
-                        filteredEmis.map((emi) => {
-                            const finalEmi = !!emi.isFinalEmi;
-                            const lastMonthEmi = isLastMonthEmi(emi);
+                    ) : customerGroups.length > 0 ? (
+                        customerGroups.map((group) => {
+                            const isExpanded = expandedLoanId === group.loanId;
+                            const groupEmi = group.emis[0]; // for photo/phone
+                            const lastMonthEmi = group.previousMonthCount > 0;
+                            const finalEmi = group.emis.some(e => e.isFinalEmi);
                             return (
-                            <div key={`${emi.loanId}-${emi.emiNumber}`} className={`bg-white dark:bg-[#1e2736] rounded-2xl p-3 shadow-sm hover:shadow-md transition-all overflow-hidden ${lastMonthEmi ? 'ring-2 ring-rose-400/70 bg-rose-50/50 dark:bg-rose-900/10' : finalEmi ? 'ring-2 ring-amber-400/70 bg-amber-50/50 dark:bg-amber-900/10' : 'border border-slate-100 dark:border-slate-800'}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative h-11 w-11 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0">
-                                        {emi.customerPhoto ? (
-                                            <img src={emi.customerPhoto} alt={emi.customerName} className="h-full w-full object-cover" />
-                                        ) : (
-                                            <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                                                <span className="material-symbols-outlined text-[22px]">person</span>
-                                            </div>
-                                        )}
-                                        {lastMonthEmi && (
-                                            <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-rose-500 rounded-full border-2 border-white dark:border-[#1e2736]"></div>
-                                        )}
-                                        {finalEmi && !lastMonthEmi && (
-                                            <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-amber-500 rounded-full border-2 border-white dark:border-[#1e2736]"></div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-sm text-slate-900 dark:text-white capitalize truncate">{emi.customerName.toLowerCase()}</h3>
-                                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                            <span className="text-[10px] font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">EMI {emi.emiNumber}/{emi.tenure}</span>
-                                            {lastMonthEmi ? (
-                                                <span className="text-[10px] font-bold text-rose-600 bg-rose-100 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">Pichle Mahine</span>
-                                            ) : finalEmi ? (
-                                                <span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded">Aakhri EMI</span>
-                                            ) : null}
-                                            {isPast(parseISO(emi.dueDate)) ? (
-                                                <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">Overdue</span>
+                                <div key={group.loanId} className={`bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden ${lastMonthEmi ? 'ring-2 ring-rose-400/70' : finalEmi ? 'ring-2 ring-amber-400/70' : 'border border-slate-100 dark:border-slate-800'}`}>
+                                    {/* ── Card header (collapsed summary) ── */}
+                                    <button onClick={() => toggleExpand(group.loanId)} className="w-full text-left p-3 flex items-center gap-3">
+                                        <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0">
+                                            {groupEmi.customerPhoto ? (
+                                                <img src={groupEmi.customerPhoto} alt={group.customerName} className="h-full w-full object-cover" />
                                             ) : (
-                                                <span className="text-[10px] font-bold text-slate-400">{format(parseISO(emi.dueDate), 'dd MMM')}</span>
+                                                <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                                                    <span className="material-symbols-outlined text-[24px]">person</span>
+                                                </div>
+                                            )}
+                                            {lastMonthEmi && (
+                                                <div className="absolute -top-1 -right-1 h-4 w-4 bg-rose-500 rounded-full border-2 border-white dark:border-[#1e2736]"></div>
                                             )}
                                         </div>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-base font-extrabold text-slate-800 dark:text-white">{formatCurrency(Math.max(0, emi.amount - (emi.amountPaid || 0)))}</p>
-                                        {(emi.amountPaid || 0) > 0 && (
-                                            <span className="text-[10px] font-bold text-emerald-600 block">{formatCurrency(emi.amountPaid || 0)} paid</span>
-                                        )}
-                                        {emi.phoneNumber && emi.phoneNumber !== 'N/A' && (
-                                            <button onClick={() => handleDirectCall(emi)} className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate block max-w-[110px] ml-auto">
-                                                {emi.phoneNumber.slice(-10)}
-                                            </button>
-                                        )}
-                                    </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-sm text-slate-900 dark:text-white capitalize truncate">{group.customerName.toLowerCase()}</h3>
+                                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                <span className="text-[10px] font-bold text-rose-600 bg-rose-100 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">
+                                                    {group.previousMonthCount > 0
+                                                        ? `${group.previousMonthCount} Month${group.previousMonthCount > 1 ? 's' : ''} Pending`
+                                                        : `${group.pendingCount} EMI Pending`}
+                                                </span>
+                                                {group.overdueCount > 0 && (
+                                                    <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">{group.overdueCount} Overdue</span>
+                                                )}
+                                            </div>
+                                            {groupEmi.phoneNumber && groupEmi.phoneNumber !== 'N/A' && (
+                                                <p className="text-[10px] text-slate-400 mt-0.5">{groupEmi.phoneNumber.slice(-10)}</p>
+                                            )}
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-base font-extrabold text-slate-800 dark:text-white">{formatCurrency(group.totalRemaining)}</p>
+                                            <span className="text-[10px] font-bold text-slate-400">{group.pendingCount} EMIs</span>
+                                        </div>
+                                        <span className={`material-symbols-outlined text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>expand_more</span>
+                                    </button>
+
+                                    {/* ── Expanded section: month-wise EMI selection ── */}
+                                    {isExpanded && (
+                                        <div className="border-t border-slate-100 dark:border-slate-800 p-3 space-y-3">
+                                            {/* Select All */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-slate-500">Kaunsi EMI jama kar rahe ho?</span>
+                                                <button onClick={selectAllInExpanded} className="text-xs font-bold text-primary">
+                                                    {group.emis.every(e => selectedEmiKeys.has(emiKey(e))) ? 'Sab deselect karo' : 'Select All'}
+                                                </button>
+                                            </div>
+
+                                            {/* EMI table header */}
+                                            <div className="grid grid-cols-[24px_1fr_auto] gap-2 text-[10px] font-bold text-slate-400 uppercase px-1">
+                                                <span></span>
+                                                <span>EMI Month / No.</span>
+                                                <span>Paid → Balance</span>
+                                            </div>
+
+                                            {/* EMI rows */}
+                                            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                                                {group.emis.map((emi) => {
+                                                    const remaining = emiRemaining(emi);
+                                                    const selected = selectedEmiKeys.has(emiKey(emi));
+                                                    const paid = emi.amountPaid || 0;
+                                                    return (
+                                                        <button
+                                                            key={emiKey(emi)}
+                                                            onClick={() => toggleEmiSelection(emi)}
+                                                            className={`w-full grid grid-cols-[24px_1fr_auto] gap-2 items-center p-2.5 rounded-xl border text-left transition-all ${selected
+                                                                ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                                                                : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                                }`}
+                                                        >
+                                                            <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 ${selected ? 'bg-primary border-primary' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                                {selected && <span className="material-symbols-outlined text-white text-[14px]">check</span>}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <span className="text-xs font-bold">{format(parseLocalDate(emi.dueDate), 'MMMM yyyy')}</span>
+                                                                    <span className="text-[10px] font-mono text-slate-400">{emi.emiNumber}/{emi.tenure}</span>
+                                                                    {emi.isFinalEmi && <span className="text-[9px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-1 rounded">Aakhri</span>}
+                                                                    {emi.isOverdue && <span className="text-[9px] font-bold text-red-500">Overdue</span>}
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400">EMI: {formatCurrency(emi.amount)} · Due: {format(parseLocalDate(emi.dueDate), 'dd MMM yyyy')}</p>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <p className="text-sm font-extrabold text-slate-700 dark:text-white">{formatCurrency(remaining)}</p>
+                                                                {paid > 0 && <p className="text-[10px] font-bold text-emerald-600">{formatCurrency(paid)} paid</p>}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Selected summary + amount input */}
+                                            <div className="space-y-3 pt-1">
+                                                <div className="p-3 bg-primary/10 dark:bg-primary/20 rounded-xl space-y-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Selected Total ({selectedEmis.length} EMIs)</span>
+                                                        <span className="text-lg font-extrabold text-primary">{formatCurrency(selectedTotalRemaining)}</span>
+                                                    </div>
+                                                    {allocationPreview && allocationPreview.lines.filter(l => l.allocated > 0).length > 0 && (
+                                                        <div className="text-[10px] text-slate-500 space-y-0.5 pt-1 border-t border-primary/20">
+                                                            {allocationPreview.lines.filter(l => l.allocated > 0).map(l => (
+                                                                <div key={l.emiNumber} className="flex justify-between">
+                                                                    <span>EMI #{l.emiNumber}</span>
+                                                                    <span>{formatCurrency(l.allocated)} paid{l.remainingAfter > 1 ? ` · ${formatCurrency(l.remainingAfter)} baaki` : ' · ✓'}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">Actual Amount Received</label>
+                                                    <input
+                                                        type="number"
+                                                        value={customAmount || selectedTotalRemaining}
+                                                        onChange={(e) => setCustomAmount(Number(e.target.value))}
+                                                        placeholder={`Default: ${selectedTotalRemaining}`}
+                                                        className={`w-full px-3 py-2 bg-white dark:bg-[#1a2230] border rounded-lg focus:ring-2 focus:ring-primary outline-none text-lg font-bold ${amountError ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'}`}
+                                                    />
+                                                    {amountError ? (
+                                                        <p className="text-xs text-rose-500 mt-1 font-medium">{amountError}</p>
+                                                    ) : enteredAmount < selectedTotalRemaining && selectedEmis.length > 0 ? (
+                                                        <p className="text-xs text-amber-600 mt-1">Partial: {formatCurrency(selectedTotalRemaining - enteredAmount)} baaki rahega (oldest first adjust hoga)</p>
+                                                    ) : null}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">Payment Method</label>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {['cash', 'upi', 'bank'].map((method) => (
+                                                            <button
+                                                                key={method}
+                                                                onClick={() => setPaymentMethod(method)}
+                                                                className={`py-2 rounded-lg text-sm font-bold capitalize border ${paymentMethod === method
+                                                                    ? 'bg-primary text-white border-primary'
+                                                                    : 'bg-white dark:bg-[#1a2230] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                                                                    }`}
+                                                            >
+                                                                {method}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">Remark (Optional)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={paymentRemark}
+                                                        onChange={(e) => setPaymentRemark(e.target.value)}
+                                                        placeholder="Any notes..."
+                                                        className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                                                    />
+                                                </div>
+
+                                                {/* Collect button */}
+                                                <div className="flex gap-2 pt-1">
+                                                    <button
+                                                        onClick={() => handleDirectCall(groupEmi)}
+                                                        title="Call"
+                                                        className="px-3 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[18px]">call</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleSendReminder(groupEmi)}
+                                                        title="WhatsApp Reminder"
+                                                        className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[18px]">chat</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (canCollect) setShowConfirmDialog(true); }}
+                                                        disabled={!canCollect}
+                                                        title={amountError || undefined}
+                                                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${canCollect
+                                                            ? 'bg-green-600 text-white shadow-md shadow-green-500/30 active:scale-[0.98] hover:bg-green-700'
+                                                            : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                                            }`}
+                                                    >
+                                                        {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                                                        {isSubmitting ? 'Saving...' : `Collect ${formatCurrency(enteredAmount)}`}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex gap-2 mt-3">
-                                    <button
-                                        onClick={() => openCollectModal(emi)}
-                                        className="flex-1 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-sm active:scale-[0.98] transition-all"
-                                    >
-                                        Collect
-                                    </button>
-                                    <button
-                                        onClick={() => handleDirectCall(emi)}
-                                        title="Call"
-                                        className="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">call</span>
-                                    </button>
-                                    <button
-                                        onClick={() => handleSendReminder(emi)}
-                                        title="WhatsApp Reminder"
-                                        className="px-3 py-2 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">chat</span>
-                                    </button>
-                                </div>
-                            </div>
                             );
                         })
                     ) : (
@@ -729,129 +859,67 @@ const DueList: React.FC = () => {
                 </div>
             </div>
 
-            {/* Collection Modal */}
-            {selectedEmi && (
+            {/* Final Confirmation Dialog */}
+            {showConfirmDialog && expandedGroup && selectedEmis.length > 0 && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-lg font-bold mb-1">Collect Payment</h3>
-                        <p className="text-sm text-slate-500 mb-4">
-                            {selectedEmi.customerName} — {customerDueEmis.length} due EMIs
-                        </p>
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-5 max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-lg font-bold mb-1">Confirm Collection</h3>
+                        <p className="text-sm text-slate-500 mb-4">{expandedGroup.customerName}</p>
 
-                        <div className="space-y-4 mb-6">
-                            {/* Month-wise EMI selection */}
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2">Kaunsi EMI jama kar rahe ho (month select karo)</label>
-                                <div className="space-y-2 max-h-52 overflow-y-auto">
-                                    {customerDueEmis.map((emi) => {
-                                        const remaining = emiRemaining(emi);
-                                        const selected = selectedEmiKeys.has(emiKey(emi));
-                                        return (
-                                            <button
-                                                key={emiKey(emi)}
-                                                onClick={() => toggleEmiSelection(emi)}
-                                                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selected
-                                                    ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                                                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                                    }`}
-                                            >
-                                                <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 ${selected ? 'bg-primary border-primary' : 'border-slate-300 dark:border-slate-600'}`}>
-                                                    {selected && <span className="material-symbols-outlined text-white text-[14px]">check</span>}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-bold">EMI {emi.emiNumber}/{emi.tenure}</span>
-                                                        <span className="text-[10px] font-bold text-slate-400">{format(parseLocalDate(emi.dueDate), 'MMM yyyy')}</span>
-                                                        {(emi.amountPaid || 0) > 0 && (
-                                                            <span className="text-[10px] font-bold text-emerald-600">{formatCurrency(emi.amountPaid || 0)} paid</span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-[10px] text-slate-400">Due: {format(parseLocalDate(emi.dueDate), 'dd MMM yyyy')}</p>
-                                                </div>
-                                                <span className="text-sm font-extrabold text-slate-700 dark:text-white shrink-0">{formatCurrency(remaining)}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                {selectedEmis.length > 0 && (
-                                    <div className="flex justify-between items-center mt-3 p-3 bg-primary/10 dark:bg-primary/20 rounded-xl">
-                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{selectedEmis.length} EMIs selected</span>
-                                        <span className="text-lg font-extrabold text-primary">{formatCurrency(selectedTotalRemaining)}</span>
+                        <div className="space-y-2 mb-4">
+                            {selectedEmis.map((emi, idx) => {
+                                const line = allocationPreview?.lines.find(l => l.emiNumber === emi.emiNumber);
+                                return (
+                                    <div key={emiKey(emi)} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-bold">{format(parseLocalDate(emi.dueDate), 'MMMM yyyy')}</span>
+                                            <span className="text-[10px] font-mono text-slate-400">EMI {emi.emiNumber}/{emi.tenure}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-slate-500">
+                                            <span>Balance: {formatCurrency(emiRemaining(emi))}</span>
+                                            <span className="font-bold text-green-600">Pay: {formatCurrency(line?.allocated ?? 0)}</span>
+                                        </div>
+                                        {(line?.remainingAfter ?? 0) > 1 && (
+                                            <p className="text-[10px] text-amber-600">Baaki rahega: {formatCurrency(line?.remainingAfter ?? 0)}</p>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2">Amount Received (partial ya extra dono chalega)</label>
-                                <input
-                                    type="number"
-                                    value={customAmount || selectedTotalRemaining}
-                                    onChange={(e) => setCustomAmount(Number(e.target.value))}
-                                    placeholder={`Default: ${selectedTotalRemaining}`}
-                                    className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none text-lg font-bold"
-                                />
-                                {customAmount > 0 && customAmount < selectedTotalRemaining && selectedEmis.length > 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">Partial: {formatCurrency(customAmount)} — purani EMIs pehle adjust hongi (oldest first), baaki {formatCurrency(selectedTotalRemaining - customAmount)} due rahega</p>
-                                )}
-                                {customAmount > selectedTotalRemaining && selectedEmis.length > 0 && (
-                                    <p className="text-xs text-green-600 mt-1">Extra Payment: {formatCurrency(customAmount - selectedTotalRemaining)}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2">Payment Method</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {['cash', 'upi', 'bank'].map((method) => (
-                                        <button
-                                            key={method}
-                                            onClick={() => setPaymentMethod(method)}
-                                            className={`py-2 rounded-lg text-sm font-bold capitalize border ${paymentMethod === method
-                                                ? 'bg-primary text-white border-primary'
-                                                : 'bg-white dark:bg-[#1a2230] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                                                }`}
-                                        >
-                                            {method}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2">Remark (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={paymentRemark}
-                                    onChange={(e) => setPaymentRemark(e.target.value)}
-                                    placeholder="Any notes..."
-                                    className="w-full px-3 py-2 bg-white dark:bg-[#1a2230] border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                                />
-                            </div>
+                                );
+                            })}
                         </div>
 
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={handlePreviewPdf}
-                                className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
-                                Preview PDF (Save se pehle download)
-                            </button>
-                            <div className="flex gap-3 justify-end">
-                                <button
-                                    onClick={() => { setSelectedEmi(null); setCustomAmount(0); setPaymentRemark(''); }}
-                                    className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleCollectEmi}
-                                    disabled={isSubmitting}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {isSubmitting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
-                                    Save & Download PDF
-                                </button>
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl mb-4 space-y-1">
+                            <div className="flex justify-between text-sm font-bold">
+                                <span>Total Received</span>
+                                <span className="text-green-700 dark:text-green-400">{formatCurrency(enteredAmount)}</span>
                             </div>
+                            <div className="flex justify-between text-xs text-slate-500">
+                                <span>Selected Total</span>
+                                <span>{formatCurrency(selectedTotalRemaining)}</span>
+                            </div>
+                            {enteredAmount < selectedTotalRemaining && (
+                                <div className="flex justify-between text-xs text-amber-600">
+                                    <span>Remaining After Payment</span>
+                                    <span>{formatCurrency(selectedTotalRemaining - enteredAmount)}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={handleCollectEmi}
+                                disabled={isSubmitting}
+                                className="w-full py-3 rounded-xl bg-green-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                                {isSubmitting ? 'Saving...' : 'Confirm & Collect'}
+                            </button>
+                            <button
+                                onClick={() => setShowConfirmDialog(false)}
+                                disabled={isSubmitting}
+                                className="w-full py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold"
+                            >
+                                Edit / Cancel
+                            </button>
                         </div>
                     </div>
                 </div>

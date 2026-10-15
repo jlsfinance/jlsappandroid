@@ -15,7 +15,9 @@ import {
     getAllDueEmis,
     getDueEmisForLoan,
     applyPaymentToEmi,
-    parseLocalDate
+    parseLocalDate,
+    groupDueEmisByLoan,
+    previewAllocation
 } from '../services/emiSchedule.ts';
 
 let passed = 0, failed = 0;
@@ -287,6 +289,72 @@ console.log('\n[Scenario 10] Multi-month payment allocation (oldest-first):');
     ok('partial single: still Pending', sched2[0].status === 'Pending');
     const dueSingle = getDueEmisForLoan({ ...loan, repaymentSchedule: [...sched2, emi(2, '2026-07-05')] }, now);
     eq('partial EMI stays visible with 6000 remaining', dueSingle.find(d => d.emiNumber === 1)?.remaining, 6000);
+}
+
+// ─── Scenario 11: grouping — one card per loan, multi-loan separate ───
+console.log('\n[Scenario 11] groupDueEmisByLoan — one group per loan:');
+{
+    const now = new Date(2026, 9, 15);
+    const loans = [
+        // Customer A, loan 1: 3 unpaid EMIs
+        { id: 'LA1', customerId: 'CA', customerName: 'Amit', tenure: 24, repaymentSchedule: [emi(10, '2026-08-05'), emi(11, '2026-09-05'), emi(12, '2026-10-05'), emi(13, '2026-11-05')] },
+        // Customer A, loan 2 (independent): 1 unpaid EMI — must NOT mix with LA1
+        { id: 'LA2', customerId: 'CA', customerName: 'Amit', tenure: 12, repaymentSchedule: [emi(5, '2026-09-05'), emi(6, '2026-11-05')] },
+        // Customer B: 1 unpaid EMI
+        { id: 'LB', customerId: 'CB', customerName: 'Babita', tenure: 6, repaymentSchedule: [emi(3, '2026-10-05'), emi(4, '2026-12-05')] },
+    ];
+    const all = getAllDueEmis(loans, now);
+    const groups = groupDueEmisByLoan(all, now);
+    eq('3 groups (one per loan)', groups.length, 3);
+    const gA1 = groups.find(g => g.loanId === 'LA1');
+    const gA2 = groups.find(g => g.loanId === 'LA2');
+    const gB = groups.find(g => g.loanId === 'LB');
+    ok('LA1 has 3 pending EMIs', gA1.pendingCount === 3);
+    ok('LA1 total = 30000', gA1.totalRemaining === 30000);
+    ok('LA1 has 2 previous-month EMIs', gA1.previousMonthCount === 2);
+    ok('LA1 summary = "2 Months Pending"', gA1.previousMonthCount === 2);
+    ok('LA2 (same customer) separate: 1 EMI', gA2.pendingCount === 1 && gA2.totalRemaining === 10000);
+    ok('LB: 1 EMI', gB.pendingCount === 1);
+    ok('groups sorted oldest first (LA1 before LB)', groups[0].loanId === 'LA1');
+    ok('LA2 EMIs do not appear in LA1 group', !gA1.emis.some(e => e.emiNumber === 5));
+}
+
+// ─── Scenario 12: previewAllocation — partial across selected only ───
+console.log('\n[Scenario 12] previewAllocation — unselected untouched:');
+{
+    // Selected: Aug (4227) + Sep (4227); Oct not selected
+    const selected = [
+        { emiNumber: 10, remaining: 4227 },
+        { emiNumber: 11, remaining: 4227 },
+    ];
+    // Full payment
+    const full = previewAllocation(selected, 8454);
+    eq('full: total allocated = 8454', full.totalAllocated, 8454);
+    eq('full: no leftover', full.leftover, 0);
+    ok('full: both fully paid', full.lines.every(l => l.fullyPaid));
+    ok('full: both zero remaining', full.lines.every(l => l.remainingAfter <= 1));
+
+    // Partial: 5000 → Aug full, Sep partial 773
+    const partial = previewAllocation(selected, 5000);
+    eq('partial: total allocated = 5000', partial.totalAllocated, 5000);
+    const aug = partial.lines.find(l => l.emiNumber === 10);
+    const sep = partial.lines.find(l => l.emiNumber === 11);
+    eq('partial: Aug fully paid 4227', aug.allocated, 4227);
+    ok('partial: Aug zero remaining', aug.remainingAfter <= 1);
+    eq('partial: Sep gets 773', sep.allocated, 773);
+    eq('partial: Sep remaining 3454', sep.remainingAfter, 4227 - 773);
+    ok('partial: Sep not fully paid', sep.fullyPaid === false);
+    ok('partial: Oct never in allocation (unselected)', !partial.lines.some(l => l.emiNumber === 12));
+
+    // Single month only
+    const single = previewAllocation([{ emiNumber: 11, remaining: 4227 }], 4227);
+    eq('single: one line only', single.lines.length, 1);
+    eq('single: fully paid', single.totalAllocated, 4227);
+
+    // Excess (advance) — leftover reported
+    const excess = previewAllocation(selected, 10000);
+    eq('excess: all allocated 8454', excess.totalAllocated, 8454);
+    eq('excess: leftover 1546 flagged', excess.leftover, 1546);
 }
 
 // ─── Summary ───
