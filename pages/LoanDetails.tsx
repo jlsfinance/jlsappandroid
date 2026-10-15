@@ -1793,169 +1793,139 @@ const LoanDetails: React.FC = () => {
                     </div>
                 )}
 
-                {/* Main Info Card */}
+                {/* Main Info Card — compact premium */}
                 <div className="glass-card rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-shadow duration-300">
-                    <div className="p-6 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-start bg-gradient-to-r from-slate-50/50 to-transparent dark:from-slate-800/30">
-                        <div className="flex items-center gap-5">
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                                <LazyImage
-                                    src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
-                                    alt={loan.customerName}
-                                    className="relative h-16 w-16 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-md group-hover:scale-105 transition-transform duration-300"
-                                />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight mb-1">{loan.customerName}</h2>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0"></span>
-                                    <span>ID: <span className="font-semibold">{loan.id}</span></span>
-                                </p>
+                    <div className="p-4 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-slate-50/50 to-transparent dark:from-slate-800/30">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <LazyImage
+                                src={customer?.photo_url || customer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(loan.customerName)}&background=random`}
+                                alt={loan.customerName}
+                                className="h-12 w-12 rounded-xl object-cover border-2 border-white dark:border-slate-800 shadow-md shrink-0"
+                            />
+                            <div className="min-w-0">
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight">{loan.customerName}</h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">ID: <span className="font-semibold">{loan.id}</span></p>
                             </div>
                         </div>
                         <div className="shrink-0 ml-2">
                             <StatusBadge status={loan.status} />
                         </div>
                     </div>
-                    <div className="p-6 grid grid-cols-2 sm:grid-cols-4 gap-y-8 gap-x-6">
-                        <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Loan Amount</span>
-                            <div className="text-xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
-                                {formatCurrency(loan.amount)}
+                    <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Loan Amount</span>
+                            <div className="text-base font-bold text-slate-900 dark:text-white">{formatCurrency(loan.amount)}</div>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Monthly EMI</span>
+                            <div className="text-base font-bold text-slate-900 dark:text-white">{formatCurrency(loan.emi)}</div>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Disbursed</span>
+                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">{safeFormatDate(loan.disbursalDate)}</div>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Interest</span>
+                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">{loan.interestRate}% <span className="text-xs font-normal opacity-70">p.a.</span></div>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Tenure</span>
+                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">{loan.tenure} <span className="text-xs font-normal text-slate-400">Months</span></div>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-1">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Progress</span>
+                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                {paidEmisCount} <span className="text-slate-400">/ {loan.tenure}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${(paidEmisCount / loan.tenure) * 100}%` }}></div>
                             </div>
                         </div>
-                        <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Monthly EMI</span>
-                            <div className="text-xl font-bold text-slate-900 dark:text-white">
-                                {formatCurrency(loan.emi)}
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Disbursed Date</span>
-                            <div className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-                                {safeFormatDate(loan.disbursalDate)}
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Interest Rate</span>
-                            <div className="text-lg font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50 inline-block px-2 py-0.5 rounded-md">
-                                {loan.interestRate}% <span className="text-xs font-normal opacity-70">p.a.</span>
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Tenure</span>
-                            <div className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-                                {loan.tenure} <span className="text-sm font-normal text-slate-400">Months</span>
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Progress</span>
-                            <div className="relative pt-1">
-                                <div className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                    {paidEmisCount} <span className="text-slate-400">/ {loan.tenure}</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${(paidEmisCount / loan.tenure) * 100}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-span-2 sm:col-span-1 space-y-1">
-                            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">Outstanding</span>
-                            <div className="text-2xl font-bold text-red-500 dark:text-red-400 tracking-tight">
-                                {formatCurrency(outstandingPrincipal)}
-                            </div>
+                        <div className="col-span-2 p-2.5 bg-rose-50 dark:bg-rose-900/10 rounded-xl space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-rose-400">Outstanding</span>
+                            <div className="text-xl font-bold text-red-500 dark:text-red-400 tracking-tight">{formatCurrency(outstandingPrincipal)}</div>
                         </div>
                     </div>
                 </div>
 
-                {/* Schedule Table */}
+                {/* Schedule — premium card list (mobile-first) */}
                 <div className="glass-card rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/5">
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/30 dark:bg-slate-800/20">
-                        <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                            <span className="material-symbols-outlined text-indigo-500">calendar_month</span>
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/30 dark:bg-slate-800/20">
+                        <h3 className="font-bold text-base text-slate-800 dark:text-white flex items-center gap-2">
+                            <span className="material-symbols-outlined text-indigo-500 text-[20px]">calendar_month</span>
                             Repayment Schedule
                         </h3>
-                        <div className="text-xs font-semibold text-slate-500 px-3 py-1 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <div className="text-xs font-semibold text-slate-500 px-2.5 py-1 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                             {detailedRepaymentSchedule.length} Installments
                         </div>
                     </div>
-                    <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 dark:bg-slate-800/50 tracking-wider">
-                                <tr>
-                                    <th className="px-4 py-3">#</th>
-                                    <th className="px-4 py-3">Due Date</th>
-                                    <th className="px-4 py-3">Principal</th>
-                                    <th className="px-4 py-3">Interest</th>
-                                    <th className="px-4 py-3">Total</th>
-                                    <th className="px-4 py-3">Type</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3 text-center no-print">Receipt</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {detailedRepaymentSchedule.length > 0 ? detailedRepaymentSchedule.map((emi) => (
-                                    <tr key={emi.month} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{emi.month}</td>
-                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{safeFormatDate(emi.dueDate)}</td>
-                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(emi.principal)}</td>
-                                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatCurrency(emi.interest)}</td>
-                                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{formatCurrency(getEmiAmountForDisplay(emi, loan))}</td>
-                                        <td>
-                                            {emi.status === "Paid" ? (
-                                                <span className="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 rounded">
-                                                    OLD EMI
-                                                </span>
-                                            ) : (
-                                                <span className="px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded">
-                                                    TOP-UP EMI
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase ${emi.status === 'Paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                emi.status === 'Cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                                                }`}>
-                                                {emi.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center no-print">
-                                            <div className="flex items-center justify-center gap-2">
-                                                {emi.receiptDownloadable ? (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleDownloadReceipt(emi)}
-                                                            disabled={isDownloadingReceipt === emi.month}
-                                                            className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
-                                                            title="Download Receipt"
-                                                        >
-                                                            {isDownloadingReceipt === emi.month ?
-                                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div> :
-                                                                <span className="material-symbols-outlined text-[18px]">download</span>
-                                                            }
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleUndoCollection(emi)}
-                                                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
-                                                            title="Undo Collection"
-                                                        >
-                                                            <span className="material-symbols-outlined text-[18px]">undo</span>
-                                                        </button>
-                                                    </>
-                                                ) : <span className="text-slate-300">-</span>}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                                            No repayment schedule generated yet.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                    <div className="p-3 space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar">
+                        {detailedRepaymentSchedule.length > 0 ? detailedRepaymentSchedule.map((emi) => (
+                            <div key={emi.month}
+                                className={`p-3 rounded-xl border flex items-center gap-3 transition-colors ${emi.status === 'Paid'
+                                    ? 'border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/40 dark:bg-emerald-900/10'
+                                    : emi.status === 'Cancelled'
+                                        ? 'border-red-200/60 dark:border-red-800/40 bg-red-50/40 dark:bg-red-900/10'
+                                        : 'border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/30'
+                                    }`}
+                            >
+                                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm ${emi.status === 'Paid'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                                    : emi.status === 'Cancelled'
+                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                                        : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400'
+                                    }`}>
+                                    {emi.month}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(getEmiAmountForDisplay(emi, loan))}</span>
+                                        {emi.status === 'Paid' ? (
+                                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded uppercase">OLD EMI</span>
+                                        ) : (
+                                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded uppercase">TOP-UP EMI</span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                        Due {safeFormatDate(emi.dueDate)} · P: {formatCurrency(emi.principal)} + I: {formatCurrency(emi.interest)}
+                                    </p>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${emi.status === 'Paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                    emi.status === 'Cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                        'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                    }`}>
+                                    {emi.status}
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0 no-print">
+                                    {emi.receiptDownloadable ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleDownloadReceipt(emi)}
+                                                disabled={isDownloadingReceipt === emi.month}
+                                                className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                                                title="Download Receipt"
+                                            >
+                                                {isDownloadingReceipt === emi.month ?
+                                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div> :
+                                                    <span className="material-symbols-outlined text-[18px]">download</span>
+                                                }
+                                            </button>
+                                            <button
+                                                onClick={() => handleUndoCollection(emi)}
+                                                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+                                                title="Undo Collection"
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">undo</span>
+                                            </button>
+                                        </>
+                                    ) : <span className="text-slate-300 px-1.5">-</span>}
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="py-8 text-center text-slate-400 text-sm">
+                                No repayment schedule generated yet.
+                            </div>
+                        )}
                     </div>
                 </div>
 
