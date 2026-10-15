@@ -712,10 +712,10 @@ const Dashboard: React.FC = () => {
                             <Link key={i} to={action.link}
                                 className={`group flex flex-col items-center justify-center p-5 transition-all duration-300 ${action.isKadak
                                     ? 'btn-kadak !flex-row !gap-3 !p-4 !rounded-full'
-                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm md:hover:shadow-md md:hover:-translate-y-1'
                                     }`}
                             >
-                                <div className={`flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${action.isKadak
+                                <div className={`flex items-center justify-center transition-transform duration-300 md:group-hover:scale-110 ${action.isKadak
                                     ? 'w-8 h-8 rounded-full bg-white/20 text-white'
                                     : `w-12 h-12 rounded-xl ${action.bg} ${action.color}`
                                     }`}>

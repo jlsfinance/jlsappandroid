@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, where, doc, runTransaction } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { Customer } from '../types';
 import { useCompany } from '../context/CompanyContext';
@@ -131,47 +131,33 @@ const NewLoan: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      // Loan ID: timestamp-based (no counters read — counters rules can
+      // block the transaction and kill the whole loan creation).
+      const newLoanId = `LN${Date.now()}`;
+      const newLoanRef = doc(db, 'loans', newLoanId);
+
       const applicationDate = new Date().toISOString();
+      const loanData = {
+        id: newLoanId,
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        companyId: currentCompany!.id,
+        amount: form.amount,
+        interestRate: form.interestRate,
+        tenure: form.tenure,
+        processingFeePercentage: form.processingFeePercentage,
+        processingFee,
+        emi,
+        notes: form.notes || null,
+        status: "Pending",
+        createdBy: auth.currentUser!.uid,
+        date: applicationDate,
+        approvalDate: null,
+        disbursalDate: null,
+        repaymentSchedule: []
+      };
 
-      // Transaction: Get new ID -> Save Loan -> Update Counter
-      const newLoanId = await runTransaction(db, async (transaction) => {
-        const counterRef = doc(db, 'counters', 'loanId_counter');
-        const counterDoc = await transaction.get(counterRef);
-
-        let nextId = 10110;
-        if (counterDoc.exists()) {
-          const lastId = counterDoc.data().lastId;
-          nextId = typeof lastId === 'number' ? lastId + 10 : 10110;
-        }
-
-        const newLoanRef = doc(db, 'loans', nextId.toString());
-
-        // Construct Loan Object
-        const loanData = {
-          id: nextId.toString(),
-          customerId: selectedCustomer.id,
-          customerName: selectedCustomer.name,
-          companyId: currentCompany!.id,
-          amount: form.amount,
-          interestRate: form.interestRate,
-          tenure: form.tenure,
-          processingFeePercentage: form.processingFeePercentage,
-          processingFee,
-          emi,
-          notes: form.notes || null,
-          status: "Pending",
-          createdBy: auth.currentUser!.uid,
-          date: applicationDate,
-          approvalDate: null,
-          disbursalDate: null,
-          repaymentSchedule: []
-        };
-
-        transaction.set(newLoanRef, loanData);
-        transaction.set(counterRef, { lastId: nextId }, { merge: true });
-
-        return nextId;
-      });
+      await setDoc(newLoanRef, loanData);
 
       success(`Loan Application Submitted Successfully! Loan ID: ${newLoanId}`);
       navigate('/loans');
