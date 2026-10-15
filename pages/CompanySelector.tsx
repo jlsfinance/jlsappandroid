@@ -380,7 +380,7 @@ const CompanySelector: React.FC = () => {
 
       {showMigrateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <h3 className="text-xl font-bold mb-4 text-on-surface-light dark:text-on-surface-dark">Link Data to Company</h3>
             <p className="text-sm text-on-surface-variant-light dark:text-on-surface-variant-dark mb-4">
               Select a company to link your existing data:
@@ -432,7 +432,7 @@ const CompanySelector: React.FC = () => {
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <h3 className="text-xl font-bold mb-6 text-on-surface-light dark:text-on-surface-dark">Add New Company</h3>
             <form onSubmit={handleAddCompany} className="space-y-4">
               <div>
@@ -509,7 +509,7 @@ const CompanySelector: React.FC = () => {
 
       {showEditModal && companyToEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <h3 className="text-xl font-bold mb-6 text-on-surface-light dark:text-on-surface-dark">Edit Company</h3>
             <form onSubmit={handleEditCompany} className="space-y-4">
               <div>
@@ -589,7 +589,7 @@ const CompanySelector: React.FC = () => {
 
       {showDeleteConfirm && companyToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20">
                 <span className="material-symbols-outlined text-red-500 text-2xl">warning</span>

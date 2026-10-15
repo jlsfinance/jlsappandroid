@@ -716,7 +716,7 @@ const Loans: React.FC = () => {
                             ">
                                     <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-2 md:hidden"></div>
 
-                                    <div className="p-4 pt-2 md:p-6">
+                                    <div className="p-4 pt-2 md:p-4">
                                         <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                                             <div className="h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
                                                 <span className="material-symbols-outlined text-2xl">description</span>
@@ -804,7 +804,7 @@ const Loans: React.FC = () => {
             {
                 showDeleteConfirm && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
+                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-4 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
                             <h3 className="text-lg font-bold mb-2">Delete Loan?</h3>
                             <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
                                 Are you sure you want to delete the loan for <strong>{loanToDelete?.customerName}</strong>? This action cannot be undone.
@@ -834,7 +834,7 @@ const Loans: React.FC = () => {
                 showPdfModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                         <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
-                            <div className="p-6 text-center">
+                            <div className="p-4 text-center">
                                 {pdfStatus === 'generating' && (
                                     <div className="flex flex-col items-center py-4">
                                         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>

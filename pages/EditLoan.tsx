@@ -185,8 +185,8 @@ const EditLoan: React.FC = () => {
         <div className="w-10"></div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
 
           {customer && (
             <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -196,7 +196,7 @@ const EditLoan: React.FC = () => {
                   Customer Details
                 </h2>
               </div>
-              <div className="p-6 flex items-start gap-6">
+              <div className="p-4 flex items-start gap-3">
                 <div className="h-24 w-24 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0">
                   {(customer.photo_url || customer.avatar) ? (
                     <img
@@ -248,7 +248,7 @@ const EditLoan: React.FC = () => {
               </h2>
               <p className="text-xs text-slate-500 mt-1">Loan ID: {loanId}</p>
             </div>
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Loan Amount (₹) *</label>
                 <input
@@ -333,7 +333,7 @@ const EditLoan: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-2xl p-6 border border-primary/20">
+          <div className="bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-2xl p-4 border border-primary/20">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">calculate</span>
               Updated Calculations

@@ -660,7 +660,7 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className="relative px-4 sm:px-6 space-y-6 sm:space-y-8 mt-4 sm:mt-6 max-w-7xl mx-auto w-full">
+            <div className="relative px-4 sm:px-5 space-y-3 sm:space-y-4 mt-3 sm:mt-4 max-w-7xl mx-auto w-full">
 
                 {/* Hero Balance Card - Compact Premium */}
                 <div className="group relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-xl shadow-indigo-500/20 transition-all">
@@ -731,7 +731,7 @@ const Dashboard: React.FC = () => {
                 {/* Automated Reminders Banner */}
                 <div
                     onClick={() => setShowReminderModal(true)}
-                    className="relative overflow-hidden rounded-2xl p-6 shadow-lg shadow-purple-500/30 cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between group mt-6 sm:mt-8"
+                    className="relative overflow-hidden rounded-2xl p-4 shadow-lg shadow-purple-500/30 cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between group mt-6 sm:mt-3"
                     style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }}
                 >
                     <div className="relative z-10 flex items-center gap-4">
@@ -760,7 +760,7 @@ const Dashboard: React.FC = () => {
                             onClick={() => setActiveCard('Total Disbursed Loans')}
                             className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-lg cursor-pointer border border-slate-100 dark:border-slate-800"
                         >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-[100px] -mr-8 -mt-3 transition-transform group-hover:scale-110"></div>
 
                             <div className="relative z-10 flex justify-between items-start">
                                 <div>
@@ -805,9 +805,9 @@ const Dashboard: React.FC = () => {
 
                         <div
                             onClick={() => setActiveCard('Net Disbursed')}
-                            className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
+                            className="group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-lg transition-all border border-slate-100 dark:border-slate-800 cursor-pointer"
                         >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/20 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/20 rounded-bl-[100px] -mr-8 -mt-3 transition-transform group-hover:scale-110"></div>
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
@@ -966,7 +966,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white">Daily Briefing</h3>
                   </div>
                   <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-5 border border-amber-100 dark:border-amber-800/30 shadow-sm">
-                    <div className="flex flex-wrap gap-6">
+                    <div className="flex flex-wrap gap-3">
                       <div className="flex items-center gap-3">
                         <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
                           <span className="material-symbols-outlined text-xl">today</span>
@@ -1098,7 +1098,7 @@ const Dashboard: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/20 dark:border-white/5 overflow-hidden ring-1 ring-black/5">
 
                         {/* Header Section */}
-                        <div className="relative p-8 pb-0 flex justify-between items-start">
+                        <div className="relative p-4 pb-0 flex justify-between items-start">
                             <div className="flex items-center gap-4">
                                 <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 dark:shadow-none">
                                     <span className="material-symbols-outlined text-3xl">campaign</span>
@@ -1113,7 +1113,7 @@ const Dashboard: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-8">
+                        <div className="p-4 space-y-4">
                             {/* Fast Action: Auto Sync */}
                             <div onClick={() => {
                                 if (loans.length > 0) {

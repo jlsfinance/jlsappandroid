@@ -96,10 +96,16 @@ h6,
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* Apple-style compact spacing system
+   - Consistent radii: cards 16px (rounded-2xl), inner tiles 12px (rounded-xl)
+   - Subtle borders + restrained shadows
+   - Compact gaps: page sections 12px (space-y-3), tiles 8-12px (gap-2/3)
+   - Comfortable touch targets preserved (min h-10 for buttons via py-2.5) */
 .glass-card {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
 }
 
 .dark .glass-card {

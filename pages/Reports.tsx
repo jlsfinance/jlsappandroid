@@ -391,7 +391,7 @@ const Reports: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4 space-y-6">
+            <div className="max-w-4xl mx-auto p-4 space-y-3">
                 {/* Tabs */}
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                     {[

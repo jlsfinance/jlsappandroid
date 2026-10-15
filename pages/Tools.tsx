@@ -13,7 +13,7 @@ const Tools: React.FC = () => {
                 </Link>
             </div>
 
-            <div className="px-4 space-y-6">
+            <div className="px-4 space-y-3">
 
                 {/* Search Bar */}
                 <div className="relative">

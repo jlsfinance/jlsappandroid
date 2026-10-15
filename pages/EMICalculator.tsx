@@ -23,9 +23,9 @@ const EMICalculator: React.FC = () => {
         <h1 className="text-lg font-bold flex-1 text-center pr-10">EMI Calculator</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* Result Visualization */}
-        <div className="bg-white dark:bg-[#1a2233] rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="bg-white dark:bg-[#1a2233] rounded-2xl p-4 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
           <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6">Monthly Installment</h2>
           <div className="relative size-56 rounded-full flex items-center justify-center mb-6 shadow-inner bg-gradient-to-tr from-primary to-blue-300 p-1">
@@ -47,7 +47,7 @@ const EMICalculator: React.FC = () => {
         </div>
 
         {/* Inputs */}
-        <div className="bg-white dark:bg-[#1a2233] rounded-2xl p-5 shadow-sm space-y-8">
+        <div className="bg-white dark:bg-[#1a2233] rounded-2xl p-5 shadow-sm space-y-4">
           <div className="space-y-4">
             <div className="flex justify-between items-end">
               <label className="font-semibold text-base">Loan Amount</label>

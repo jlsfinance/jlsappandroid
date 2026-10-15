@@ -621,7 +621,7 @@ const DueList: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4 space-y-6">
+            <div className="max-w-4xl mx-auto p-4 space-y-3">
 
                 {/* Summary — all due EMIs (previous + current month) */}
                 <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
@@ -933,7 +933,7 @@ const DueList: React.FC = () => {
             {/* Notification Modal */}
             {isNotificationModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4 text-center">
                         <div className="mx-auto h-12 w-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-4">
                             <span className="material-symbols-outlined text-3xl">check</span>
                         </div>

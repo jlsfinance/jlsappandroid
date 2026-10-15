@@ -107,7 +107,7 @@ const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
         {currentCompany && (
           <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
             <p className="text-sm text-indigo-700 dark:text-indigo-300">
@@ -178,7 +178,7 @@ const UserManagement: React.FC = () => {
 
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
             <h3 className="text-lg font-bold mb-1">Edit User</h3>
             <p className="text-sm text-slate-500 mb-4">{selectedUser.name || selectedUser.email}</p>
 

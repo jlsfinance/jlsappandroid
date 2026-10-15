@@ -14,7 +14,7 @@ const Privacy: React.FC = () => {
                 <h1 className="text-lg font-bold">Privacy Policy</h1>
             </div>
 
-            <div className="p-6 max-w-2xl mx-auto w-full space-y-8">
+            <div className="p-4 max-w-2xl mx-auto w-full space-y-4">
                 {/* Non-Lending Disclaimer */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                     <div className="flex items-start gap-3">

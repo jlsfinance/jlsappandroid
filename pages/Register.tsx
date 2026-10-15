@@ -104,9 +104,9 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-6 text-slate-900 dark:text-white">
-      <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-surface-dark p-8 shadow-xl ring-1 ring-slate-900/5 dark:ring-white/10">
-        <div className="mb-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 text-slate-900 dark:text-white">
+      <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-surface-dark p-4 shadow-xl ring-1 ring-slate-900/5 dark:ring-white/10">
+        <div className="mb-3 text-center">
           <h1 className="text-2xl font-bold tracking-tight">Create Account</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Join JLS FINANCE SUITE today</p>
         </div>
@@ -210,7 +210,7 @@ const Register: React.FC = () => {
           </Link>
         </div>
       </div>
-      <div className="mt-8 text-center">
+      <div className="mt-3 text-center">
         <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
           App Created by LUVI
         </p>

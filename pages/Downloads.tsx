@@ -62,7 +62,7 @@ const Downloads: React.FC = () => {
     };
 
     return (
-        <div className="p-6">
+        <div className="p-4">
             <h1 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Downloads</h1>
 
             {loading ? (

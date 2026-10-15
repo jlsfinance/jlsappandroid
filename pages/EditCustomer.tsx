@@ -162,8 +162,8 @@ const EditCustomer: React.FC = () => {
         <div className="w-10"></div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
             
             {/* Personal Details */}
             <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -173,7 +173,7 @@ const EditCustomer: React.FC = () => {
                         Personal Details
                     </h2>
                 </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Full Name *</label>
                         <input 
@@ -217,7 +217,7 @@ const EditCustomer: React.FC = () => {
                         KYC Information
                     </h2>
                 </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Aadhaar Number</label>
                         <input 
@@ -253,7 +253,7 @@ const EditCustomer: React.FC = () => {
                         Guarantor Details
                     </h2>
                 </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Guarantor Name</label>
                         <input 
@@ -297,7 +297,7 @@ const EditCustomer: React.FC = () => {
                         Customer Photo
                     </h2>
                 </div>
-                <div className="p-6 flex flex-col sm:flex-row gap-6 items-center">
+                <div className="p-4 flex flex-col sm:flex-row gap-3 items-center">
                     <div className="relative h-32 w-32 rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden">
                         {photoPreview ? (
                             <img src={photoPreview} alt="Preview" className="h-full w-full object-cover" />

@@ -209,7 +209,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-8 mx-4 mb-4 space-y-3">
+      <div className="mt-3 mx-4 mb-4 space-y-3">
         <button onClick={() => NotificationService.testNotification()} className="w-full bg-white dark:bg-[#1a2235] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 border border-slate-100 dark:border-slate-800">
           <span className="material-symbols-outlined text-lg">notifications_active</span>
           Test Notification
@@ -227,7 +227,7 @@ const Settings: React.FC = () => {
 
       {showProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="bg-gradient-to-br from-primary to-primary-dark rounded-full h-14 w-14 flex items-center justify-center text-white text-xl font-bold shadow-lg">
                 {(profileName || auth.currentUser?.email || 'U').charAt(0).toUpperCase()}

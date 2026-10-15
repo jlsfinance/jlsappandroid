@@ -1742,7 +1742,7 @@ const LoanDetails: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+            <div className="max-w-4xl mx-auto p-4 sm:p-4 space-y-3">
 
                 {/* Actions Bar */}
                 {loan.status === 'Disbursed' && (
@@ -1977,7 +1977,7 @@ const LoanDetails: React.FC = () => {
             {
                 isPrecloseModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
                             <h3 className="text-lg font-bold mb-1">Pre-close Loan</h3>
                             <p className="text-sm text-slate-500 mb-4">Calculate foreclosure amount and close loan.</p>
 
@@ -2044,7 +2044,7 @@ const LoanDetails: React.FC = () => {
             {
                 isTopUpModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl p-6">
+                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl p-4">
                             <h3 className="text-lg font-bold mb-1">Top-up Loan</h3>
                             <p className="text-sm text-slate-500 mb-4">Add amount and set new duration. New agreement will be generated.</p>
 

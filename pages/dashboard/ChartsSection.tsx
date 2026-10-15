@@ -112,7 +112,7 @@ const CollectionStatusChart: React.FC<CollectionStatusProps> = ({ data, total })
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
       <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4">Collections Status</h4>
-      <div className="flex items-center justify-center gap-6">
+      <div className="flex items-center justify-center gap-3">
         <ResponsiveContainer width={160} height={160}>
           <PieChart>
             <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={72} paddingAngle={3} dataKey="value" stroke="none">
@@ -193,7 +193,7 @@ const ProfitMarginChart: React.FC<ProfitMarginProps> = ({ data }) => {
 
 /* ─── Empty State ─── */
 const EmptyChart: React.FC<{ label: string }> = ({ label }) => (
-  <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 border-dashed text-center">
+  <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 border-dashed text-center">
     <span className="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600 mb-2">bar_chart</span>
     <p className="text-[11px] font-bold text-slate-400">{label}</p>
     <p className="text-[10px] text-slate-400 mt-1">Data will appear once transactions are recorded</p>

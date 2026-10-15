@@ -258,7 +258,7 @@ const FinanceOverview: React.FC = () => {
             )}
 
             {/* Ledger List */}
-            <div className="px-4 pb-4 space-y-6">
+            <div className="px-4 pb-4 space-y-3">
                 {loading ? (
                     <div className="flex justify-center py-12"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div></div>
                 ) : monthlyLedgers.length === 0 ? (
@@ -323,7 +323,7 @@ const FinanceOverview: React.FC = () => {
             {/* Expense Modal */}
             {showExpenseModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95">
-                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-6">
+                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-4">
                         <h3 className="text-xl font-normal mb-6 text-on-surface-light dark:text-on-surface-dark">Record Expense</h3>
                         <form onSubmit={handleAddExpense} className="space-y-5">
                             <div className="relative group">
@@ -372,7 +372,7 @@ const FinanceOverview: React.FC = () => {
             {/* Download Modal */}
             {showDownloadModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95">
-                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-6">
+                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-4">
                         <h3 className="text-xl font-normal mb-6 text-on-surface-light dark:text-on-surface-dark">Download Ledger Report</h3>
                         <div className="space-y-5">
                             <div className="relative group">

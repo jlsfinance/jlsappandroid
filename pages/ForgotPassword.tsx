@@ -30,9 +30,9 @@ const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-6 text-slate-900 dark:text-white">
-      <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-surface-dark p-8 shadow-xl ring-1 ring-slate-900/5 dark:ring-white/10">
-        <div className="mb-8 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 text-slate-900 dark:text-white">
+      <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-surface-dark p-4 shadow-xl ring-1 ring-slate-900/5 dark:ring-white/10">
+        <div className="mb-3 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
             <span className="material-symbols-outlined text-2xl">lock_reset</span>
           </div>
@@ -41,7 +41,7 @@ const ForgotPassword: React.FC = () => {
         </div>
 
         {submitted ? (
-          <div className="text-center space-y-6">
+          <div className="text-center space-y-3">
             <div className="rounded-xl bg-green-50 p-4 text-green-800 dark:bg-green-900/20 dark:text-green-300">
               <p className="font-medium text-sm">Reset link sent!</p>
               <p className="text-xs mt-1 opacity-80">Check your inbox and spam folder.</p>
