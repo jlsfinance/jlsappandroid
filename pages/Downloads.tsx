@@ -32,6 +32,22 @@ const Downloads: React.FC = () => {
 
     useEffect(() => {
         loadFiles();
+
+        // Auto-load when the user returns to this tab (foreground) — no manual refresh needed.
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') loadFiles();
+        };
+        const onRefresh = () => { loadFiles(); };
+        document.addEventListener('visibilitychange', onVisibility);
+        if (typeof window !== 'undefined') {
+            window.addEventListener('jls-downloads-refresh', onRefresh);
+        }
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('jls-downloads-refresh', onRefresh);
+            }
+        };
     }, []);
 
     const openFile = async (file: FileInfo) => {

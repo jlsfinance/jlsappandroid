@@ -560,9 +560,14 @@ const Loans: React.FC = () => {
             const reader = new FileReader();
             reader.readAsDataURL(currentPdfBlob);
             reader.onloadend = async () => {
-                const base64data = (reader.result as string).split(',')[1];
-                await DownloadService.downloadPDF(currentPdfName, base64data);
-                setShowPdfModal(false);
+                try {
+                    const base64data = (reader.result as string).split(',')[1];
+                    await DownloadService.downloadPDF(currentPdfName, base64data);
+                    setShowPdfModal(false);
+                    success('PDF downloaded');
+                } catch (err) {
+                    error(err?.message || 'Download failed');
+                }
             };
         }
     };
@@ -630,7 +635,7 @@ const Loans: React.FC = () => {
                     filteredLoans.map((loan) => (
                         <div key={loan.id}>
                             <div
-                                onClick={() => navigate(`/ loans / ${loan.id} `)}
+                                onClick={() => navigate(`/loans/${loan.id}`)}
                                 className="glass-card relative rounded-2xl p-5 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer transition-all duration-300 group border border-white/40 dark:border-slate-700/40"
                             >
                                 <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>

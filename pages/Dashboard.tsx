@@ -594,9 +594,11 @@ const Dashboard: React.FC = () => {
         try {
             const { DownloadService } = await import('../services/DownloadService');
             await DownloadService.downloadPDF(filename, pdfData);
-        } catch (error) {
-            // Fallback for web
-            doc.save(filename);
+            toast('PDF downloaded', 'success');
+        } catch (err) {
+            // Native (non-web) fallback; never silent. jsPDF doc.save() is a
+            // client-side download only and cannot replace a real save on Android.
+            toast(err?.message || 'Download failed', 'error');
         }
     };
 
