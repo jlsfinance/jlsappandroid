@@ -134,7 +134,7 @@ const Disbursal: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">

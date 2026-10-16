@@ -83,7 +83,7 @@ const CustomerProfile: React.FC = () => {
 
   if (!customer) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background-light dark:bg-background-dark text-slate-900 dark:text-white p-4 text-center">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background-light dark:bg-background-dark text-slate-900 dark:text-white p-4 text-center">
         <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full">
           <span className="material-symbols-outlined text-4xl text-slate-400">person_off</span>
         </div>
@@ -114,7 +114,7 @@ const CustomerProfile: React.FC = () => {
   const photoSrc = customer.photo_url || customer.avatar;
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-nav text-slate-900 dark:text-white print:bg-white print:text-black">
+    <div className="bg-background-light dark:bg-background-dark min-h-[100dvh] pb-nav text-slate-900 dark:text-white print:bg-white print:text-black">
       {/* Top Navigation - Hidden on Print */}
       <div className="sticky top-0 z-50 flex items-center justify-between bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md p-4 border-b border-slate-200 dark:border-slate-800 print:hidden">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">

@@ -602,7 +602,7 @@ const DueList: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-safe text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] pb-nav text-slate-900 dark:text-white">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 pb-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}>
                 <div className="flex items-center gap-3">

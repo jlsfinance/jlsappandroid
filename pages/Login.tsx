@@ -63,16 +63,16 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#3b2d72] via-[#482880] to-[#2c1b52] px-6 py-4 text-white font-sans overflow-hidden relative">
+    <div className="pb-navh-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#3b2d72] via-[#482880] to-[#2c1b52] px-6 py-4 text-white font-sans overflow-hidden relative">
       {/* Background decoration elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="pb-navabsolute top-[-10%] left-[-10%] w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="pb-navabsolute bottom-[-10%] right-[-10%] w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-sm flex flex-col items-center z-10 h-full justify-evenly">
+      <div className="pb-navw-full max-w-sm flex flex-col items-center z-10 h-full justify-evenly">
 
         {/* Header Section */}
-        <div className="text-center">
-          <div className="mb-4 flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-purple-500/30">
+        <div className="pb-navtext-center">
+          <div className="pb-navmb-4 flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-purple-500/30">
             <span className="material-symbols-outlined text-3xl text-white">admin_panel_settings</span>
           </div>
           <h1 className="text-2xl font-bold mb-1">Admin Login</h1>
@@ -82,15 +82,15 @@ const Login: React.FC = () => {
         {/* Form Section */}
         <form onSubmit={handleLogin} className="w-full space-y-3">
           {error && (
-            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-2 text-red-100 text-xs text-center">
+            <div className="pb-navbg-red-500/20 border border-red-500/50 rounded-lg p-2 text-red-100 text-xs text-center">
               {error}
             </div>
           )}
 
           <div>
             <label className="text-[10px] font-bold text-white/70 tracking-wider uppercase ml-1 mb-1 block">Email</label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50">
+            <div className="pb-navrelative">
+              <div className="pb-navabsolute left-3 top-1/2 -translate-y-1/2 text-white/50">
                 <span className="material-symbols-outlined text-[18px]">mail</span>
               </div>
               <input
@@ -106,8 +106,8 @@ const Login: React.FC = () => {
 
           <div>
             <label className="text-[10px] font-bold text-white/70 tracking-wider uppercase ml-1 mb-1 block">Password</label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50">
+            <div className="pb-navrelative">
+              <div className="pb-navabsolute left-3 top-1/2 -translate-y-1/2 text-white/50">
                 <span className="material-symbols-outlined text-[18px]">lock</span>
               </div>
               <input
@@ -119,12 +119,12 @@ const Login: React.FC = () => {
                 placeholder="••••••••"
               />
             </div>
-            <div className="flex justify-end mt-1">
+            <div className="pb-navflex justify-end mt-1">
               <Link to="/forgot-password" className="text-[10px] text-white/60 hover:text-white transition-colors">Forgot password?</Link>
             </div>
           </div>
 
-          <div className="flex items-start gap-2 mt-1">
+          <div className="pb-navflex items-start gap-2 mt-1">
             <input
               type="checkbox"
               id="terms"
@@ -143,7 +143,7 @@ const Login: React.FC = () => {
             className="w-full btn-kadak py-3 rounded-full active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 transition-all text-sm"
           >
             {loading ? (
-              <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <div className="pb-navh-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
               <>
                 <span className="material-symbols-outlined text-[18px] material-symbols-fill">login</span>
@@ -154,11 +154,11 @@ const Login: React.FC = () => {
         </form>
 
         {/* Footer Actions */}
-        <div className="w-full space-y-4">
-          <div className="w-full flex items-center gap-4">
-            <div className="h-[1px] bg-white/10 flex-1"></div>
+        <div className="pb-navw-full space-y-4">
+          <div className="pb-navw-full flex items-center gap-4">
+            <div className="pb-navh-[1px] bg-white/10 flex-1"></div>
             <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Or</span>
-            <div className="h-[1px] bg-white/10 flex-1"></div>
+            <div className="pb-navh-[1px] bg-white/10 flex-1"></div>
           </div>
 
           <button

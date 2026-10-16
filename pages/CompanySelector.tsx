@@ -261,7 +261,7 @@ const CompanySelector: React.FC = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark pb-nav">
+    <div className="relative flex min-h-[100dvh] w-full flex-col overflow-x-hidden max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark pb-nav">
       <div className="sticky top-0 z-10 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-md px-4 py-4 border-b border-outline-light/10 dark:border-outline-dark/10">
         <h1 className="text-xl font-bold text-center">Select Company</h1>
         <p className="text-sm text-center text-on-surface-variant-light dark:text-on-surface-variant-dark mt-1">

@@ -77,7 +77,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-2xl bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-nav">
+    <div className="relative flex h-auto min-h-[100dvh] w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-2xl bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-nav">
       <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-800">
         <Link to="/" className="flex items-center gap-2 text-primary cursor-pointer">
           <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>

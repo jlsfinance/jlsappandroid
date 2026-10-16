@@ -104,7 +104,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 text-slate-900 dark:text-white">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 pb-nav text-slate-900 dark:text-white">
       <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-surface-dark p-4 shadow-xl ring-1 ring-slate-900/5 dark:ring-white/10">
         <div className="mb-3 text-center">
           <h1 className="text-2xl font-bold tracking-tight">Create Account</h1>

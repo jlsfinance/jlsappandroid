@@ -14,7 +14,7 @@ const EMICalculator: React.FC = () => {
   const totalInterest = totalPayment - amount;
 
   return (
-    <div className="bg-background-light dark:bg-background-dark font-display min-h-screen flex flex-col text-slate-900 dark:text-white pb-nav">
+    <div className="bg-background-light dark:bg-background-dark font-display min-h-[100dvh] flex flex-col text-slate-900 dark:text-white pb-nav">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
         <Link to="/tools" className="flex items-center justify-center p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">

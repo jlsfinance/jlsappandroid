@@ -124,34 +124,34 @@ const CustomerLogin: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center p-4 overflow-hidden">
+    <div className="pb-navh-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center p-4 overflow-hidden">
 
-      <div className="w-full max-w-sm flex flex-col h-full justify-evenly">
+      <div className="pb-navw-full max-w-sm flex flex-col h-full justify-evenly">
 
-        <div className="text-center pt-2">
-          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white backdrop-blur-md shadow-lg border border-white/20">
+        <div className="pb-navtext-center pt-2">
+          <div className="pb-navw-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white backdrop-blur-md shadow-lg border border-white/20">
             <span className="material-symbols-outlined text-3xl">storefront</span>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Customer Portal</h1>
           <p className="text-white/80 text-xs">View your loans and pay EMI</p>
         </div>
 
-        <div className="bg-white dark:bg-[#1e2736] rounded-3xl shadow-2xl p-5 relative">
+        <div className="pb-navbg-white dark:bg-[#1e2736] rounded-3xl shadow-2xl p-5 relative">
           <form onSubmit={handleLogin} className="space-y-3">
 
             {/* Info Box */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3 text-blue-800 dark:text-blue-300">
+            <div className="pb-navbg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3 text-blue-800 dark:text-blue-300">
               <p className="font-bold text-[10px] mb-0.5 uppercase tracking-wider">Login ID Format</p>
-              <div className="flex justify-between items-center">
+              <div className="pb-navflex justify-between items-center">
                 <p className="text-[10px] leading-tight text-blue-700 dark:text-blue-400">First 3 letters of company + 10-digit phone</p>
-                <div className="bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded text-[10px] font-mono text-blue-900 dark:text-blue-200 ml-2 whitespace-nowrap">
+                <div className="pb-navbg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded text-[10px] font-mono text-blue-900 dark:text-blue-200 ml-2 whitespace-nowrap">
                   e.g. jls8003986362
                 </div>
               </div>
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-red-700 dark:text-red-400 text-xs text-center">
+              <div className="pb-navbg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-red-700 dark:text-red-400 text-xs text-center">
                 {error}
               </div>
             )}
@@ -160,7 +160,7 @@ const CustomerLogin: React.FC = () => {
               <label className="block text-[10px] font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wider">
                 Login ID
               </label>
-              <div className="relative">
+              <div className="pb-navrelative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[18px]">person</span>
                 </span>
@@ -179,7 +179,7 @@ const CustomerLogin: React.FC = () => {
               <label className="block text-[10px] font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wider">
                 Password
               </label>
-              <div className="relative">
+              <div className="pb-navrelative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[18px]">lock</span>
                 </span>
@@ -194,7 +194,7 @@ const CustomerLogin: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-start gap-2 mt-1">
+            <div className="pb-navflex items-start gap-2 mt-1">
               <input
                 type="checkbox"
                 id="terms"
@@ -214,7 +214,7 @@ const CustomerLogin: React.FC = () => {
             >
               {loading ? (
                 <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <div className="pb-navh-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                   Logging in...
                 </>
               ) : (
@@ -226,7 +226,7 @@ const CustomerLogin: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-4 text-center">
+          <div className="pb-navmt-4 text-center">
             <Link
               to="/login"
               className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"

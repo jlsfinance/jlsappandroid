@@ -98,13 +98,13 @@ const NotificationCenter: React.FC = () => {
     };
 
     return (
-        <div className="p-4 md:p-4 max-w-6xl mx-auto space-y-3 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="pb-navp-4 md:p-4 max-w-6xl mx-auto space-y-3 animate-in fade-in duration-500">
+            <div className="pb-navflex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Notification Center</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Send alerts and updates to your customers</p>
                 </div>
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                <div className="pb-navflex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                     <button
                         onClick={() => setActiveTab('compose')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'compose'
@@ -127,7 +127,7 @@ const NotificationCenter: React.FC = () => {
             </div>
 
             {activeTab === 'compose' ? (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-4 max-w-3xl">
+                <div className="pb-navbg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-4 max-w-3xl">
                     <form onSubmit={handleSend} className="space-y-3">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Recipient</label>
@@ -169,7 +169,7 @@ const NotificationCenter: React.FC = () => {
                             />
                         </div>
 
-                        <div className="flex justify-end pt-4">
+                        <div className="pb-navflex justify-end pt-4">
                             <button
                                 type="submit"
                                 disabled={loading}
@@ -177,7 +177,7 @@ const NotificationCenter: React.FC = () => {
                             >
                                 {loading ? (
                                     <>
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <div className="pb-navw-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                         Sending...
                                     </>
                                 ) : (
@@ -191,18 +191,18 @@ const NotificationCenter: React.FC = () => {
                     </form>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="pb-navbg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                     {history.length === 0 ? (
-                        <div className="p-12 text-center text-slate-500">
+                        <div className="pb-navp-12 text-center text-slate-500">
                             <span className="material-symbols-outlined text-4xl mb-4 opacity-50">inbox</span>
                             <p>No notifications sent yet.</p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                        <div className="pb-navdivide-y divide-slate-100 dark:divide-slate-700">
                             {history.map((item) => (
                                 <div key={item.id} className="p-4 md:p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2">
+                                    <div className="pb-navflex justify-between items-start mb-2">
+                                        <div className="pb-navflex items-center gap-2">
                                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${item.recipientId === 'all' ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'}`}>
                                                 {item.recipientId === 'all' ? 'Everyone' : 'Direct Message'}
                                             </span>
@@ -214,7 +214,7 @@ const NotificationCenter: React.FC = () => {
                                     <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">{item.title}</h3>
                                     <p className="text-slate-600 dark:text-slate-300 text-sm">{item.message}</p>
                                     {item.recipientName && (
-                                        <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                                        <div className="pb-navmt-2 flex items-center gap-1 text-xs text-slate-500">
                                             <span className="material-symbols-outlined text-sm">person</span>
                                             Sent to: <span className="font-medium">{item.recipientName}</span>
                                         </div>

@@ -169,7 +169,7 @@ const CustomerPortal: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 font-sans selection:bg-blue-100 scroll-smooth overflow-x-hidden" style={{ paddingBottom: 'calc(16rem + env(safe-area-inset-bottom))' }}>
+    <div className="max-w-md mx-auto min-h-[100dvh] pb-nav bg-gray-50 dark:bg-gray-900 font-sans selection:bg-blue-100 scroll-smooth overflow-x-hidden">
       <NotificationListener />
 
       {/* Header */}
