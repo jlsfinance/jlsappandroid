@@ -5,6 +5,7 @@ import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'da
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useToast } from '../components/Toast';
 
 // Interfaces
 interface Partner { id: string; name: string; }
@@ -21,6 +22,7 @@ const Partners: React.FC = () => {
     const [loans, setLoans] = useState<Loan[]>([]);
     const [receipts, setReceipts] = useState<Receipt[]>([]);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
     
     // Form State
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -67,7 +69,7 @@ const Partners: React.FC = () => {
 
         } catch (error) {
             console.error(error);
-            alert('Failed to load data');
+            toast('Failed to load data', 'error');
         } finally {
             setLoading(false);
         }
@@ -266,7 +268,7 @@ const Partners: React.FC = () => {
             setShowPartnerModal(false);
             fetchData();
         } catch (error) {
-            alert('Failed to add partner');
+            toast('Failed to add partner', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -285,7 +287,7 @@ const Partners: React.FC = () => {
             setShowTransactionModal(false);
             fetchData();
         } catch (error) {
-            alert('Failed to record transaction');
+            toast('Failed to record transaction', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -294,7 +296,7 @@ const Partners: React.FC = () => {
     if (loading) return <div className="flex h-screen w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>;
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
@@ -305,7 +307,7 @@ const Partners: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto p-4 space-y-6">
+            <div className="max-w-6xl mx-auto p-4 space-y-3">
                 
                 {/* Actions */}
                 <div className="flex justify-between items-center">
@@ -321,8 +323,8 @@ const Partners: React.FC = () => {
                 </div>
 
                 {/* Monthly Report Card */}
-                <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                    <div className="flex flex-col md:flex-row gap-6">
+                <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
+                    <div className="flex flex-col md:flex-row gap-3">
                         {/* Controls & Summary */}
                         <div className="md:w-1/3 space-y-4">
                             <div className="space-y-2">
@@ -391,7 +393,7 @@ const Partners: React.FC = () => {
                 </div>
 
                 {/* Partner List & Transactions */}
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 gap-3">
                     {/* Partner Summary */}
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800"><h3 className="font-bold">Partner Summary</h3></div>
@@ -464,7 +466,7 @@ const Partners: React.FC = () => {
             {/* Transaction Modal */}
             {showTransactionModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
                         <h3 className="text-lg font-bold mb-4">Record Transaction</h3>
                         <form onSubmit={onTransactionSubmit} className="space-y-4">
                             <div>
@@ -522,7 +524,7 @@ const Partners: React.FC = () => {
             {/* Partner Modal */}
             {showPartnerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
                         <h3 className="text-lg font-bold mb-4">Add Partner</h3>
                         <form onSubmit={onPartnerSubmit} className="space-y-4">
                             <div>
@@ -548,7 +550,7 @@ const Partners: React.FC = () => {
             {/* Ledger Modal */}
             {ledgerPartner && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-2xl shadow-2xl p-6 max-h-[90vh] flex flex-col">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-2xl shadow-2xl p-4 max-h-[90vh] flex flex-col">
                         <div className="flex justify-between items-center mb-4">
                             <div>
                                 <h3 className="text-lg font-bold">{ledgerPartner.name} Ledger</h3>

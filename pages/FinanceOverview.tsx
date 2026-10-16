@@ -3,28 +3,21 @@ import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where, addDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
-import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, isWithinInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import {
+    buildLedgerEntries,
+    buildMonthlyLedgers,
+    type LedgerEntry,
+    type MonthlyLedger
+} from '../services/cashLedger';
+import { useToast } from '../components/Toast';
 
 // Interfaces
 interface PartnerTransaction { id: string; date: string; partnerName: string; type: 'investment' | 'withdrawal'; amount: number; }
 interface Loan { id: string; customerName: string; amount: number; disbursalDate: string; repaymentSchedule: any[]; processingFeePercentage: number }
 interface Expense { id: string; date: string; narration: string; amount: number; }
-interface LedgerEntry {
-    date: Date;
-    particulars: string;
-    type: 'credit' | 'debit';
-    category: 'loan' | 'emi' | 'partner' | 'expense' | 'fee' | 'foreclosure';
-    amount: number;
-    customerId?: string;
-}
-interface MonthlyLedger {
-    month: Date;
-    openingBalance: number;
-    entries: LedgerEntry[];
-    closingBalance: number;
-}
 
 const formatCurrency = (value: number | null) => {
     if (value === null || isNaN(value)) return '---';
@@ -37,6 +30,7 @@ const FinanceOverview: React.FC = () => {
     const [allEntries, setAllEntries] = useState<LedgerEntry[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
 
     // Date Filters for Download
     const [startDate, setStartDate] = useState<string>('');
@@ -71,9 +65,9 @@ const FinanceOverview: React.FC = () => {
             const customersData = customersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setCustomers(customersData);
             const manualLedger_snap = await getDocs(query(collection(db, "ledger"), where("companyId", "==", companyId))); // legacy check
-            // Also fetch global ledger or company specific logic if needed. Assuming 'ledger' collection has companyId? 
-            // LoanDetails addDoc didn't add companyId explicitly? 
-            // Let's check LoanDetails addDoc: 
+            // Also fetch global ledger or company specific logic if needed. Assuming 'ledger' collection has companyId?
+            // LoanDetails addDoc didn't add companyId explicitly?
+            // Let's check LoanDetails addDoc:
             // await addDoc(collection(db, "ledger"), { ..., loanId: ..., customerId: ... });
             // It missed companyId! But we can filter by loanId -> companyId loop?
             // Or just fetch all ledger entries and filter in memory if size is small?
@@ -84,210 +78,17 @@ const FinanceOverview: React.FC = () => {
             const ledgerSnap = await getDocs(query(collection(db, "ledger"), where("companyId", "==", companyId)));
             const manualLedger = ledgerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
-
-            let flatLedgerEntries: LedgerEntry[] = [];
-
-            // 1. Process Partner Transactions
-            partnerTxs.forEach(tx => {
-                flatLedgerEntries.push({
-                    date: parseISO(tx.date),
-                    particulars: `${tx.partnerName} (${tx.type})`,
-                    type: tx.type === 'investment' ? 'credit' : 'debit',
-                    category: 'partner',
-                    amount: Number(tx.amount),
-                });
+            // Single source of truth: shared cash ledger calculation
+            const flatLedgerEntries = buildLedgerEntries({
+                partnerTransactions: partnerTxs,
+                loans: loans as any,
+                expenses: expenses,
+                ledgerDocs: manualLedger
             });
-
-            // 2. Process Expenses
-            expenses.forEach(ex => {
-                flatLedgerEntries.push({
-                    date: parseISO(ex.date),
-                    particulars: ex.narration,
-                    type: 'debit',
-                    category: 'expense',
-                    amount: Number(ex.amount),
-                });
-            });
-
-            // 2.1 Process Manual/System Ledger Collection
-            manualLedger.forEach(entry => {
-                if (entry.entries && Array.isArray(entry.entries)) {
-                    entry.entries.forEach((sub: any) => {
-                        // We primarily care about Cash/Bank impact.
-                        // Credit Cash = Cash OUT (Debit in Ledger View)
-
-                        if (sub.account === 'Cash / Bank') {
-                            flatLedgerEntries.push({
-                                date: parseISO(entry.date),
-                                particulars: entry.narration || sub.account,
-                                type: sub.type === 'Credit' ? 'debit' : 'credit',
-                                category: 'loan',
-                                amount: Number(sub.amount),
-                                customerId: entry.customerId
-                            });
-                        }
-                    });
-                }
-            });
-
-            loans.forEach(loan => {
-                // HANDLE LOAN DISBURSAL 
-                // Logic: Check top-up history to subtract from the "base" amount shown at original date.
-
-                let amountToShowAtDisbursal = Number(loan.amount);
-                const topUps = (loan as any).topUpHistory || [];
-                let totalTopUpAmount = 0;
-
-                // Subtract Top-Ups
-                topUps.forEach((t: any) => {
-                    totalTopUpAmount += Number(t.topUpAmount || t.amount);
-                });
-
-                amountToShowAtDisbursal = Math.max(0, amountToShowAtDisbursal - totalTopUpAmount);
-
-                if (loan.disbursalDate && amountToShowAtDisbursal > 0) {
-                    const disbursalDate = parseISO(loan.disbursalDate);
-                    // Debit: Loan Amount Out (Original / Base)
-                    flatLedgerEntries.push({
-                        date: disbursalDate,
-                        particulars: `Loan to ${loan.customerName}`,
-                        type: 'debit',
-                        category: 'loan',
-                        amount: amountToShowAtDisbursal,
-                        customerId: (loan as any).customerId
-                    });
-
-                    // Note: Top-Ups are now handled via the 'manualLedger' processing above 
-                    // (assuming LoanDetails wrote to 'ledger' collection).
-                    // IF top-ups occurred BEFORE we added 'ledger' code (legacy), they won't show!
-                    // FALLBACK: If 'manualLedger' didn't have entries for these top-ups, we should synthetically add them.
-                    // How to detect? Check if we found a ledger entry for this topup date?
-                    // For robustness: Iterate topUps. If no matching ledger entry found, add it here.
-
-                    topUps.forEach((t: any) => {
-                        const tDateParts = t.date.split("T")[0]; // YYYY-MM-DD
-                        const hasLedgerEntry = manualLedger.some(le =>
-                            le.loanId === loan.id &&
-                            le.date.startsWith(tDateParts)
-                        );
-
-                        if (!hasLedgerEntry) {
-                            flatLedgerEntries.push({
-                                date: parseISO(t.date),
-                                particulars: `Top-Up to ${loan.customerName}`,
-                                type: 'debit',
-                                category: 'loan',
-                                amount: Number(t.topUpAmount || t.amount),
-                                customerId: (loan as any).customerId
-                            });
-                            // Handle Fee for legacy too?
-                            if (t.processingFee) {
-                                flatLedgerEntries.push({
-                                    date: parseISO(t.date),
-                                    particulars: `Proc. Fee Top-Up (${loan.customerName})`,
-                                    type: 'credit',
-                                    category: 'fee',
-                                    amount: Number(t.processingFee),
-                                    customerId: (loan as any).customerId
-                                });
-                            }
-                        }
-                    });
-
-                    // Credit: Processing Fee In (Original)
-                    // Need to use Disbursed Amount (approx) to calc fee? 
-                    // Or loan.processingFee is total?
-                    // Usually processingFee is fixed or % of amount.
-                    // Let's assume the 'fee' entry in standard logic covers the original fee.
-                    const feePercentage = loan.processingFeePercentage || 0;
-                    // Use amountToShowAtDisbursal for Fee calc to avoid inflating fee?
-                    // Or if fee was stored.. 
-                    // Standard logic:
-                    const processingFee = (Number(amountToShowAtDisbursal) * feePercentage) / 100;
-                    if (processingFee > 0) {
-                        flatLedgerEntries.push({
-                            date: disbursalDate,
-                            particulars: `Proc. Fee (${loan.customerName})`,
-                            type: 'credit',
-                            category: 'fee',
-                            amount: processingFee,
-                            customerId: (loan as any).customerId
-                        });
-                    }
-                }
-
-                // Credit: EMI Payments
-                if (loan.repaymentSchedule) {
-                    loan.repaymentSchedule.forEach((emi: any) => {
-                        // Only record ACTUAL cash received (Status = Paid)
-                        if (emi.status === 'Paid' && emi.paymentDate) {
-                            flatLedgerEntries.push({
-                                date: parseISO(emi.paymentDate),
-                                particulars: `EMI Recd: ${loan.customerName}`,
-                                type: 'credit',
-                                category: 'emi',
-                                amount: Number(emi.amount),
-                                customerId: (loan as any).customerId
-                            });
-                        }
-                    });
-                }
-
-                // Credit: Foreclosure Payment (if amountReceived is true)
-                const foreclosureDetails = (loan as any).foreclosureDetails;
-                if (foreclosureDetails && foreclosureDetails.amountReceived && foreclosureDetails.date) {
-                    flatLedgerEntries.push({
-                        date: parseISO(foreclosureDetails.date),
-                        particulars: `Foreclosure Recd: ${loan.customerName}`,
-                        type: 'credit',
-                        category: 'foreclosure',
-                        amount: Number(foreclosureDetails.totalPaid),
-                        customerId: (loan as any).customerId
-                    });
-                }
-            });
-
-            flatLedgerEntries.sort((a, b) => a.date.getTime() - b.date.getTime());
             setAllEntries(flatLedgerEntries);
 
-            if (flatLedgerEntries.length === 0) {
-                setLoading(false);
-                return;
-            }
-
-            const firstDate = flatLedgerEntries[0].date;
-            const lastDate = flatLedgerEntries[flatLedgerEntries.length - 1].date;
-            const monthsInterval = eachMonthOfInterval({ start: startOfMonth(firstDate), end: endOfMonth(lastDate) });
-
-            let ledgers: MonthlyLedger[] = [];
-            let runningBalance = 0;
-
-            for (const monthDate of monthsInterval) {
-                const monthStart = startOfMonth(monthDate);
-                const monthEnd = endOfMonth(monthDate);
-                const openingBalanceForMonth = runningBalance;
-
-                const entriesInMonth = flatLedgerEntries.filter(entry =>
-                    isWithinInterval(entry.date, { start: monthStart, end: monthEnd })
-                );
-
-                let monthEndBalance = openingBalanceForMonth;
-                entriesInMonth.forEach(entry => {
-                    monthEndBalance += (entry.type === 'credit' ? entry.amount : -entry.amount);
-                });
-
-                if (entriesInMonth.length > 0 || openingBalanceForMonth !== 0) {
-                    ledgers.push({
-                        month: monthDate,
-                        openingBalance: openingBalanceForMonth,
-                        entries: entriesInMonth.reverse(), // Show newest on top for mobile
-                        closingBalance: monthEndBalance
-                    });
-                }
-                runningBalance = monthEndBalance;
-            }
-
-            setMonthlyLedgers(ledgers.reverse()); // Show newest months first
+            const ledgers = buildMonthlyLedgers(flatLedgerEntries);
+            setMonthlyLedgers(ledgers);
 
         } catch (error) {
             console.error("Error generating ledger:", error);
@@ -302,8 +103,8 @@ const FinanceOverview: React.FC = () => {
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!expenseForm.amount || !expenseForm.narration) return alert("Please fill all fields");
-        if (!currentCompany) return alert("No company selected");
+        if (!expenseForm.amount || !expenseForm.narration) return error("Please fill all fields");
+        if (!currentCompany) return error("No company selected");
 
         setIsSubmittingExpense(true);
         try {
@@ -314,13 +115,13 @@ const FinanceOverview: React.FC = () => {
                 companyId: currentCompany.id,
                 createdAt: new Date().toISOString()
             });
-            alert("Expense recorded successfully.");
+            success("Expense recorded successfully.");
             setShowExpenseModal(false);
             setExpenseForm({ date: format(new Date(), 'yyyy-MM-dd'), amount: '', narration: '' });
             generateLedger();
         } catch (err) {
             console.error(err);
-            alert("Failed to save expense.");
+            error("Failed to save expense.");
         } finally {
             setIsSubmittingExpense(false);
         }
@@ -337,7 +138,7 @@ const FinanceOverview: React.FC = () => {
 
     const handleDownloadPdf = () => {
         if (!startDate || !endDate) {
-            alert("Please select both From and To dates for the report.");
+            error("Please select both From and To dates for the report.");
             return;
         }
 
@@ -414,7 +215,7 @@ const FinanceOverview: React.FC = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-24 max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
+        <div className="relative flex min-h-[100dvh] w-full flex-col overflow-x-hidden pb-nav max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
             {/* M3 Header */}
             <div className="sticky top-0 z-20 flex items-center bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm p-4 pb-3 justify-between border-b border-outline-light/10 dark:border-outline-dark/10 transition-colors" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
                 <div className="flex items-center gap-3">
@@ -457,7 +258,7 @@ const FinanceOverview: React.FC = () => {
             )}
 
             {/* Ledger List */}
-            <div className="px-4 pb-4 space-y-6">
+            <div className="px-4 pb-4 space-y-3">
                 {loading ? (
                     <div className="flex justify-center py-12"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div></div>
                 ) : monthlyLedgers.length === 0 ? (
@@ -522,7 +323,7 @@ const FinanceOverview: React.FC = () => {
             {/* Expense Modal */}
             {showExpenseModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95">
-                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-6">
+                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-4">
                         <h3 className="text-xl font-normal mb-6 text-on-surface-light dark:text-on-surface-dark">Record Expense</h3>
                         <form onSubmit={handleAddExpense} className="space-y-5">
                             <div className="relative group">
@@ -571,7 +372,7 @@ const FinanceOverview: React.FC = () => {
             {/* Download Modal */}
             {showDownloadModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95">
-                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-6">
+                    <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-m3-3 p-4">
                         <h3 className="text-xl font-normal mb-6 text-on-surface-light dark:text-on-surface-dark">Download Ledger Report</h3>
                         <div className="space-y-5">
                             <div className="relative group">

@@ -7,6 +7,8 @@ import { format, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import LazyImage from '../components/LazyImage';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 import { useCompany } from '../context/CompanyContext';
 import { DownloadService } from '../services/DownloadService';
 
@@ -120,6 +122,7 @@ async function toBase64(url: string, maxWidth: number = 200, quality: number = 0
 const Loans: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { success, error } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [loans, setLoans] = useState<Loan[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
@@ -143,6 +146,16 @@ const Loans: React.FC = () => {
         address: currentCompany?.address || "",
         phone: currentCompany?.phone || ""
     }), [currentCompany]);
+
+    // Single lookup table for customers → O(1) per loan instead of O(customers)
+    // per loan per render (which was O(loans × customers) and caused lag).
+    const customerMap = useMemo(() => {
+        const map: Record<string, any> = {};
+        (customers || []).forEach((c) => {
+            if (c && c.id) map[c.id] = c;
+        });
+        return map;
+    }, [customers]);
 
     // Fetch Data
     const fetchLoans = useCallback(async () => {
@@ -220,10 +233,10 @@ const Loans: React.FC = () => {
 
             fetchLoans();
             setShowDeleteConfirm(false);
-            alert("Loan and associated records deleted permanently.");
+            success("Loan and associated records deleted permanently.");
         } catch (error) {
             console.error("Failed to delete loan:", error);
-            alert("Failed to delete loan. Please try again.");
+            error("Failed to delete loan. Please try again.");
         } finally {
             setDeletingId(null);
             setLoanToDelete(null);
@@ -557,9 +570,14 @@ const Loans: React.FC = () => {
             const reader = new FileReader();
             reader.readAsDataURL(currentPdfBlob);
             reader.onloadend = async () => {
-                const base64data = (reader.result as string).split(',')[1];
-                await DownloadService.downloadPDF(currentPdfName, base64data);
-                setShowPdfModal(false);
+                try {
+                    const base64data = (reader.result as string).split(',')[1];
+                    await DownloadService.downloadPDF(currentPdfName, base64data);
+                    setShowPdfModal(false);
+                    success('PDF downloaded');
+                } catch (err) {
+                    error(err?.message || 'Download failed');
+                }
             };
         }
     };
@@ -578,7 +596,7 @@ const Loans: React.FC = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 pb-safe bg-slate-50 dark:bg-slate-950 font-sans">
+        <div className="relative flex min-h-[100dvh] w-full flex-col overflow-x-hidden pb-nav bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none -z-10">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-blue-50/50 via-indigo-50/30 to-transparent dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-transparent"></div>
@@ -619,21 +637,22 @@ const Loans: React.FC = () => {
             {/* List */}
             <main className="flex flex-col gap-3 px-4 pt-4">
                 {loading ? (
-                    <div className="flex justify-center p-10">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
+                    <div className="p-4">
+                        <SkeletonStyles />
+                        <SkeletonList count={6} />
                     </div>
                 ) : filteredLoans.length > 0 ? (
                     filteredLoans.map((loan) => (
                         <div key={loan.id}>
                             <div
-                                onClick={() => navigate(`/ loans / ${loan.id} `)}
+                                onClick={() => navigate(`/loans/${loan.id}`)}
                                 className="glass-card relative rounded-2xl p-5 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer transition-all duration-300 group border border-white/40 dark:border-slate-700/40"
                             >
                                 <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4 pl-2 flex-1 min-w-0">
                                         {(() => {
-                                            const customer = customers.find(c => c.id === loan.customerId);
+                                            const customer = customerMap[loan.customerId];
                                             return (
                                                 <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
                                                     <LazyImage
@@ -680,6 +699,13 @@ const Loans: React.FC = () => {
                         </div>
                         <p className="font-medium">No loans found</p>
                         <p className="text-sm opacity-60">Try adjusting your search</p>
+                        <Link
+                          to="/loans/new"
+                          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl shadow-sm hover:brightness-110 active:scale-95 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">add</span>
+                          Create New Loan
+                        </Link>
                     </div>
                 )}
             </main >
@@ -705,7 +731,7 @@ const Loans: React.FC = () => {
                             ">
                                     <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-2 md:hidden"></div>
 
-                                    <div className="p-4 pt-2 md:p-6">
+                                    <div className="p-4 pt-2 md:p-4">
                                         <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                                             <div className="h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
                                                 <span className="material-symbols-outlined text-2xl">description</span>
@@ -793,7 +819,7 @@ const Loans: React.FC = () => {
             {
                 showDeleteConfirm && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
+                        <div className="bg-white dark:bg-[#1e2736] rounded-2xl p-4 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
                             <h3 className="text-lg font-bold mb-2">Delete Loan?</h3>
                             <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
                                 Are you sure you want to delete the loan for <strong>{loanToDelete?.customerName}</strong>? This action cannot be undone.
@@ -823,7 +849,7 @@ const Loans: React.FC = () => {
                 showPdfModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                         <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
-                            <div className="p-6 text-center">
+                            <div className="p-4 text-center">
                                 {pdfStatus === 'generating' && (
                                     <div className="flex flex-col items-center py-4">
                                         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>

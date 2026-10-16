@@ -6,7 +6,7 @@ const Terms: React.FC = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="flex h-screen w-full flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-white pb-20 overflow-y-auto font-sans">
+        <div className="flex h-screen w-full flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-white pb-nav overflow-y-auto font-sans">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md px-4 py-3 flex items-center gap-4 border-b border-slate-200 dark:border-slate-800 shadow-sm">
                 <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -15,17 +15,17 @@ const Terms: React.FC = () => {
                 <h1 className="text-lg font-bold">Terms & Conditions</h1>
             </div>
 
-            <div className="p-6 max-w-2xl mx-auto w-full space-y-8">
+            <div className="p-4 max-w-2xl mx-auto w-full space-y-4">
 
                 {/* Critical Red Disclosure */}
-                <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/30 rounded-[2rem] p-8 text-center">
+                <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/30 rounded-[2rem] p-4 text-center">
                     <p className="text-red-600 dark:text-red-400 font-black text-lg leading-relaxed">
                         “This app is only for personal loan record and management. We do not provide loans, nor connect users with lenders.”
                     </p>
                 </div>
 
                 {/* Loan Disclosure Box */}
-                <div className="bg-[#f0f7ff] dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-[2.5rem] p-8">
+                <div className="bg-[#f0f7ff] dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-[2.5rem] p-4">
                     <div className="flex items-center gap-4 mb-6">
                         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
                             <span className="material-symbols-outlined text-xl">info</span>
@@ -33,7 +33,7 @@ const Terms: React.FC = () => {
                         <h2 className="text-xl font-black text-[#004a99] dark:text-blue-300">Loan Disclosure (APR & Tenure)</h2>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-3">
                         <div>
                             <p className="text-slate-900 dark:text-white font-black">Repayment Period:</p>
                             <p className="text-slate-600 dark:text-slate-400 text-sm">Minimum 3 months (90 days) to Maximum 24 months (730 days).</p>
@@ -43,7 +43,7 @@ const Terms: React.FC = () => {
                             <p className="text-slate-600 dark:text-slate-400 text-sm">Maximum 36% per annum. This includes interest plus processing fees.</p>
                         </div>
 
-                        <div className="bg-white dark:bg-slate-900/50 rounded-3xl p-6 border border-blue-50 dark:border-blue-800">
+                        <div className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 border border-blue-50 dark:border-blue-800">
                             <p className="text-slate-900 dark:text-white font-black mb-4">Representative Example:</p>
                             <p className="text-slate-500 text-xs mb-4">For a loan of ₹10,000 at 24% APR for 12 months:</p>
                             <ul className="space-y-2">

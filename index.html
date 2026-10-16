@@ -11,9 +11,16 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:wght@200..800&display=swap"
         rel="stylesheet" />
-    <!-- Material Symbols -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet" />
+    <!-- Material Symbols (self-hosted — reliable offline in APK) -->
+    <style>
+        @font-face {
+            font-family: 'Material Symbols Outlined';
+            font-style: normal;
+            font-weight: 400;
+            font-display: block;
+            src: url('/fonts/MaterialSymbolsOutlined.ttf') format('truetype');
+        }
+    </style>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
         tailwind.config = {

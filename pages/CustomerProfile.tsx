@@ -4,6 +4,8 @@ import { fetchCustomerById, fetchLoansByCustomerId, deleteCustomer } from '../se
 import { Customer, Loan } from '../types';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { SkeletonHero, SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 const CustomerProfile: React.FC = () => {
   const { id } = useParams();
@@ -11,6 +13,7 @@ const CustomerProfile: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
+  const { error: toastError } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -68,15 +71,19 @@ const CustomerProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+      <div className="flex flex-col h-screen w-full items-center justify-center gap-4 bg-background-light dark:bg-background-dark p-4">
+        <SkeletonStyles />
+        <div className="w-full max-w-md space-y-3">
+          <SkeletonHero />
+          <SkeletonList count={4} />
+        </div>
       </div>
     );
   }
 
   if (!customer) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background-light dark:bg-background-dark text-slate-900 dark:text-white p-4 text-center">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background-light dark:bg-background-dark text-slate-900 dark:text-white p-4 text-center">
         <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full">
           <span className="material-symbols-outlined text-4xl text-slate-400">person_off</span>
         </div>
@@ -107,7 +114,7 @@ const CustomerProfile: React.FC = () => {
   const photoSrc = customer.photo_url || customer.avatar;
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-10 text-slate-900 dark:text-white print:bg-white print:text-black">
+    <div className="bg-background-light dark:bg-background-dark min-h-[100dvh] pb-nav text-slate-900 dark:text-white print:bg-white print:text-black">
       {/* Top Navigation - Hidden on Print */}
       <div className="sticky top-0 z-50 flex items-center justify-between bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md p-4 border-b border-slate-200 dark:border-slate-800 print:hidden">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -131,12 +138,12 @@ const CustomerProfile: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-4 space-y-3">
 
         {/* Main Profile Card */}
         <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden print:shadow-none print:border-black">
           {/* Header Section */}
-          <div className="bg-slate-50/50 dark:bg-slate-800/30 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="bg-slate-50/50 dark:bg-slate-800/30 p-4 sm:p-4 flex flex-col sm:flex-row items-center sm:items-start gap-3 border-b border-slate-100 dark:border-slate-800">
             <div className="relative shrink-0">
               {photoSrc ? (
                 <img src={photoSrc} alt={customer.name} className="h-28 w-28 rounded-full object-cover border-4 border-white dark:border-[#1e2736] shadow-md bg-slate-200" />
@@ -168,8 +175,8 @@ const CustomerProfile: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Contact Information */}
               <div>
                 <h3 className="flex items-center gap-2 text-lg font-bold text-primary border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
@@ -198,7 +205,7 @@ const CustomerProfile: React.FC = () => {
 
             {/* Guarantor Details */}
             {customer.guarantor?.name && (
-              <div className="mt-8">
+              <div className="mt-3">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-primary border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
                   <span className="material-symbols-outlined">verified_user</span> Guarantor Details
                 </h3>
@@ -213,7 +220,7 @@ const CustomerProfile: React.FC = () => {
 
             {/* Loan History */}
             {loans.length > 0 && (
-              <div className="mt-8">
+              <div className="mt-3">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-primary border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
                   <span className="material-symbols-outlined">history_edu</span> Loan History
                 </h3>
@@ -255,7 +262,7 @@ const CustomerProfile: React.FC = () => {
             )}
 
             {/* Documents Preview (Existing) */}
-            <div className="mt-8 print:hidden">
+            <div className="mt-3 print:hidden">
               <h3 className="flex items-center gap-2 text-lg font-bold text-primary border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
                 <span className="material-symbols-outlined">folder_shared</span> Documents
               </h3>
@@ -285,7 +292,7 @@ const CustomerProfile: React.FC = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-lg p-6">
+          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-lg p-4">
             <div className="text-center mb-4">
               <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
                 <span className="material-symbols-outlined text-3xl text-red-600">warning</span>
@@ -316,7 +323,7 @@ const CustomerProfile: React.FC = () => {
                     navigate('/customers');
                   } catch (error) {
                     console.error('Error deleting customer:', error);
-                    alert('Failed to delete customer');
+                    toastError('Failed to delete customer');
                   } finally {
                     setIsDeleting(false);
                     setShowDeleteConfirm(false);

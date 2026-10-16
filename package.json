@@ -19,7 +19,7 @@
     "@capacitor/filesystem": "^7.1.6",
     "@capacitor/keyboard": "^7.0.4",
     "@capacitor/local-notifications": "^7.0.4",
-    "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/push-notifications": "^7.0.0",
     "@capacitor/share": "^7.0.3",
     "@capacitor/splash-screen": "^7.0.4",
     "@capacitor/status-bar": "^7.0.4",
@@ -32,7 +32,9 @@
     "lottie-react": "^2.4.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-router-dom": "^7.10.1"
+    "react-is": "^18.3.1",
+    "react-router-dom": "^7.10.1",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

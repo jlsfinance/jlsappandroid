@@ -6,6 +6,8 @@ import { db } from '../firebaseConfig';
 import { addMonths, format, parseISO, differenceInDays, startOfDay, isPast, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
 import { useCompany } from '../context/CompanyContext';
+import { SkeletonHero, SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 // --- Icons ---
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -55,6 +57,7 @@ const formatCurrency = (value: number) => `Rs. ${new Intl.NumberFormat("en-IN", 
 const LegalNotice: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { success, error: toastError, info } = useToast();
 
     const companyDetails = useMemo(() => ({
         name: currentCompany?.name || "Finance Company",
@@ -291,7 +294,7 @@ For ${companyDetails.name}`;
 
     // Templates
     const saveTemplate = () => {
-        if (!newTemplateName) return alert("Enter a template name");
+        if (!newTemplateName) return toastError("Enter a template name");
         const newTemp = { templateName: newTemplateName, ...form };
         const updated = [...templates, newTemp];
         setTemplates(updated);
@@ -316,7 +319,7 @@ For ${companyDetails.name}`;
 
     if (!selectedCustomer) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+            <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
                 <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-3">
                         <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
@@ -326,7 +329,7 @@ For ${companyDetails.name}`;
                     </div>
                 </div>
 
-                <div className="max-w-xl mx-auto p-4 space-y-6">
+                <div className="max-w-xl mx-auto p-4 space-y-3">
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
                             <h2 className="font-bold text-base">Select Customer</h2>
@@ -346,7 +349,10 @@ For ${companyDetails.name}`;
                             </div>
 
                             {loadingData ? (
-                                <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>
+                                <div className="py-2 space-y-3">
+                                    <SkeletonStyles />
+                                    <SkeletonList count={5} />
+                                </div>
                             ) : customers.length > 0 ? (
                                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                                     {customers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(customer => (
@@ -380,7 +386,7 @@ For ${companyDetails.name}`;
     }
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
                     <button onClick={() => setSelectedCustomer(null)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
@@ -395,10 +401,10 @@ For ${companyDetails.name}`;
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
 
                 {/* Form Column */}
-                <div className="space-y-6">
+                <div className="space-y-3">
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 space-y-4">
                         <h2 className="font-bold text-lg border-b border-slate-100 dark:border-slate-800 pb-2">Notice Details</h2>
 
@@ -478,7 +484,7 @@ For ${companyDetails.name}`;
                 </div>
 
                 {/* Preview Column */}
-                <div className="space-y-6">
+                <div className="space-y-3">
                     <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 flex flex-col h-full min-h-[500px]">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="font-bold text-lg">Live Preview</h2>
@@ -507,7 +513,7 @@ For ${companyDetails.name}`;
                                 const msg = `🚨 *FINAL REMINDER* 🚨\n\nDear ${form.customerName},\nYour EMI of *${formatCurrency(totalAmountDue)}* due on ${calculatedDueDate} is overdue.\nPlease pay within ${form.paymentDeadlineHours} hours to avoid legal action.\n\nUPI: ${form.paymentDetails.split('\n')[0].split(':')[1] || 'As per notice'}`;
                                 const phone = selectedCustomer.phone?.replace(/\D/g, '').slice(-10);
                                 if (phone) window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                else alert("Customer phone number not available.");
+                                else info("Customer phone number not available.");
                             }}
                             className="mt-3 w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors"
                         >

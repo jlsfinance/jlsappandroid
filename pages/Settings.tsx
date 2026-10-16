@@ -6,10 +6,12 @@ import { auth } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
 import { NotificationService } from '../services/NotificationService';
 import AboutModal from '../components/AboutModal';
+import { useToast } from '../components/Toast';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
+  const { info } = useToast();
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -75,7 +77,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-2xl bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-10">
+    <div className="relative flex h-auto min-h-[100dvh] w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-2xl bg-background-light dark:bg-background-dark text-slate-900 dark:text-white pb-nav">
       <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-800">
         <Link to="/" className="flex items-center gap-2 text-primary cursor-pointer">
           <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
@@ -191,7 +193,7 @@ const Settings: React.FC = () => {
           </Link>
 
           <div
-            onClick={() => alert("Please contact support or admin to request permanent account deletion.")}
+            onClick={() => info("Please contact support or admin to request permanent account deletion.")}
             className="flex items-center gap-4 px-4 py-3.5 hover:bg-red-50 dark:hover:bg-red-900/10 cursor-pointer transition-colors group"
           >
             <div className="flex items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 shrink-0 size-9 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
@@ -207,7 +209,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-8 mx-4 mb-4 space-y-3">
+      <div className="mt-3 mx-4 mb-4 space-y-3">
         <button onClick={() => NotificationService.testNotification()} className="w-full bg-white dark:bg-[#1a2235] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 border border-slate-100 dark:border-slate-800">
           <span className="material-symbols-outlined text-lg">notifications_active</span>
           Test Notification
@@ -225,7 +227,7 @@ const Settings: React.FC = () => {
 
       {showProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="bg-gradient-to-br from-primary to-primary-dark rounded-full h-14 w-14 flex items-center justify-center text-white text-xl font-bold shadow-lg">
                 {(profileName || auth.currentUser?.email || 'U').charAt(0).toUpperCase()}

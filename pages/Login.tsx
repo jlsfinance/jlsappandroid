@@ -63,7 +63,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#3b2d72] via-[#482880] to-[#2c1b52] px-6 py-4 text-white font-sans overflow-hidden relative">
+    <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#3b2d72] via-[#482880] to-[#2c1b52] px-6 py-4 text-white font-sans overflow-hidden relative pb-nav">
       {/* Background decoration elements */}
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>

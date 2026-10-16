@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useToast } from '../components/Toast';
 
 const IMGBB_API_KEY = "c9f4edabbd1fe1bc3a063e26bc6a2ecd";
 
@@ -9,6 +10,7 @@ const EditCustomer: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -50,7 +52,7 @@ const EditCustomer: React.FC = () => {
           });
           if (data.photo_url) setPhotoPreview(data.photo_url);
         } else {
-          alert('Customer not found');
+          error('Customer not found');
           navigate('/customers');
         }
       } catch (error) {
@@ -102,8 +104,8 @@ const EditCustomer: React.FC = () => {
     e.preventDefault();
     if (!auth.currentUser || !id) return;
     
-    if (!formData.fullName) return alert("Full Name is required");
-    if (!formData.mobile) return alert("Mobile Number is required");
+    if (!formData.fullName) return error("Full Name is required");
+    if (!formData.mobile) return error("Mobile Number is required");
 
     setIsSubmitting(true);
 
@@ -133,12 +135,12 @@ const EditCustomer: React.FC = () => {
 
       await updateDoc(doc(db, 'customers', id), updateData);
 
-      alert("Customer Details Updated Successfully!");
+      success("Customer Details Updated Successfully!");
       navigate(`/customers/${id}`);
 
     } catch (error) {
       console.error("Update failed:", error);
-      alert("Failed to update customer. Please try again.");
+      toast("Failed to update customer. Please try again.", 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -149,7 +151,7 @@ const EditCustomer: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+    <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -160,8 +162,8 @@ const EditCustomer: React.FC = () => {
         <div className="w-10"></div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
             
             {/* Personal Details */}
             <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -171,7 +173,7 @@ const EditCustomer: React.FC = () => {
                         Personal Details
                     </h2>
                 </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Full Name *</label>
                         <input 
@@ -215,7 +217,7 @@ const EditCustomer: React.FC = () => {
                         KYC Information
                     </h2>
                 </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Aadhaar Number</label>
                         <input 
@@ -251,7 +253,7 @@ const EditCustomer: React.FC = () => {
                         Guarantor Details
                     </h2>
                 </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Guarantor Name</label>
                         <input 
@@ -295,7 +297,7 @@ const EditCustomer: React.FC = () => {
                         Customer Photo
                     </h2>
                 </div>
-                <div className="p-6 flex flex-col sm:flex-row gap-6 items-center">
+                <div className="p-4 flex flex-col sm:flex-row gap-3 items-center">
                     <div className="relative h-32 w-32 rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden">
                         {photoPreview ? (
                             <img src={photoPreview} alt="Preview" className="h-full w-full object-cover" />

@@ -9,6 +9,7 @@ import { PdfGenerator } from '../services/PdfGenerator';
 import { NotificationService } from '../services/NotificationService';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION, SUPPORT_EMAIL, SUPPORT_PHONE, APP_NAME, DEVELOPER_NAME } from '../constants';
+import { useToast } from '../components/Toast';
 
 interface Emi {
   emiNumber: number;
@@ -51,6 +52,7 @@ const CustomerPortal: React.FC = () => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [currentTab, setCurrentTab] = useState<'home' | 'loans' | 'history' | 'profile'>('home');
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -167,7 +169,7 @@ const CustomerPortal: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 dark:bg-gray-900 font-sans selection:bg-blue-100 scroll-smooth overflow-x-hidden" style={{ paddingBottom: 'calc(16rem + env(safe-area-inset-bottom))' }}>
+    <div className="max-w-md mx-auto min-h-[100dvh] pb-nav bg-gray-50 dark:bg-gray-900 font-sans selection:bg-blue-100 scroll-smooth overflow-x-hidden">
       <NotificationListener />
 
       {/* Header */}
@@ -196,7 +198,7 @@ const CustomerPortal: React.FC = () => {
         {/* Quick Actions Panel */}
         <div className="mx-6 -mt-10 bg-white dark:bg-gray-800 p-5 rounded-[2.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-3 relative z-30">
           {[
-            { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else alert("No pending EMI found!"); } },
+            { label: 'Pay EMI', icon: 'payments', bg: 'btn-kadak', color: 'text-white', isSpecial: true, action: () => { if (nextEmi && primaryLoan) { setSelectedLoan(primaryLoan); setSelectedEmi(nextEmi); setShowPaymentModal(true); } else error("No pending EMI found!"); } },
             { label: 'History', icon: 'history', bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => setCurrentTab('history') },
             // Replaced Support with Test Notif for debugging
             {
@@ -224,7 +226,7 @@ const CustomerPortal: React.FC = () => {
           <div className="px-6 py-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
             {/* Dynamic Message Card (Hindi) */}
             {nextEmi && (
-              <div className={`mb-8 p-6 rounded-[2rem] shadow-xl border-l-8 ${isOverdue ? 'bg-red-50 border-red-600 text-red-900 shadow-red-100' : 'bg-blue-50 border-blue-600 text-blue-900 shadow-blue-100'} flex items-start gap-5 transition-all`}>
+              <div className={`mb-3 p-4 rounded-[2rem] shadow-xl border-l-8 ${isOverdue ? 'bg-red-50 border-red-600 text-red-900 shadow-red-100' : 'bg-blue-50 border-blue-600 text-blue-900 shadow-blue-100'} flex items-start gap-5 transition-all`}>
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-lg ${isOverdue ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white'}`}>
                   <span className="material-symbols-outlined text-3xl">{isOverdue ? 'warning' : 'notifications_active'}</span>
                 </div>
@@ -252,7 +254,7 @@ const CustomerPortal: React.FC = () => {
                   <p>No active loans found at the moment.</p>
                 </div>
               ) : activeLoans.map(loan => (
-                <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.03)] border border-gray-100 dark:border-gray-700 relative overflow-hidden group active:scale-[0.98] transition-all">
+                <div key={loan.id} className="bg-white dark:bg-gray-800 p-4 rounded-[2.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.03)] border border-gray-100 dark:border-gray-700 relative overflow-hidden group active:scale-[0.98] transition-all">
                   <div className="absolute top-0 right-0 p-4"><span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">{loan.status}</span></div>
                   <h3 className="font-bold text-gray-500 uppercase text-[10px] tracking-widest mb-1">Account Identity</h3>
                   <p className="font-black text-lg text-gray-900 dark:text-white mb-5 flex items-center gap-2">#{loan.id}</p>
@@ -274,10 +276,10 @@ const CustomerPortal: React.FC = () => {
         {/* Loans Tab */}
         {currentTab === 'loans' && (
           <div className="px-6 py-6 animate-in slide-in-from-bottom-5 duration-500">
-            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Account Ledger</h2>
+            <h2 className="font-black text-2xl mb-3 text-gray-900 dark:text-white">Account Ledger</h2>
             <div className="space-y-5">
               {loans.map(loan => (
-                <div key={loan.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.97] transition-all">
+                <div key={loan.id} className="bg-white dark:bg-gray-800 p-4 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.97] transition-all">
                   <div className="flex justify-between items-start mb-4">
                     <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">ID: #{loan.id}</p><p className="font-black text-2xl text-gray-900 dark:text-white">{formatCurrency(loan.amount)}</p></div>
                     <span className={`text-[10px] font-black px-3 py-1 rounded-full ${loan.status === 'Active' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-100 text-gray-500 border-gray-200'} border uppercase`}>{loan.status}</span>
@@ -295,14 +297,14 @@ const CustomerPortal: React.FC = () => {
         {/* History Tab */}
         {currentTab === 'history' && (
           <div className="px-6 py-6 animate-in slide-in-from-right-5 duration-500">
-            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Transaction Logs</h2>
+            <h2 className="font-black text-2xl mb-3 text-gray-900 dark:text-white">Transaction Logs</h2>
             <div className="space-y-4">
               {/* Combine Disbursals and Payments into a single timeline */}
               {historyLogs.map((log, i) => (
                 <div key={i}
                   onClick={async () => {
                     try {
-                      if (!customer || !company) return alert("Please wait for data to load.");
+                      if (!customer || !company) return info("Please wait for data to load.");
                       if (log.type === 'loan') {
                         const lData = loans.find(l => l.id === log.id);
                         if (lData) await PdfGenerator.generateLoanAgreement(lData as any, customer as any, company as any);
@@ -311,7 +313,7 @@ const CustomerPortal: React.FC = () => {
                         const tEmi = tLoan?.repaymentSchedule?.find(e => e.emiNumber === log.emiNo);
                         if (tLoan && tEmi) await PdfGenerator.generateReceipt(tLoan as any, tEmi as any, customer as any, company as any);
                       }
-                    } catch (err) { alert("Generation failed."); }
+                    } catch (err) { error("Generation failed."); }
                   }}
                   className="bg-white dark:bg-gray-800 p-5 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group active:bg-gray-50 dark:active:bg-gray-700 transition-all cursor-pointer"
                 >
@@ -343,9 +345,9 @@ const CustomerPortal: React.FC = () => {
         {/* Profile/More Tab */}
         {currentTab === 'profile' && (
           <div className="px-6 py-6 animate-in slide-in-from-left-5 duration-500">
-            <h2 className="font-black text-2xl mb-8 text-gray-900 dark:text-white">Account Portfolio</h2>
-            <div className="space-y-6">
-              <div className="p-8 bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 text-center relative overflow-hidden">
+            <h2 className="font-black text-2xl mb-3 text-gray-900 dark:text-white">Account Portfolio</h2>
+            <div className="space-y-3">
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 text-center relative overflow-hidden">
                 <div className="absolute top-0 inset-x-0 h-32 bg-blue-600/10 blur-3xl"></div>
                 <div className="w-28 h-28 rounded-full bg-blue-600 border-4 border-white dark:border-gray-700 mx-auto mb-6 relative z-10 overflow-hidden shadow-2xl flex items-center justify-center text-white">
                   {customer?.photo_url ? <img src={customer.photo_url} className="w-full h-full object-cover" /> : <span className="text-5xl font-black">{customer?.name?.charAt(0)}</span>}
@@ -361,29 +363,29 @@ const CustomerPortal: React.FC = () => {
                     label: 'Download Account Statement',
                     icon: 'description',
                     action: async () => {
-                      if (!customer || !company) return alert("Please wait, data is still loading...");
+                      if (!customer || !company) return info("Please wait, data is still loading...");
                       try {
                         await PdfGenerator.generateAccountStatement(loans as any, customer as any, company as any);
-                      } catch (err) { alert("Download failed. Try again."); }
+                      } catch (err) { error("Download failed. Try again."); }
                     }
                   },
                   {
                     label: 'Loan Clearance Certificate',
                     icon: 'workspace_premium',
                     action: async () => {
-                      if (!customer || !company) return alert("Please wait, data is still loading...");
+                      if (!customer || !company) return info("Please wait, data is still loading...");
                       try {
                         const closedLoan = loans.find(l => l.status === 'Closed' || l.status === 'Paid');
                         if (closedLoan) {
                           await PdfGenerator.generateNoDuesCertificate(closedLoan as any, customer as any, company as any);
                         } else {
-                          alert("No closed records found to generate a certificate.");
+                          error("No closed records found to generate a certificate.");
                         }
-                      } catch (err) { alert("Generation failed."); }
+                      } catch (err) { error("Generation failed."); }
                     }
                   },
                   { label: 'Payment Receipts', icon: 'receipt_long', action: () => setCurrentTab('history') },
-                  { label: 'Update Personal Details', icon: 'manage_accounts', action: () => alert('Contact admin to update profile.') },
+                  { label: 'Update Personal Details', icon: 'manage_accounts', action: () => info('Contact admin to update profile.') },
                   {
                     label: 'Refer a Friend & Earn',
                     icon: 'card_giftcard',
@@ -446,7 +448,7 @@ const CustomerPortal: React.FC = () => {
                   setSelectedLoan(primaryLoan);
                   setSelectedEmi(nextEmi);
                   setShowPaymentModal(true);
-                } else alert("No due EMI at this moment!");
+                } else error("No due EMI at this moment!");
               } else {
                 setCurrentTab(tab.id as any);
               }
@@ -460,14 +462,14 @@ const CustomerPortal: React.FC = () => {
 
       {/* Improved Support Modal */}
       {showSupportModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/70 backdrop-blur-lg animate-in fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-lg animate-in fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20">
             <div className="p-10 text-center">
               <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white mb-4 shadow-lg shadow-blue-200">
                 <span className="text-2xl font-black">{APP_NAME.charAt(0)}</span>
               </div>
               <h3 className="font-black text-xl text-gray-900 dark:text-white mb-2">Contact {APP_NAME} Team</h3>
-              <p className="text-sm text-gray-500 mb-8 max-w-[200px]">How can we help you today? Our support team is ready.</p>
+              <p className="text-sm text-gray-500 mb-3 max-w-[200px]">How can we help you today? Our support team is ready.</p>
 
               <div className="w-full space-y-3">
                 <a href={`tel:${SUPPORT_PHONE}`} className="w-full py-4 bg-gray-50 dark:bg-gray-900 rounded-2xl flex items-center justify-between px-6 border border-gray-100 dark:border-gray-700 active:scale-95 transition-all">
@@ -494,13 +496,13 @@ const CustomerPortal: React.FC = () => {
 
       {/* Enhanced Payment Modal */}
       {showPaymentModal && selectedEmi && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in zoom-in duration-300">
           <div className="bg-white dark:bg-gray-800 rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl">
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-10 text-center text-white relative">
               <button onClick={() => setShowPaymentModal(false)} className="absolute top-6 right-6 p-2.5 bg-white/20 rounded-full hover:bg-white/30 active:scale-90 transition-all"><span className="material-symbols-outlined text-sm">close</span></button>
               <h3 className="font-black text-2xl mb-1">Make Payment</h3>
               <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-70">Scan or click to pay via UPI</p>
-              <div className="mt-8 bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-white">
+              <div className="mt-3 bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-white">
                 <img
                   src={`https://quickchart.io/qr?text=${encodeURIComponent(`upi://pay?pa=${company?.upiId || UPI_ID}&pn=${encodeURIComponent(company?.name || 'JLS Suite')}&am=${selectedEmi.amount}&cu=INR&tn=EMI${selectedEmi.emiNumber}`)}&size=300`}
                   className="w-48 h-48 rounded-xl"
@@ -530,7 +532,7 @@ const CustomerPortal: React.FC = () => {
                     }
                   } catch (e) {
                     console.error("Payment trigger failed:", e);
-                    alert("Could not open payment app.");
+                    error("Could not open payment app.");
                   }
                 }}
                 className="w-full py-5 btn-kadak text-sm rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mb-6 uppercase tracking-widest"
@@ -548,7 +550,7 @@ const CustomerPortal: React.FC = () => {
       {showDetailsModal && selectedLoan && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in slide-in-from-bottom-full duration-500">
           <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-[3.5rem] p-10 max-h-[88vh] overflow-y-auto shadow-[0_-20px_50px_rgba(0,0,0,0.2)]">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-3">
               <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Schedule for</p><h3 className="font-black text-2xl text-gray-900 dark:text-white">Loan #{selectedLoan.id}</h3></div>
               <button onClick={() => setShowDetailsModal(false)} className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-full active:scale-90 transition-all border border-black/5"><span className="material-symbols-outlined text-xl">close</span></button>
             </div>
@@ -558,23 +560,23 @@ const CustomerPortal: React.FC = () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
                   await PdfGenerator.generateLoanAgreement(selectedLoan as any, customer as any, company as any);
-                } catch (e) { alert("Failed to download."); }
+                } catch (e) { error("Failed to download."); }
               }} className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex flex-col items-center gap-2 text-indigo-700 dark:text-indigo-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-indigo-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">article</span> Agreement</button>
 
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 try {
                   await PdfGenerator.generateLoanCard(selectedLoan as any, customer as any, company as any);
-                } catch (e) { alert("Failed to download."); }
+                } catch (e) { error("Failed to download."); }
               }} className="p-4 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex flex-col items-center gap-2 text-amber-700 dark:text-amber-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-amber-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">contact_emergency</span> Card</button>
 
               <button onClick={async () => {
                 if (!customer || !company || !selectedLoan) return;
                 const latestPaid = selectedLoan.repaymentSchedule?.filter(e => e.status?.toLowerCase() === 'paid').sort((a, b) => b.emiNumber - a.emiNumber)[0];
-                if (!latestPaid) return alert("No paid installments found.");
+                if (!latestPaid) return error("No paid installments found.");
                 try {
                   await PdfGenerator.generateReceipt(selectedLoan as any, latestPaid as any, customer as any, company as any);
-                } catch (e) { alert("Failed to download."); }
+                } catch (e) { error("Failed to download."); }
               }} className="p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex flex-col items-center gap-2 text-emerald-700 dark:text-emerald-300 font-black text-[9px] uppercase tracking-widest shadow-sm border border-emerald-100 group active:scale-95 transition-all"><span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">receipt_long</span> Receipt</button>
             </div>
 
@@ -599,7 +601,7 @@ const CustomerPortal: React.FC = () => {
                             if (!customer || !company || !selectedLoan) return;
                             try {
                               await PdfGenerator.generateReceipt(selectedLoan as any, e as any, customer as any, company as any);
-                            } catch (err) { alert("Download failed."); }
+                            } catch (err) { error("Download failed."); }
                           }}
                           className="px-4 py-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200 font-black text-[9px] rounded-lg uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5"
                         >
