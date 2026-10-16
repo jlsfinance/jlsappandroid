@@ -147,6 +147,16 @@ const Loans: React.FC = () => {
         phone: currentCompany?.phone || ""
     }), [currentCompany]);
 
+    // Single lookup table for customers → O(1) per loan instead of O(customers)
+    // per loan per render (which was O(loans × customers) and caused lag).
+    const customerMap = useMemo(() => {
+        const map: Record<string, any> = {};
+        (customers || []).forEach((c) => {
+            if (c && c.id) map[c.id] = c;
+        });
+        return map;
+    }, [customers]);
+
     // Fetch Data
     const fetchLoans = useCallback(async () => {
         if (!currentCompany) return;
@@ -642,7 +652,7 @@ const Loans: React.FC = () => {
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4 pl-2 flex-1 min-w-0">
                                         {(() => {
-                                            const customer = customers.find(c => c.id === loan.customerId);
+                                            const customer = customerMap[loan.customerId];
                                             return (
                                                 <div className="relative h-12 w-12 rounded-2xl shadow-sm overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700">
                                                     <LazyImage
