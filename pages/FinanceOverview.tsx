@@ -215,7 +215,7 @@ const FinanceOverview: React.FC = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-nav max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark font-sans">
             {/* M3 Header */}
             <div className="sticky top-0 z-20 flex items-center bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm p-4 pb-3 justify-between border-b border-outline-light/10 dark:border-outline-dark/10 transition-colors" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
                 <div className="flex items-center gap-3">

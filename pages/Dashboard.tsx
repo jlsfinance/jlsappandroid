@@ -607,7 +607,7 @@ const Dashboard: React.FC = () => {
 
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 pb-safe bg-slate-50 dark:bg-slate-950 font-sans">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-nav pb-safe bg-slate-50 dark:bg-slate-950 font-sans">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-indigo-50/50 via-purple-50/30 to-transparent dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-transparent"></div>

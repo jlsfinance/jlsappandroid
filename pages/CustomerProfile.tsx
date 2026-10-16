@@ -114,7 +114,7 @@ const CustomerProfile: React.FC = () => {
   const photoSrc = customer.photo_url || customer.avatar;
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-32 text-slate-900 dark:text-white print:bg-white print:text-black">
+    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-nav text-slate-900 dark:text-white print:bg-white print:text-black">
       {/* Top Navigation - Hidden on Print */}
       <div className="sticky top-0 z-50 flex items-center justify-between bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md p-4 border-b border-slate-200 dark:border-slate-800 print:hidden">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">

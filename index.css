@@ -12,7 +12,8 @@ body {
   --primary-color: #4f46e5;
   --safe-top: env(safe-area-inset-top, 24px);
   --safe-bottom: env(safe-area-inset-bottom, 20px);
-  --ion-safe-area-top: 0px;
+  --nav-height: 84px;
+  --nav-footprint: calc(var(--nav-height) + env(safe-area-inset-bottom));
 }
 
 html,
@@ -142,6 +143,16 @@ h6,
 .min-h-safe {
   min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
+
+/* Global reusable bottom-safety: applies the bottom navigation footprint
+   (nav height + iOS safe-area inset) so no page content is hidden behind
+   the fixed BottomNav. Use this class on every page wrapper instead of
+   ad-hoc pb-* values. */
+.pb-nav {
+  padding-bottom: var(--nav-footprint);
+}
+
+/* Bottom navigation footprint (nav height + safe-area inset) */
 
 .btn-primary {
   background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;

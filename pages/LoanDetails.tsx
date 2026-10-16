@@ -1707,7 +1707,7 @@ const LoanDetails: React.FC = () => {
     }
 
     return (
-        <div className="relative min-h-screen pb-32 text-slate-900 dark:text-white font-sans overflow-x-hidden">
+        <div className="relative min-h-screen pb-nav text-slate-900 dark:text-white font-sans overflow-x-hidden">
             {/* Background Decor */}
             <div className="fixed inset-0 pointer-events-none -z-10">
                 <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-indigo-50/50 via-purple-50/30 to-transparent dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-transparent"></div>
