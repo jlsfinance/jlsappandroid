@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { addMonths, format } from 'date-fns';
 import { useToast } from '../components/Toast';
 
 interface Customer {
@@ -27,6 +28,7 @@ interface LoanData {
   customerName: string;
   status: 'Pending' | 'Approved' | 'Disbursed' | 'Completed' | 'Rejected' | 'Active' | 'Overdue';
   companyId?: string;
+  repaymentSchedule?: { emiNumber: number; dueDate: string; amount: number; status: string; paymentDate?: string | null }[];
 }
 
 interface FormState {
@@ -126,6 +128,39 @@ const EditLoan: React.FC = () => {
     return { processingFee, emi };
   };
 
+  /**
+   * Regenerate the per-installment repayment schedule from the edited values.
+   * First EMI lands next month on the same day-of-month as the disbursal/application date;
+   * each subsequent EMI is one month later. Already-paid installments are preserved as
+   * history so editing terms never wipes payment records.
+   */
+  const generateRepaymentSchedule = (): { emiNumber: number; dueDate: string; amount: number; status: 'Pending' | 'Paid' }[] => {
+    const schedule: { emiNumber: number; dueDate: string; amount: number; status: 'Pending' | 'Paid' }[] = [];
+
+    const baseDateStr = form.disbursalDate || form.date || new Date().toISOString().split('T')[0];
+    const [y, m, d] = baseDateStr.split('-').map(Number);
+    const base = new Date(y, (m || 1) - 1, d || 1);
+    const firstEmiDate = addMonths(base, 1);
+
+    const existingSchedule = (loan?.repaymentSchedule as { emiNumber: number; dueDate: string; amount: number; status: string; paymentDate?: string | null }[] | undefined) || [];
+
+    for (let i = 0; i < form.tenure; i++) {
+      const emiNumber = i + 1;
+      const dueDate = format(addMonths(firstEmiDate, i), 'yyyy-MM-dd');
+
+      // Keep already-paid installments as-is; reschedule everything else
+      const existing = existingSchedule.find((e) => e.emiNumber === emiNumber);
+      if (existing && existing.status === 'Paid') {
+        schedule.push({ emiNumber, dueDate: existing.dueDate, amount: Number(existing.amount) || 0, status: 'Paid' });
+        continue;
+      }
+
+      schedule.push({ emiNumber, dueDate, amount: emi, status: 'Pending' });
+    }
+
+    return schedule;
+  };
+
   const { processingFee, emi } = calculateLoanDetails();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,6 +189,7 @@ const EditLoan: React.FC = () => {
         date: form.date,
         disbursalDate: form.disbursalDate || null,
         notes: form.notes || null,
+        repaymentSchedule: generateRepaymentSchedule(),
       });
 
       success("Loan updated successfully!");
