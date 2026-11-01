@@ -380,7 +380,7 @@ const Reports: React.FC = () => {
     if (loading) return <div className="flex h-screen w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div></div>;
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
@@ -391,7 +391,7 @@ const Reports: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4 space-y-6">
+            <div className="max-w-4xl mx-auto p-4 space-y-3">
                 {/* Tabs */}
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                     {[

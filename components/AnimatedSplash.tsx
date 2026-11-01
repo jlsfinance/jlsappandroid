@@ -46,7 +46,7 @@ const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
                     variants={logoVariants}
                     initial="initial"
                     animate={["appear", "moveUp"]}
-                    className="relative w-48 h-48 bg-white rounded-[40px] shadow-2xl flex items-center justify-center p-6"
+                    className="relative w-48 h-48 bg-white rounded-[40px] shadow-2xl flex items-center justify-center p-4"
                 >
                     <div className="w-full h-full bg-gradient-to-br from-[#6366F1] to-[#4F46E5] rounded-[30px] flex items-center justify-center overflow-hidden shadow-inner">
                         <img src={logo} alt="Logo" className="w-24 h-24 object-contain brightness-110 drop-shadow-lg" />
@@ -54,7 +54,7 @@ const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
                 </motion.div>
 
                 {/* Animated Words */}
-                <div className="absolute top-48 flex flex-col items-center gap-6 mt-12 w-full">
+                <div className="absolute top-48 flex flex-col items-center gap-3 mt-12 w-full">
                     {['TRUST', 'GROWTH', 'STABILITY'].map((word, i) => (
                         <motion.h2
                             key={word}

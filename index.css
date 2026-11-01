@@ -12,7 +12,8 @@ body {
   --primary-color: #4f46e5;
   --safe-top: env(safe-area-inset-top, 24px);
   --safe-bottom: env(safe-area-inset-bottom, 20px);
-  --ion-safe-area-top: 0px;
+  --nav-height: 84px;
+  --nav-footprint: calc(var(--nav-height) + env(safe-area-inset-bottom));
 }
 
 html,
@@ -96,15 +97,38 @@ h6,
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* Apple-style compact spacing system
+   - Consistent radii: cards 16px (rounded-2xl), inner tiles 12px (rounded-xl)
+   - Subtle borders + restrained shadows
+   - Compact gaps: page sections 12px (space-y-3), tiles 8-12px (gap-2/3)
+   - Comfortable touch targets preserved (min h-10 for buttons via py-2.5) */
 .glass-card {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
 }
 
 .dark .glass-card {
   background: rgba(30, 41, 59, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Sidebar Glassmorphism */
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 4px 0 30px -8px rgba(0, 0, 0, 0.08);
+}
+
+.dark .glass-sidebar {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 4px 0 40px -8px rgba(0, 0, 0, 0.3);
 }
 
 /* Safe Area Utilities */
@@ -119,6 +143,16 @@ h6,
 .min-h-safe {
   min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
+
+/* Global reusable bottom-safety: applies the bottom navigation footprint
+   (nav height + iOS safe-area inset) so no page content is hidden behind
+   the fixed BottomNav. Use this class on every page wrapper instead of
+   ad-hoc pb-* values. */
+.pb-nav {
+  padding-bottom: var(--nav-footprint);
+}
+
+/* Bottom navigation footprint (nav height + safe-area inset) */
 
 .btn-primary {
   background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;

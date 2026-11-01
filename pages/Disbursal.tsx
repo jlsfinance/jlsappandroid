@@ -4,6 +4,7 @@ import { collection, getDocs, query, where, doc, updateDoc, getDoc } from "fireb
 import { db } from "../firebaseConfig";
 import { addMonths, startOfMonth, format, parse, isValid } from 'date-fns';
 import { useCompany } from '../context/CompanyContext';
+import { useToast } from '../components/Toast';
 
 interface ApprovedLoan {
     id: string;
@@ -21,6 +22,7 @@ const Disbursal: React.FC = () => {
     const { currentCompany } = useCompany();
     const [approvedLoans, setApprovedLoans] = useState<ApprovedLoan[]>([]);
     const [loading, setLoading] = useState(true);
+    const { success, error, info, toast } = useToast();
 
     const companyName = useMemo(() => currentCompany?.name || "Finance Company", [currentCompany]);
     
@@ -58,7 +60,7 @@ const Disbursal: React.FC = () => {
 
     const handleDisburse = async () => {
         if (!selectedLoan || !disbursalDate) {
-            alert("Please select a valid date.");
+            error("Please select a valid date.");
             return;
         }
         setProcessing(true);
@@ -120,19 +122,19 @@ const Disbursal: React.FC = () => {
                 console.error("WhatsApp redirect failed", e);
             }
 
-            alert("Loan Disbursed Successfully!");
+            success("Loan Disbursed Successfully!");
             setSelectedLoan(null);
 
         } catch (error) {
             console.error(`Failed to disburse loan:`, error);
-            alert("Disbursal failed. Please try again.");
+            toast("Disbursal failed. Please try again.", 'error');
         } finally {
             setProcessing(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
@@ -143,7 +145,7 @@ const Disbursal: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4 space-y-6">
+            <div className="max-w-4xl mx-auto p-4 space-y-3">
                 <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                         <h2 className="font-bold text-lg">Ready for Disbursal</h2>
@@ -204,7 +206,7 @@ const Disbursal: React.FC = () => {
             {/* Modal */}
             {selectedLoan && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
                         <h3 className="text-lg font-bold mb-1">Confirm Disbursal</h3>
                         <p className="text-sm text-slate-500 mb-4">
                             For {selectedLoan.customerName} (Loan #{selectedLoan.id})

@@ -124,7 +124,7 @@ const CustomerLogin: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center p-4 overflow-hidden">
+    <div className="pb-nav min-h-[100dvh] bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex flex-col items-center justify-center p-4 overflow-hidden">
 
       <div className="w-full max-w-sm flex flex-col h-full justify-evenly">
 

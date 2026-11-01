@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useCompany } from '../context/CompanyContext';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 interface LoanApplication {
     id: string;
@@ -15,6 +17,7 @@ interface LoanApplication {
 const Approvals: React.FC = () => {
     const navigate = useNavigate();
     const { currentCompany } = useCompany();
+    const { success, error: toastError } = useToast();
     const [applications, setApplications] = useState<LoanApplication[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -83,19 +86,19 @@ const Approvals: React.FC = () => {
             await updateDoc(loanRef, updateData);
 
             setApplications(prev => prev.filter(app => app.id !== selectedApp.id));
-            alert(`Application ${newStatus} Successfully`);
+            success(`Application ${newStatus} Successfully`);
             closeModal();
 
         } catch (error) {
             console.error(`Failed to update application:`, error);
-            alert("An error occurred while updating the loan.");
+            toastError("An error occurred while updating the loan.");
         } finally {
             setProcessing(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+        <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
@@ -106,7 +109,7 @@ const Approvals: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4 space-y-6">
+            <div className="max-w-4xl mx-auto p-4 space-y-3">
                 <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                         <h2 className="font-bold text-lg">Pending Applications</h2>
@@ -127,8 +130,9 @@ const Approvals: React.FC = () => {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center">
-                                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                                        <td colSpan={5} className="px-4 py-6">
+                                            <SkeletonStyles />
+                                            <SkeletonList count={6} />
                                         </td>
                                     </tr>
                                 ) : applications.length > 0 ? (
@@ -171,7 +175,7 @@ const Approvals: React.FC = () => {
             {/* Modal */}
             {modalType && selectedApp && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+                    <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
                         <h3 className="text-lg font-bold mb-1">
                             {modalType === 'approve' ? 'Approve Loan?' : 'Reject Loan?'}
                         </h3>

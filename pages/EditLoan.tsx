@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { addMonths, format } from 'date-fns';
+import { useToast } from '../components/Toast';
 
 interface Customer {
   id: string;
@@ -26,6 +28,7 @@ interface LoanData {
   customerName: string;
   status: 'Pending' | 'Approved' | 'Disbursed' | 'Completed' | 'Rejected' | 'Active' | 'Overdue';
   companyId?: string;
+  repaymentSchedule?: { emiNumber: number; dueDate: string; amount: number; status: string; paymentDate?: string | null }[];
 }
 
 interface FormState {
@@ -45,6 +48,7 @@ const EditLoan: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loan, setLoan] = useState<LoanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState<FormState>({
@@ -64,7 +68,7 @@ const EditLoan: React.FC = () => {
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
-        alert("Loan not found");
+        error("Loan not found");
         navigate('/loans');
         return;
       }
@@ -91,7 +95,7 @@ const EditLoan: React.FC = () => {
       }
     } catch (err) {
       console.error("Error loading loan:", err);
-      alert("Failed to load loan data");
+      error("Failed to load loan data");
       navigate('/loans');
     } finally {
       setLoading(false);
@@ -124,18 +128,51 @@ const EditLoan: React.FC = () => {
     return { processingFee, emi };
   };
 
+  /**
+   * Regenerate the per-installment repayment schedule from the edited values.
+   * First EMI lands next month on the same day-of-month as the disbursal/application date;
+   * each subsequent EMI is one month later. Already-paid installments are preserved as
+   * history so editing terms never wipes payment records.
+   */
+  const generateRepaymentSchedule = (): { emiNumber: number; dueDate: string; amount: number; status: 'Pending' | 'Paid' }[] => {
+    const schedule: { emiNumber: number; dueDate: string; amount: number; status: 'Pending' | 'Paid' }[] = [];
+
+    const baseDateStr = form.disbursalDate || form.date || new Date().toISOString().split('T')[0];
+    const [y, m, d] = baseDateStr.split('-').map(Number);
+    const base = new Date(y, (m || 1) - 1, d || 1);
+    const firstEmiDate = addMonths(base, 1);
+
+    const existingSchedule = (loan?.repaymentSchedule as { emiNumber: number; dueDate: string; amount: number; status: string; paymentDate?: string | null }[] | undefined) || [];
+
+    for (let i = 0; i < form.tenure; i++) {
+      const emiNumber = i + 1;
+      const dueDate = format(addMonths(firstEmiDate, i), 'yyyy-MM-dd');
+
+      // Keep already-paid installments as-is; reschedule everything else
+      const existing = existingSchedule.find((e) => e.emiNumber === emiNumber);
+      if (existing && existing.status === 'Paid') {
+        schedule.push({ emiNumber, dueDate: existing.dueDate, amount: Number(existing.amount) || 0, status: 'Paid' });
+        continue;
+      }
+
+      schedule.push({ emiNumber, dueDate, amount: emi, status: 'Pending' });
+    }
+
+    return schedule;
+  };
+
   const { processingFee, emi } = calculateLoanDetails();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!loanId || !loan) {
-      alert("Loan information is missing");
+      error("Loan information is missing");
       return;
     }
 
     if (form.amount < 1000) {
-      alert("Minimum loan amount is ₹1,000");
+      error("Minimum loan amount is ₹1,000");
       return;
     }
 
@@ -152,13 +189,14 @@ const EditLoan: React.FC = () => {
         date: form.date,
         disbursalDate: form.disbursalDate || null,
         notes: form.notes || null,
+        repaymentSchedule: generateRepaymentSchedule(),
       });
 
-      alert("Loan updated successfully!");
+      success("Loan updated successfully!");
       navigate(`/loans/${loanId}`);
     } catch (err) {
       console.error("Update failed:", err);
-      alert("Failed to update loan. Please try again.");
+      error("Failed to update loan. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -173,7 +211,7 @@ const EditLoan: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+    <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
       <div className="sticky top-0 z-20 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
@@ -183,8 +221,8 @@ const EditLoan: React.FC = () => {
         <div className="w-10"></div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
 
           {customer && (
             <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -194,7 +232,7 @@ const EditLoan: React.FC = () => {
                   Customer Details
                 </h2>
               </div>
-              <div className="p-6 flex items-start gap-6">
+              <div className="p-4 flex items-start gap-3">
                 <div className="h-24 w-24 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0">
                   {(customer.photo_url || customer.avatar) ? (
                     <img
@@ -246,7 +284,7 @@ const EditLoan: React.FC = () => {
               </h2>
               <p className="text-xs text-slate-500 mt-1">Loan ID: {loanId}</p>
             </div>
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Loan Amount (₹) *</label>
                 <input
@@ -331,7 +369,7 @@ const EditLoan: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-2xl p-6 border border-primary/20">
+          <div className="bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-2xl p-4 border border-primary/20">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">calculate</span>
               Updated Calculations

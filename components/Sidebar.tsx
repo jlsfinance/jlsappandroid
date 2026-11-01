@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { APP_NAME, APP_VERSION } from '../constants';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
 import { useCompany } from '../context/CompanyContext';
+import { useTheme } from '../context/ThemeContext';
 import { auth } from '../firebaseConfig';
-import { signOut } from 'firebase/auth';
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { User, onAuthStateChanged, signOut } from 'firebase/auth';
+import { motion, AnimatePresence } from 'framer-motion';
 import AboutModal from './AboutModal';
 
 interface MenuItem {
@@ -15,16 +19,87 @@ interface MenuItem {
     action?: () => void;
 }
 
+/* ── Quick Actions ── */
+const quickActions = [
+    { label: 'New Loan', icon: 'add_circle', path: '/loans/new' },
+    { label: 'New Customer', icon: 'person_add', path: '/customers/new' },
+    { label: 'EMI Calc', icon: 'calculate', path: '/tools/emi' },
+    { label: 'Reports', icon: 'bar_chart', path: '/reports' },
+];
+
+/* ── Avatar initials fallback ── */
+const getInitials = (name: string | null) => {
+    if (!name) return 'U';
+    return name
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+};
+
+/* ── Sub-menu animation variants ── */
+const submenuVariants = {
+    collapsed: { height: 0, opacity: 0 },
+    expanded: { height: 'auto', opacity: 1 },
+};
+
 const Sidebar: React.FC = () => {
     const { isOpen, closeSidebar } = useSidebar();
     const { currentCompany } = useCompany();
+    const { isDark, toggleTheme } = useTheme();
     const location = useLocation();
     const navigate = useNavigate();
-    const [expandedMenus, setExpandedMenus] = useState<string[]>(['Loans', 'Finance']); // Default expanded
+    const [expandedMenus, setExpandedMenus] = useState<string[]>(['Loans', 'Finance']);
     const [showAbout, setShowAbout] = useState(false);
+    const [user, setUser] = useState<User | null>(null);
+    const [pendingEmiCount, setPendingEmiCount] = useState(0);
+
+    /* ── Listen to auth state ── */
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+        return () => unsub();
+    }, []);
+
+    /* ── Live pending EMI badge count ── */
+    useEffect(() => {
+        if (!currentCompany) {
+            setPendingEmiCount(0);
+            return;
+        }
+        let cancelled = false;
+        const loadCount = async () => {
+            try {
+                const loansQuery = query(
+                    collection(db, "loans"),
+                    where("status", "in", ["Disbursed", "Active", "Overdue"]),
+                    where("companyId", "==", currentCompany.id)
+                );
+                const snapshot = await getDocs(loansQuery);
+                let count = 0;
+                snapshot.docs.forEach((d) => {
+                    const loan = d.data();
+                    (loan.repaymentSchedule || []).forEach((emi: any) => {
+                        if (emi.status === 'Pending' && new Date(emi.dueDate) < new Date()) count++;
+                    });
+                });
+                if (!cancelled) setPendingEmiCount(count);
+            } catch {
+                if (!cancelled) setPendingEmiCount(0);
+            }
+        };
+        loadCount();
+        return () => { cancelled = true; };
+    }, [currentCompany]);
+
+    /* ── User data ── */
+    const displayName = user?.displayName || user?.email?.split('@')[0] || 'User';
+    const email = user?.email || '';
+    const photoURL = user?.photoURL || '';
+    const isAdmin = true; // placeholder: could check custom claims
 
     const handleLogout = async () => {
-        if (window.confirm("Are you sure you want to logout?")) {
+        if (window.confirm('Are you sure you want to logout?')) {
             try {
                 await signOut(auth);
                 localStorage.removeItem('customerPortalId');
@@ -32,17 +107,29 @@ const Sidebar: React.FC = () => {
                 closeSidebar();
                 navigate('/login');
             } catch (error) {
-                console.error("Logout error", error);
+                console.error('Logout error', error);
             }
         }
     };
 
     const toggleSubmenu = (title: string) => {
-        setExpandedMenus(prev =>
-            prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
+        setExpandedMenus((prev) =>
+            prev.includes(title)
+                ? prev.filter((t) => t !== title)
+                : [...prev, title],
         );
     };
 
+    const isActivePath = (path: string) => {
+        if (path === '/') return location.pathname === '/';
+        return location.pathname.startsWith(path);
+    };
+
+    const handleLinkClick = () => {
+        if (window.innerWidth < 1024) closeSidebar();
+    };
+
+    /* ── Menu items ── */
     const menuItems: MenuItem[] = [
         { title: 'Dashboard', path: '/', icon: 'dashboard' },
         {
@@ -52,7 +139,7 @@ const Sidebar: React.FC = () => {
                 { title: 'All Loans', path: '/loans', icon: 'list_alt' },
                 { title: 'New Loan', path: '/loans/new', icon: 'add_circle' },
                 { title: 'EMI Calculator', path: '/tools/emi', icon: 'calculate' },
-            ]
+            ],
         },
         {
             title: 'Finance',
@@ -63,7 +150,7 @@ const Sidebar: React.FC = () => {
                 { title: 'Approvals', path: '/approvals', icon: 'verified' },
                 { title: 'Disbursal', path: '/disbursal', icon: 'monetization_on' },
                 { title: 'Due List', path: '/due-list', icon: 'pending_actions' },
-            ]
+            ],
         },
         { title: 'Customers', path: '/customers', icon: 'group' },
         { title: 'Partners', path: '/partners', icon: 'handshake' },
@@ -72,164 +159,338 @@ const Sidebar: React.FC = () => {
         { title: 'Settings', path: '/settings', icon: 'settings' },
     ];
 
-    const handleLinkClick = () => {
-        // Close sidebar on mobile when a link is clicked
-        if (window.innerWidth < 1024) {
-            closeSidebar();
-        }
-    };
-
     return (
         <>
-            {/* Backdrop for mobile */}
-            {isOpen && (
-                <div
-                    className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity lg:hidden"
-                    onClick={closeSidebar}
-                />
-            )}
+            {/* ── Mobile backdrop ── */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        key="backdrop"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+                        onClick={closeSidebar}
+                    />
+                )}
+            </AnimatePresence>
 
-            {/* Sidebar Container */}
-            <aside
-                className={`fixed inset-y-0 left-0 z-[55] w-72 h-screen bg-gradient-to-b from-white via-white to-violet-50/50 dark:from-slate-950 dark:via-slate-950 dark:to-violet-950/10 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'
-                    }`}
-                style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            {/* ── Sidebar container ── */}
+            <motion.aside
+                initial={false}
+                animate={{
+                    x: isOpen ? 0 : -288,
+                }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="fixed inset-y-0 left-0 z-[55] w-72 h-screen glass-sidebar flex flex-col lg:translate-x-0 lg:static lg:shadow-none"
+                style={{
+                    paddingTop: 'env(safe-area-inset-top)',
+                    paddingBottom: 'env(safe-area-inset-bottom)',
+                }}
             >
-                <div className="flex flex-col h-full">
-                    {/* Header */}
-                    <div className="h-20 flex items-center px-6 border-b border-slate-200/50 dark:border-slate-800/50 bg-transparent">
-                        <div className="flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-violet-500/20">
-                                J
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="font-bold text-slate-900 dark:text-white leading-none text-lg">{APP_NAME}</span>
-                                {currentCompany && <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">{currentCompany.name}</span>}
-                            </div>
-                        </div>
-                        <button onClick={closeSidebar} className="ml-auto lg:hidden p-2 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-500 transition-colors">
-                            <span className="material-symbols-outlined">close</span>
-                        </button>
-                    </div>
+                {/* ══════ USER PROFILE CARD ══════ */}
+                <div className="relative px-5 pt-safe pb-4 overflow-hidden">
+                    {/* Decorative gradient blob */}
+                    <div className="absolute -top-10 -right-10 w-36 h-36 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-fuchsia-500/5 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-gradient-to-tr from-indigo-500/15 to-violet-500/5 rounded-full blur-2xl pointer-events-none" />
 
-                    {/* Menu Items */}
-                    <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 custom-scrollbar">
-                        {menuItems.map((item) => (
+                    <div className="relative z-10">
+                        {/* Avatar + info row */}
+                        <div className="flex items-center gap-3.5 mb-3">
+                            <div className="relative shrink-0">
+                                {photoURL ? (
+                                    <img
+                                        src={photoURL}
+                                        alt={displayName}
+                                        className="w-11 h-11 rounded-2xl object-cover ring-2 ring-white/40 dark:ring-white/10 shadow-lg"
+                                    />
+                                ) : (
+                                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/20 ring-2 ring-white/30 dark:ring-white/10">
+                                        {getInitials(displayName)}
+                                    </div>
+                                )}
+                                {/* Online dot */}
+                                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm" />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                    {displayName}
+                                </p>
+                                {email && (
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                        {email}
+                                    </p>
+                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-[9px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                                        {isAdmin ? 'Admin' : 'Staff'}
+                                    </span>
+                                    {currentCompany && (
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium truncate">
+                                            {currentCompany.name}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Theme toggle */}
+                            <button
+                                onClick={toggleTheme}
+                                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                                className="p-1.5 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors shrink-0"
+                            >
+                                <span className="material-symbols-outlined text-lg">
+                                    {isDark ? 'light_mode' : 'dark_mode'}
+                                </span>
+                            </button>
+
+                            {/* Close btn (mobile) */}
+                            <button
+                                onClick={closeSidebar}
+                                className="lg:hidden p-1.5 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 transition-colors shrink-0"
+                            >
+                                <span className="material-symbols-outlined text-lg">close</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ══════ SCROLLABLE MENU ══════ */}
+                <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 custom-scrollbar">
+                    {menuItems.map((item) => {
+                        const hasActiveChild =
+                            item.submenu?.some((s) => location.pathname.startsWith(s.path)) ?? false;
+                        const isExpanded = expandedMenus.includes(item.title);
+
+                        return (
                             <div key={item.title}>
                                 {item.submenu ? (
-                                    <div className="mb-1.5">
+                                    /* ── Nested menu group ── */
+                                    <div>
                                         <button
                                             onClick={() => toggleSubmenu(item.title)}
-                                            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all duration-200 group border border-transparent ${expandedMenus.includes(item.title)
-                                                ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-100 dark:border-violet-500/10 shadow-sm'
-                                                : 'text-slate-700 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
-                                                }`}
+                                            className={`group w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 border ${
+                                                isExpanded || hasActiveChild
+                                                    ? 'bg-violet-50/80 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-500/15 shadow-sm'
+                                                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
+                                            }`}
                                         >
-                                            <div className="flex items-center gap-3.5">
-                                                <span className={`material-symbols-outlined text-[22px] transition-colors ${expandedMenus.includes(item.title) ? 'fill-current' : 'text-slate-500 group-hover:text-violet-600 dark:text-slate-500 dark:group-hover:text-violet-400'}`}>{item.icon}</span>
-                                                <span className="font-semibold text-sm">{item.title}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span
+                                                    className={`material-symbols-outlined text-[20px] transition-colors ${
+                                                        isExpanded || hasActiveChild
+                                                            ? 'text-violet-600 dark:text-violet-400'
+                                                            : 'text-slate-400 group-hover:text-violet-500 dark:text-slate-500 dark:group-hover:text-violet-400'
+                                                    }`}
+                                                >
+                                                    {item.icon}
+                                                </span>
+                                                <span className="font-semibold text-[13px] tracking-tight">
+                                                    {item.title}
+                                                </span>
                                             </div>
-                                            <span className={`material-symbols-outlined text-lg transition-transform duration-300 ${expandedMenus.includes(item.title) ? 'rotate-180' : 'text-slate-400'}`}>expand_more</span>
+                                            <motion.span
+                                                animate={{ rotate: isExpanded ? 180 : 0 }}
+                                                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                className="material-symbols-outlined text-lg text-slate-400 shrink-0"
+                                            >
+                                                expand_more
+                                            </motion.span>
                                         </button>
 
-                                        {/* Submenu */}
-                                        <div className={`overflow-hidden transition-all duration-300 ${expandedMenus.includes(item.title) ? 'max-h-96 opacity-100 mt-1.5' : 'max-h-0 opacity-0'}`}>
-                                            <div className="ml-5 pl-5 border-l-2 border-slate-200 dark:border-slate-800 space-y-1.5">
-                                                {item.submenu.map((sub) => (
-                                                    <NavLink
-                                                        key={sub.path}
-                                                        to={sub.path}
-                                                        onClick={handleLinkClick}
-                                                        className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 group ${isActive
-                                                            ? 'bg-violet-600 text-white shadow-md shadow-violet-500/25 font-medium active'
-                                                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-violet-50 dark:hover:bg-violet-950/20'
-                                                            }`}
-                                                    >
-                                                        {sub.icon && <span className="material-symbols-outlined text-[18px] opacity-70 group-[.active]:opacity-100">{sub.icon}</span>}
-                                                        <span>{sub.title}</span>
-                                                    </NavLink>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        {/* ── Submenu with framer-motion height animation ── */}
+                                        <AnimatePresence initial={false}>
+                                            {isExpanded && (
+                                                <motion.div
+                                                    key={`sub-${item.title}`}
+                                                    initial="collapsed"
+                                                    animate="expanded"
+                                                    exit="collapsed"
+                                                    variants={submenuVariants}
+                                                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="ml-4 pl-4 border-l-2 border-violet-200/60 dark:border-violet-500/20 space-y-0.5 mt-1 mb-1">
+                                                        {item.submenu.map((sub, idx) => (
+                                                            <motion.div
+                                                                key={sub.path}
+                                                                initial={{ opacity: 0, x: -8 }}
+                                                                animate={{ opacity: 1, x: 0 }}
+                                                                transition={{ delay: idx * 0.04, duration: 0.2 }}
+                                                            >
+                                                                <NavLink
+                                                                    to={sub.path}
+                                                                    onClick={handleLinkClick}
+                                                                    className={({ isActive }) =>
+                                                                        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12.5px] transition-all duration-200 group ${
+                                                                            isActive
+                                                                                ? 'bg-violet-600 text-white shadow-md shadow-violet-500/25 font-semibold'
+                                                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-violet-50/60 dark:hover:bg-violet-950/20'
+                                                                        }`
+                                                                    }
+                                                                >
+                                                                    {sub.icon && (
+                                                                        <span className="material-symbols-outlined text-[16px] opacity-60 group-[:not(.active)]:opacity-60">
+                                                                            {sub.icon}
+                                                                        </span>
+                                                                    )}
+                                                                    <span>{sub.title}</span>
+                                                                </NavLink>
+                                                            </motion.div>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
                                 ) : (
+                                    /* ── Single menu item ── */
                                     <NavLink
                                         to={item.path!}
                                         end={item.path === '/'}
                                         onClick={handleLinkClick}
-                                        className={({ isActive }) => `flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-all duration-200 mb-1.5 group border block ${isActive
-                                            ? 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/30'
-                                            : 'border-transparent text-slate-700 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
-                                            }`}
+                                        className={({ isActive }) =>
+                                            `flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 border group ${
+                                                isActive
+                                                    ? 'bg-gradient-to-r from-violet-600 to-violet-500 text-white border-violet-500 shadow-lg shadow-violet-500/25 font-semibold'
+                                                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
+                                            }`
+                                        }
                                     >
-                                        <span className={`material-symbols-outlined text-[22px] transition-colors ${!location.pathname.includes(item.path!) && 'text-slate-500 group-hover:text-violet-600 dark:text-slate-500 dark:group-hover:text-violet-400'}`}>{item.icon}</span>
-                                        <span className="font-semibold text-sm">{item.title}</span>
+                                        {({ isActive }) => (
+                                            <>
+                                                <span
+                                                    className={`material-symbols-outlined text-[20px] transition-colors ${
+                                                        isActive
+                                                            ? 'text-white'
+                                                            : 'text-slate-400 group-hover:text-violet-500 dark:text-slate-500 dark:group-hover:text-violet-400'
+                                                    }`}
+                                                >
+                                                    {item.icon}
+                                                </span>
+                                                <span className="font-semibold text-[13px] tracking-tight">
+                                                    {item.title}
+                                                </span>
+                                                {isActive && (
+                                                    <motion.span
+                                                        layoutId="activePill"
+                                                        className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80"
+                                                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                                    />
+                                                )}
+                                            </>
+                                        )}
                                     </NavLink>
                                 )}
                             </div>
-                        ))}
+                        );
+                    })}
 
-                        <div className="mb-1.5">
-                            <NavLink
-                                to="/notifications"
-                                onClick={handleLinkClick}
-                                className={({ isActive }) => `flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-all duration-200 group border block ${isActive
-                                    ? 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/30'
-                                    : 'border-transparent text-slate-700 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                                    }`}
-                            >
-                                <span className={`material-symbols-outlined text-[22px] transition-colors ${!location.pathname.includes('/notifications') && 'text-slate-500 group-hover:text-violet-600 dark:text-slate-500 dark:group-hover:text-violet-400'}`}>campaign</span>
-                                <span className="font-semibold text-sm">Notification Center</span>
-                            </NavLink>
-                        </div>
-
-                        {/* Logout & About Section */}
-                        <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-800 space-y-1">
-                            <button
-                                onClick={handleLogout}
-                                className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors group"
-                            >
-                                <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">logout</span>
-                                <span className="font-semibold text-sm">Logout Panel</span>
-                            </button>
-
-                            <button
-                                onClick={() => { setShowAbout(true); closeSidebar(); }}
-                                className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 transition-colors group"
-                            >
-                                <span className="material-symbols-outlined text-[22px] group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">info</span>
-                                <span className="font-semibold text-sm">About {APP_NAME}</span>
-                            </button>
-                        </div>
+                    {/* ── Notification Center (standalone) ── */}
+                    <div className="pt-1">
+                        <NavLink
+                            to="/notifications"
+                            onClick={handleLinkClick}
+                            className={({ isActive }) =>
+                                `flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 border group ${
+                                    isActive
+                                        ? 'bg-gradient-to-r from-violet-600 to-violet-500 text-white border-violet-500 shadow-lg shadow-violet-500/25 font-semibold'
+                                        : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 hover:text-slate-900 dark:hover:text-slate-200'
+                                }`
+                            }
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    <span
+                                        className={`material-symbols-outlined text-[20px] transition-colors ${
+                                            isActive
+                                                ? 'text-white'
+                                                : 'text-slate-400 group-hover:text-violet-500 dark:text-slate-500 dark:group-hover:text-violet-400'
+                                        }`}
+                                    >
+                                        campaign
+                                    </span>
+                                    <span className="font-semibold text-[13px] tracking-tight">Notification Center</span>
+                                    {pendingEmiCount > 0 && (
+                                        <span className="ml-auto px-1.5 py-0.5 rounded-full bg-rose-500/90 text-white text-[9px] font-bold leading-none">
+                                            {pendingEmiCount > 99 ? '99+' : pendingEmiCount}
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                        </NavLink>
                     </div>
+                </div>
 
-                    {/* Footer */}
-                    <div className="p-5 border-t border-slate-200/50 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-900/30 backdrop-blur-sm">
+                {/* ══════ QUICK ACTIONS BAR ══════ */}
+                <div className="px-3 py-3 border-t border-slate-200/50 dark:border-slate-700/30">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2.5 px-1">
+                        Quick Actions
+                    </p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                        {quickActions.map((action) => (
+                            <button
+                                key={action.path}
+                                onClick={() => {
+                                    navigate(action.path);
+                                    handleLinkClick();
+                                }}
+                                className="group flex flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all duration-200 hover:bg-violet-50/70 dark:hover:bg-violet-900/15 active:scale-95"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center transition-all duration-200 group-hover:bg-violet-600 dark:group-hover:bg-violet-600 group-hover:shadow-md group-hover:shadow-violet-500/20">
+                                    <span className="material-symbols-outlined text-[18px] text-violet-600 dark:text-violet-400 group-hover:text-white transition-colors">
+                                        {action.icon}
+                                    </span>
+                                </div>
+                                <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors text-center leading-tight">
+                                    {action.label}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-                        {/* Privacy Badge */}
-                        <div className="mb-4 flex items-center justify-center">
-                            <div className="bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 rounded-full flex items-center gap-2">
-                                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[16px]">shield_lock</span>
-                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 tracking-wide uppercase">Zero Data Sharing</span>
+                {/* ══════ FOOTER ══════ */}
+                <div className="px-4 py-3 border-t border-slate-200/50 dark:border-slate-700/30 bg-slate-50/40 dark:bg-slate-900/40 backdrop-blur-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => {
+                                        setShowAbout(true);
+                                        closeSidebar();
+                                    }}
+                                    className="text-[10px] font-medium text-slate-400 dark:text-slate-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                                >
+                                    About
+                                </button>
+                                <span className="text-slate-300 dark:text-slate-600">·</span>
+                                <button
+                                    onClick={handleLogout}
+                                    className="text-[10px] font-medium text-rose-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">
+                                    &copy; 2025 {APP_NAME}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-[8px] font-black tracking-widest text-violet-600 dark:text-violet-400">
+                                    {APP_VERSION}
+                                </span>
                             </div>
                         </div>
-
-                        <div className="flex items-center justify-between">
-                            <div className="flex flex-col">
-                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Created by <span className="text-violet-600 dark:text-violet-400 font-bold">Luvi</span></span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">© 2025 {APP_NAME}</span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
-                                    <span className="text-[10px] font-black tracking-widest text-[#6366f1] bg-[#6366f1]/10 px-2 py-0.5 rounded-md">{APP_VERSION}</span>
-                                </div>
-                            </div>
-                            <div className="h-8 w-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">
-                                <span className="material-symbols-outlined text-sm">code</span>
-                            </div>
+                        <div className="h-7 w-7 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">
+                            <span className="material-symbols-outlined text-xs">code</span>
                         </div>
                     </div>
                 </div>
-            </aside>
+            </motion.aside>
 
             <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
         </>

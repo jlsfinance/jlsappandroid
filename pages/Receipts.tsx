@@ -5,6 +5,8 @@ import jsPDF from 'jspdf';
 import { db } from '../firebaseConfig';
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { useCompany } from '../context/CompanyContext';
+import { SkeletonList, SkeletonStyles } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 
 interface Receipt {
     id: string;
@@ -22,6 +24,7 @@ interface Receipt {
 const Receipts: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
+  const { success, error: toastError, info } = useToast();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
@@ -56,11 +59,39 @@ const Receipts: React.FC = () => {
     return `Rs. ${new Intl.NumberFormat("en-IN").format(value)}`;
   };
   
+  const handleWhatsAppShare = async (receipt: Receipt) => {
+    try {
+        let customerPhone = '';
+        try {
+            const customerRef = doc(db, "customers", receipt.customerId);
+            const customerSnap = await getDoc(customerRef);
+            if (customerSnap.exists()) {
+                customerPhone = customerSnap.data()?.phone || '';
+            }
+        } catch (e) {
+            console.warn("Could not fetch customer phone", e);
+        }
+
+        if (!customerPhone || customerPhone.replace(/\D/g, '').length < 10) {
+            toastError("Customer phone number not found or invalid.");
+            return;
+        }
+
+        const formattedPhone = `91${customerPhone.replace(/\D/g, '').slice(-10)}`;
+        const dueDateFormatted = receipt.paymentDate ? format(parseISO(receipt.paymentDate), 'dd MMMM, yyyy') : '';
+        const message = `Payment Received!\n\nDear ${receipt.customerName},\n\nWe have received your payment of ${formatCurrency(receipt.amount)} for EMI #${receipt.emiNumber} on ${dueDateFormatted}.\nReceipt No: ${receipt.receiptId}\n\nThank you,\n${companyDetails.name}`;
+        window.open(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`, '_system');
+    } catch (err: any) {
+        console.error("Share failed", err);
+        toastError("Failed to open WhatsApp.");
+    }
+  };
+
   const handleDownloadReceipt = async (receipt: Receipt) => {
     setIsDownloading(receipt.id);
     try {
         if (!receipt || !receipt.customerId || !receipt.receiptId) {
-            alert("Cannot generate receipt due to incomplete data.");
+            toastError("Cannot generate receipt due to incomplete data.");
             setIsDownloading(null);
             return;
         }
@@ -146,14 +177,14 @@ const Receipts: React.FC = () => {
         pdfDoc.save(`Receipt_${receipt.receiptId}.pdf`);
     } catch (error: any) {
         console.error("Failed to generate PDF:", error);
-        alert("Could not generate the PDF receipt.");
+        toastError("Could not generate the PDF receipt.");
     } finally {
         setIsDownloading(null);
     }
   }
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+    <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
@@ -164,7 +195,7 @@ const Receipts: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
         <div className="bg-white dark:bg-[#1e2736] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                 <h2 className="font-bold text-lg">All Receipts</h2>
@@ -187,8 +218,9 @@ const Receipts: React.FC = () => {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {loading ? (
                             <tr>
-                                <td colSpan={7} className="px-4 py-12 text-center">
-                                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                                <td colSpan={7} className="px-4 py-6">
+                                    <SkeletonStyles />
+                                    <SkeletonList count={6} />
                                 </td>
                             </tr>
                         ) : receipts.length > 0 ? (
@@ -207,6 +239,14 @@ const Receipts: React.FC = () => {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                        <button 
+                                            onClick={() => handleWhatsAppShare(receipt)}
+                                            title="Share on WhatsApp"
+                                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-xs font-bold"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">chat</span>
+                                        </button>
                                         <button 
                                             onClick={() => handleDownloadReceipt(receipt)}
                                             disabled={isDownloading === receipt.id}
@@ -219,14 +259,16 @@ const Receipts: React.FC = () => {
                                             )}
                                             Download
                                         </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
                                 <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
-                                    <span className="material-symbols-outlined text-4xl mb-2">receipt_long</span>
-                                    <p>No receipts found.</p>
+                                    <span className="material-symbols-outlined text-5xl mb-3 opacity-50">receipt_long</span>
+                                    <p className="font-medium">No receipts found.</p>
+                                    <p className="text-xs mt-1 opacity-60">Receipts appear here after EMI collection</p>
                                 </td>
                             </tr>
                         )}

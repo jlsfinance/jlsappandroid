@@ -14,7 +14,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <div className="w-full max-w-sm bg-white dark:bg-[#0f172a] rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20">
 
                 {/* Close Button Header */}
-                <div className="flex justify-end p-6 pb-0">
+                <div className="flex justify-end p-4 pb-0">
                     <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                         <span className="material-symbols-outlined text-xl">close</span>
                     </button>
@@ -31,9 +31,9 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     <h2 className="text-2xl font-black text-[#6366f1] dark:text-white mb-1">{APP_NAME}</h2>
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-8">Enterprise Management Suite</p>
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-3">Enterprise Management Suite</p>
 
-                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-6 space-y-4 border border-slate-100 dark:border-slate-800">
+                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-4 space-y-4 border border-slate-100 dark:border-slate-800">
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-slate-400 dark:text-slate-500">Version</span>
                             <span className="text-sm font-black text-slate-900 dark:text-white">{APP_VERSION}</span>

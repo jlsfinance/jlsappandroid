@@ -4,11 +4,13 @@ import { useCompany } from '../context/CompanyContext';
 import { Company } from '../types';
 import { collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useToast } from '../components/Toast';
 
 const CompanySelector: React.FC = () => {
   const navigate = useNavigate();
   const { companies, currentCompany, setCurrentCompany, addCompany, deleteCompany, updateCompany, loading, refreshCompanies } = useCompany();
   const [showAddModal, setShowAddModal] = useState(false);
+  const { success, error, info, toast } = useToast();
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyAddress, setNewCompanyAddress] = useState('');
   const [newCompanyPhone, setNewCompanyPhone] = useState('');
@@ -119,13 +121,13 @@ const CompanySelector: React.FC = () => {
 
       setOrphanedData({ customers: 0, loans: 0, partners: 0, expenses: 0 });
       setShowMigrateModal(false);
-      alert("Data successfully migrated to " + selectedCompanyForMigration.name);
+      success("Data successfully migrated to " + selectedCompanyForMigration.name);
 
       setCurrentCompany(selectedCompanyForMigration);
       navigate('/');
     } catch (error) {
       console.error("Error migrating data:", error);
-      alert("Failed to migrate data. Please try again.");
+      toast("Failed to migrate data. Please try again.", 'error');
     } finally {
       setIsMigrating(false);
     }
@@ -158,7 +160,7 @@ const CompanySelector: React.FC = () => {
   const handleEditCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyToEdit || !editCompanyName.trim()) {
-      alert("Company name is required");
+      error("Company name is required");
       return;
     }
 
@@ -173,10 +175,10 @@ const CompanySelector: React.FC = () => {
       });
       setShowEditModal(false);
       setCompanyToEdit(null);
-      alert("Company updated successfully!");
+      success("Company updated successfully!");
     } catch (error) {
       console.error("Error updating company:", error);
-      alert("Failed to update company");
+      toast("Failed to update company", 'error');
     } finally {
       setIsUpdating(false);
     }
@@ -200,7 +202,7 @@ const CompanySelector: React.FC = () => {
       }, 5000);
     } catch (error) {
       console.error("Error deleting company:", error);
-      alert("Failed to delete company");
+      toast("Failed to delete company", 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -221,14 +223,14 @@ const CompanySelector: React.FC = () => {
       setDeletedCompany(null);
     } catch (error) {
       console.error("Error restoring company:", error);
-      alert("Failed to restore company");
+      toast("Failed to restore company", 'error');
     }
   };
 
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompanyName.trim()) {
-      alert("Company name is required");
+      error("Company name is required");
       return;
     }
 
@@ -241,10 +243,10 @@ const CompanySelector: React.FC = () => {
       setNewCompanyPhone('');
       setNewCompanyGstin('');
       setNewCompanyUpi('9413821007@superyes');
-      alert("Company added successfully!");
+      success("Company added successfully!");
     } catch (error) {
       console.error("Error adding company:", error);
-      alert("Failed to add company");
+      toast("Failed to add company", 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -259,7 +261,7 @@ const CompanySelector: React.FC = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark pb-10">
+    <div className="relative flex min-h-[100dvh] w-full flex-col overflow-x-hidden max-w-md mx-auto bg-background-light dark:bg-background-dark text-on-surface-light dark:text-on-surface-dark pb-nav">
       <div className="sticky top-0 z-10 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-md px-4 py-4 border-b border-outline-light/10 dark:border-outline-dark/10">
         <h1 className="text-xl font-bold text-center">Select Company</h1>
         <p className="text-sm text-center text-on-surface-variant-light dark:text-on-surface-variant-dark mt-1">
@@ -378,7 +380,7 @@ const CompanySelector: React.FC = () => {
 
       {showMigrateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <h3 className="text-xl font-bold mb-4 text-on-surface-light dark:text-on-surface-dark">Link Data to Company</h3>
             <p className="text-sm text-on-surface-variant-light dark:text-on-surface-variant-dark mb-4">
               Select a company to link your existing data:
@@ -430,7 +432,7 @@ const CompanySelector: React.FC = () => {
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <h3 className="text-xl font-bold mb-6 text-on-surface-light dark:text-on-surface-dark">Add New Company</h3>
             <form onSubmit={handleAddCompany} className="space-y-4">
               <div>
@@ -507,7 +509,7 @@ const CompanySelector: React.FC = () => {
 
       {showEditModal && companyToEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <h3 className="text-xl font-bold mb-6 text-on-surface-light dark:text-on-surface-dark">Edit Company</h3>
             <form onSubmit={handleEditCompany} className="space-y-4">
               <div>
@@ -587,7 +589,7 @@ const CompanySelector: React.FC = () => {
 
       {showDeleteConfirm && companyToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-6">
+          <div className="bg-surface-light dark:bg-[#1e2736] rounded-[28px] w-full max-w-sm shadow-lg p-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20">
                 <span className="material-symbols-outlined text-red-500 text-2xl">warning</span>

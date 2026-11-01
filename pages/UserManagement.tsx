@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useCompany } from '../context/CompanyContext';
+import { useToast } from '../components/Toast';
 
 interface UserPermissions {
   canViewLoans: boolean;
@@ -30,6 +31,7 @@ const UserManagement: React.FC = () => {
   const { currentCompany } = useCompany();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const { success, error, info, toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,12 +81,12 @@ const UserManagement: React.FC = () => {
 
       await updateDoc(userRef, updateData);
 
-      alert(`User profile for ${selectedUser.name || selectedUser.email} has been updated and assigned to ${currentCompany.name}.`);
+      success(`User profile for ${selectedUser.name || selectedUser.email} has been updated and assigned to ${currentCompany.name}.`);
       await fetchUsers();
       setSelectedUser(null);
     } catch (error) {
       console.error("Error updating user:", error);
-      alert('Update failed');
+      toast('Update failed', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -95,7 +97,7 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 text-slate-900 dark:text-white">
+    <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark pb-nav text-slate-900 dark:text-white">
       <div className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 py-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all">
@@ -105,7 +107,7 @@ const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-3">
         {currentCompany && (
           <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
             <p className="text-sm text-indigo-700 dark:text-indigo-300">
@@ -176,7 +178,7 @@ const UserManagement: React.FC = () => {
 
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-6">
+          <div className="bg-white dark:bg-[#1e2736] rounded-2xl w-full max-w-sm shadow-2xl p-4">
             <h3 className="text-lg font-bold mb-1">Edit User</h3>
             <p className="text-sm text-slate-500 mb-4">{selectedUser.name || selectedUser.email}</p>
 

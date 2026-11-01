@@ -1,105 +1,104 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { Share } from '@capacitor/share';
 
+/**
+ * PDF download service.
+ *
+ * Android behaviour (in order):
+ *   1. Directory.External -> app-owned folder "JLS_Downloads/<file>".
+ *      On Android 11+ scoped storage means this is the ONLY directory a
+ *      plugin can both write and have another plugin/list read back from,
+ *      so it is also what the Downloads screen lists from (Directory.External
+ *      + path "JLS_Downloads"). No legacy-storage permission needed.
+ *   2. Directory.Cache + Share sheet ("Open with..." / "Save to Files").
+ *   3. Open inline via system viewer.
+ *
+ * Web behaviour: plain anchor download.
+ */
 export class DownloadService {
   static async downloadPDF(filename: string, base64Data: string): Promise<void> {
+    const platform = Capacitor.getPlatform();
+
+    // --- Web: simple anchor download ---
+    if (platform === 'web') {
+      const link = document.createElement('a');
+      link.href = `data:application/pdf;base64,${base64Data}`;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    const errors: string[] = [];
+
+    // --- Strategy 1: app-owned external folder (user-visible to this app) ---
     try {
-      const platform = Capacitor.getPlatform();
-
-      if (platform === 'web') {
-        const link = document.createElement('a');
-        link.href = `data:application/pdf;base64,${base64Data}`;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return;
-      }
-
-      // Native Logic
       try {
-        // Strategy A: App Specific External Storage
-        // Path: /Android/data/com.jls.financesuite/files/JLS_Downloads/<filename>
-        try {
-          try {
-            await Filesystem.mkdir({
-              path: 'JLS_Downloads',
-              directory: Directory.External,
-              recursive: true
-            });
-          } catch (e) {
-            // Ignore 'already exists' errors
-            // console.log('Directory might already exist', e);
-          }
-
-          const result = await Filesystem.writeFile({
-            path: `JLS_Downloads/${filename}`,
-            data: base64Data,
-            directory: Directory.External,
-          });
-
-          console.log('File saved to External:', result.uri);
-
-          // Notification (Keep it silent or minimal)
-          try {
-            await LocalNotifications.schedule({
-              notifications: [{
-                title: 'Download Complete',
-                body: `${filename} saved successfully.`,
-                id: new Date().getTime(),
-                schedule: { at: new Date(Date.now() + 100) },
-                smallIcon: 'ic_launcher',
-                extra: null
-              }]
-            });
-          } catch (nErr) { console.warn('Notification failed:', nErr); }
-
-          // Auto-Open Strategy: Use Share Sheet (Act as Opener)
-          // We save to cache to ensure Share API can access it easily via FileProvider
-          const cacheResult = await Filesystem.writeFile({
-            path: filename,
-            data: base64Data,
-            directory: Directory.Cache
-          });
-
-          // Short delay to ensure OS flushes the file to disk
-          await new Promise(r => setTimeout(r, 200));
-
-          // Open directly via Share action which acts as an 'Open With' on Android
-          await Share.share({
-            title: filename,
-            url: cacheResult.uri,
-            dialogTitle: 'Open PDF with...'
-          });
-
-        } catch (externalError: any) {
-          console.error('App Storage failed:', externalError);
-          // Fallback if main save failed, still try to share from cache
-          try {
-            const cacheResult = await Filesystem.writeFile({
-              path: filename,
-              data: base64Data,
-              directory: Directory.Cache
-            });
-            await Share.share({
-              title: 'Open File',
-              text: `Open ${filename}`,
-              url: cacheResult.uri,
-              dialogTitle: 'Open PDF'
-            });
-          } catch (shareErr) {
-            alert(`⚠️ Download Error: ${externalError.message}`);
-          }
-        }
-
-      } catch (error: any) {
-        console.error('Error downloading PDF:', error);
-        alert('❌ Download Failed: ' + (error.message || error));
+        await Filesystem.mkdir({
+          path: 'JLS_Downloads',
+          directory: Directory.External,
+          recursive: true,
+        });
+      } catch {
+        // directory may already exist - fine
       }
-    } catch (appError) {
-      console.error('Unexpected error in download service:', appError);
+
+      const result = await Filesystem.writeFile({
+        path: `JLS_Downloads/${filename}`,
+        data: base64Data,
+        directory: Directory.External,
+        recursive: true,
+      });
+      console.log('PDF saved to External/JLS_Downloads:', result.uri);
+      DownloadService.notifyDownloadComplete();
+      return; // user-visible location - done
+    } catch (e1: any) {
+      errors.push('External: ' + (e1?.message || e1));
+    }
+
+    // --- Strategy 2: cache + Share sheet (open-with / save-to-files) ---
+    try {
+      const cacheResult = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+      await new Promise((r) => setTimeout(r, 200));
+
+      const { Share } = await import('@capacitor/share');
+      await Share.share({
+        title: filename,
+        url: cacheResult.uri,
+        dialogTitle: 'Open PDF with...',
+      });
+      DownloadService.notifyDownloadComplete();
+      return;
+    } catch (e2: any) {
+      errors.push('Share: ' + (e2?.message || e2));
+    }
+
+    // --- Strategy 3: open inline in system PDF viewer ---
+    try {
+      const cacheResult = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+      window.open(cacheResult.uri, '_system');
+      DownloadService.notifyDownloadComplete();
+      return;
+    } catch (e3: any) {
+      errors.push('Open: ' + (e3?.message || e3));
+    }
+
+    throw new Error('All save strategies failed - ' + errors.join(' | '));
+  }
+
+  private static notifyDownloadComplete(): void {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('jls-downloads-refresh'));
     }
   }
 }
