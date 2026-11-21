@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
+import { DownloadService } from '../services/DownloadService';
 
 // WhatsApp Icon Component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -288,7 +289,7 @@ const DueList: React.FC = () => {
         return pdfDoc;
     };
 
-    const handlePreviewPdf = () => {
+    const handlePreviewPdf = async () => {
         if (!selectedEmi) return;
 
         const amountToPay = customAmount > 0 ? customAmount : selectedEmi.amount;
@@ -311,7 +312,9 @@ const DueList: React.FC = () => {
         };
 
         const pdfDoc = generatePaymentReceiptPDF(receiptData);
-        pdfDoc.save(`Receipt_Preview_${selectedEmi.loanId}_EMI_${selectedEmi.emiNumber}.pdf`);
+        const filename = `Receipt_Preview_${selectedEmi.loanId}_EMI_${selectedEmi.emiNumber}.pdf`;
+        const base64Data = pdfDoc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(filename, base64Data);
     };
 
     const handleCollectEmi = async () => {
@@ -409,7 +412,9 @@ const DueList: React.FC = () => {
             };
 
             const pdfDoc = generatePaymentReceiptPDF(receiptData);
-            pdfDoc.save(`Receipt_${receiptDocId}.pdf`);
+            const filename = `Receipt_${receiptDocId}.pdf`;
+            const base64Data = pdfDoc.output('datauristring').split(',')[1];
+            await DownloadService.downloadPDF(filename, base64Data);
 
             setLastCollectedEmi({ ...selectedEmi, amount: amountToPay });
             setAllPendingEmis(prev => prev.filter(e => !(e.emiNumber === selectedEmi.emiNumber && e.loanId === selectedEmi.loanId)));
@@ -427,7 +432,7 @@ const DueList: React.FC = () => {
         }
     };
 
-    const handleDownloadReport = () => {
+    const handleDownloadReport = async () => {
         try {
             const doc = new jsPDF();
             const monthName = format(viewDate, 'MMMM yyyy');
@@ -461,7 +466,9 @@ const DueList: React.FC = () => {
                 headStyles: { fillColor: [41, 128, 185] },
             });
 
-            doc.save(`Due_List_${format(viewDate, 'yyyy_MM')}.pdf`);
+            const filename = `Due_List_${format(viewDate, 'yyyy_MM')}.pdf`;
+            const base64Data = doc.output('datauristring').split(',')[1];
+            await DownloadService.downloadPDF(filename, base64Data);
         } catch (error) {
             console.error("PDF Error", error);
             alert("Failed to download PDF");

@@ -5,6 +5,7 @@ import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'da
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { DownloadService } from '../services/DownloadService';
 
 // Interfaces
 interface Partner { id: string; name: string; }
@@ -185,7 +186,7 @@ const Partners: React.FC = () => {
     }, [ledgerEntries, ledgerStartDate]);
 
 
-    const handleDownloadLedgerPdf = () => {
+    const handleDownloadLedgerPdf = async () => {
         if (!ledgerPartner) return;
 
         const doc = new jsPDF();
@@ -227,7 +228,9 @@ const Partners: React.FC = () => {
             }
         });
         
-        doc.save(`${ledgerPartner.name}_Ledger.pdf`);
+        const filename = `${ledgerPartner.name}_Ledger.pdf`;
+        const base64Data = doc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(filename, base64Data);
     }
     
     const monthlyCashFlow = useMemo(() => {

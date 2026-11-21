@@ -6,6 +6,7 @@ import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, subMonths
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useCompany } from '../context/CompanyContext';
+import { DownloadService } from '../services/DownloadService';
 
 // --- Types ---
 interface Loan { id: string; customerId: string; customerName: string; amount: number; interestRate: number; disbursalDate: string; status: string; repaymentSchedule: any[]; processingFee: number; }
@@ -135,7 +136,7 @@ const Reports: React.FC = () => {
     }, [loans, receipts, selectedCustomer]);
 
     // --- PDF Export ---
-    const downloadPDF = (title: string, columns: string[], data: any[]) => {
+    const downloadPDF = async (title: string, columns: string[], data: any[]) => {
         const doc = new jsPDF();
         doc.text(title, 14, 15);
         doc.setFontSize(10);
@@ -148,7 +149,9 @@ const Reports: React.FC = () => {
             theme: 'grid',
             headStyles: { fillColor: [22, 163, 74] }
         });
-        doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+        const filename = `${title.replace(/\s+/g, '_')}.pdf`;
+        const base64Data = doc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(filename, base64Data);
     };
 
     // --- Render Components ---

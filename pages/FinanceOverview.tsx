@@ -6,6 +6,7 @@ import { useCompany } from '../context/CompanyContext';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { DownloadService } from '../services/DownloadService';
 
 // Interfaces
 interface PartnerTransaction { id: string; date: string; partnerName: string; type: 'investment' | 'withdrawal'; amount: number; }
@@ -335,7 +336,7 @@ const FinanceOverview: React.FC = () => {
         setShowDownloadModal(true);
     };
 
-    const handleDownloadPdf = () => {
+    const handleDownloadPdf = async () => {
         if (!startDate || !endDate) {
             alert("Please select both From and To dates for the report.");
             return;
@@ -394,7 +395,9 @@ const FinanceOverview: React.FC = () => {
             },
         });
 
-        doc.save(`Ledger_${startDate}_to_${endDate}.pdf`);
+        const filename = `Ledger_${startDate}_to_${endDate}.pdf`;
+        const base64Data = doc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(filename, base64Data);
         setShowDownloadModal(false);
     };
 

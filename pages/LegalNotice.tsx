@@ -6,6 +6,7 @@ import { db } from '../firebaseConfig';
 import { addMonths, format, parseISO, differenceInDays, startOfDay, isPast, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
 import { useCompany } from '../context/CompanyContext';
+import { DownloadService } from '../services/DownloadService';
 
 // --- Icons ---
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -240,7 +241,7 @@ For ${companyDetails.name}`;
     }, [form, calculatedDueDate, daysOverdue, totalAmountDue]);
 
     // PDF Generation
-    const generatePdf = () => {
+    const generatePdf = async () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -286,7 +287,9 @@ For ${companyDetails.name}`;
         doc.setTextColor(150);
         doc.text("This is a computer-generated document.", pageWidth / 2, pageHeight - 15, { align: 'center' });
 
-        doc.save(`Notice_${form.customerName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        const filename = `Notice_${form.customerName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+        const base64Data = doc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(filename, base64Data);
     };
 
     // Templates

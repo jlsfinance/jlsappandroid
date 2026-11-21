@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import { db } from '../firebaseConfig';
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { useCompany } from '../context/CompanyContext';
+import { DownloadService } from '../services/DownloadService';
 
 interface Receipt {
     id: string;
@@ -143,7 +144,9 @@ const Receipts: React.FC = () => {
             pdfDoc.text(`Page ${i} of ${pageCount}`, pdfDoc.internal.pageSize.getWidth() - 20, 287);
         }
         
-        pdfDoc.save(`Receipt_${receipt.receiptId}.pdf`);
+        const filename = `Receipt_${receipt.receiptId}.pdf`;
+        const base64Data = pdfDoc.output('datauristring').split(',')[1];
+        await DownloadService.downloadPDF(filename, base64Data);
     } catch (error: any) {
         console.error("Failed to generate PDF:", error);
         alert("Could not generate the PDF receipt.");
